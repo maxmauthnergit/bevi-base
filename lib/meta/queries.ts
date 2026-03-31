@@ -45,6 +45,7 @@ async function getInsights(
     fields: INSIGHT_FIELDS,
     time_range: JSON.stringify({ since, until }),
     level: 'account',
+    limit: '100',   // default page size is 25 — bump to avoid missing recent days
   }
   if (timeIncrement) params.time_increment = timeIncrement
 
