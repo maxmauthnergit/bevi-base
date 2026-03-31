@@ -5,6 +5,7 @@ import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { metrics } from '@/lib/metrics-config'
 import { mockKpiValues, mockUpcomingCosts } from '@/lib/mock/dashboard'
 import { getDashboardKPIs, getTrendData, getInventoryLevels } from '@/lib/shopify/queries'
+import { getMetaKPIs, getDailySpend } from '@/lib/meta/queries'
 
 function formatEur(value: number) {
   return new Intl.NumberFormat('en-GB', {
@@ -25,15 +26,20 @@ function formatDate(iso: string) {
 export const revalidate = 300 // revalidate page every 5 minutes
 
 export default async function DashboardPage() {
-  // ── Fetch live Shopify data ────────────────────────────────────────────────
-  const [shopifyKPIs, trendData, stockLevels] = await Promise.all([
+  // ── Fetch live data from all sources in parallel ──────────────────────────
+  const [shopifyKPIs, trendData, stockLevels, metaKPIs, dailySpend] = await Promise.all([
     getDashboardKPIs().catch(() => null),
     getTrendData().catch(() => null),
     getInventoryLevels().catch(() => null),
+    getMetaKPIs().catch(() => null),
+    getDailySpend().catch(() => null),
   ])
 
-  // Merge live KPIs with mock fallbacks for metrics not yet wired (Meta, PayPal)
-  const liveKpis = shopifyKPIs?.kpis ?? {}
+  // Merge live KPIs — Shopify + Meta override mocks where available
+  const liveKpis = {
+    ...(shopifyKPIs?.kpis ?? {}),
+    ...(metaKPIs?.kpis   ?? {}),
+  }
   const kpiValues = { ...mockKpiValues, ...liveKpis }
 
   const lowStockItems = stockLevels
@@ -45,8 +51,8 @@ export default async function DashboardPage() {
     'units_mtd',
     'orders_mtd',
     'aov_gross',
-    'ad_spend_mtd',      // mock — Meta not wired yet
-    'liquid_position',   // mock — PayPal + bank not wired yet
+    'ad_spend_mtd',
+    'roas_mtd',
   ]
 
   const dashboardMetrics = dashboardMetricIds
@@ -54,7 +60,16 @@ export default async function DashboardPage() {
     .filter(Boolean) as typeof metrics
 
   const monthLabel = shopifyKPIs?.month_label ?? new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-  const isLive = !!shopifyKPIs
+  // Merge Meta daily spend into trend data
+  const mergedTrend = trendData?.map((day) => {
+    const metaDay = dailySpend?.find((d) => d.date === day.date)
+    return metaDay
+      ? { ...day, meta_spend: metaDay.spend, meta_roas: metaDay.roas }
+      : day
+  }) ?? []
+
+  const isLive      = !!shopifyKPIs
+  const isMetaLive  = !!metaKPIs
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
@@ -100,7 +115,7 @@ export default async function DashboardPage() {
             }}
           />
           <span className="label" style={{ color: isLive ? '#7DEFEF' : '#888' }}>
-            {isLive ? 'Live · Shopify' : 'Mock Data'}
+            {isLive && isMetaLive ? 'Live · Shopify + Meta' : isLive ? 'Live · Shopify' : 'Mock Data'}
           </span>
         </div>
       </div>
@@ -161,14 +176,14 @@ export default async function DashboardPage() {
       >
         <Card>
           <CardHeader
-            label="Revenue — Last 30 Days"
+            label="Revenue vs Ad Spend — Last 30 Days"
             action={
               <span className="label" style={{ color: '#333' }}>
-                {isLive ? 'Shopify · live' : 'mock data'}
+                {isLive && isMetaLive ? 'Shopify + Meta · live' : isLive ? 'Shopify · Meta pending' : 'mock data'}
               </span>
             }
           />
-          <TrendChart data={trendData ?? []} />
+          <TrendChart data={mergedTrend} />
         </Card>
 
         {/* Upcoming costs */}
