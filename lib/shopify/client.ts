@@ -1,5 +1,10 @@
 // ─── Shopify Admin API client ─────────────────────────────────────────────────
 
+interface NextFetchRequestConfig {
+  revalidate?: number | false
+  tags?: string[]
+}
+
 const SHOPIFY_API_VERSION = '2025-01'
 
 function getShopifyConfig() {
@@ -20,16 +25,23 @@ export function shopifyUrl(path: string) {
   return `https://${domain}/admin/api/${SHOPIFY_API_VERSION}${path}`
 }
 
-export async function shopifyFetch<T>(path: string): Promise<T> {
+export async function shopifyFetch<T>(
+  path: string,
+  options: RequestInit & { next?: NextFetchRequestConfig } = {}
+): Promise<T> {
   const { token } = getShopifyConfig()
   const url = shopifyUrl(path)
 
+  const { next, ...rest } = options as RequestInit & { next?: NextFetchRequestConfig }
+
   const res = await fetch(url, {
+    ...rest,
     headers: {
       'X-Shopify-Access-Token': token,
       'Content-Type': 'application/json',
+      ...(rest.headers ?? {}),
     },
-    next: { revalidate: 0 }, // always fresh
+    next: next ?? { revalidate: 0 },
   })
 
   if (!res.ok) {

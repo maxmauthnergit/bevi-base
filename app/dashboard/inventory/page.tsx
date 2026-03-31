@@ -1,9 +1,14 @@
 import { Card, CardHeader } from '@/components/ui/Card'
-import { mockStockLevels } from '@/lib/mock/inventory'
+import { getInventoryLevels } from '@/lib/shopify/queries'
 
-export default function InventoryPage() {
-  const lowItems = mockStockLevels.filter((s) => s.is_low)
-  const totalUnits = mockStockLevels.reduce((s, i) => s + i.units, 0)
+export const revalidate = 600 // revalidate every 10 minutes
+
+export default async function InventoryPage() {
+  const stockLevels = await getInventoryLevels().catch(() => null)
+  const levels = stockLevels ?? []
+  const lowItems = levels.filter((s) => s.is_low)
+  const totalUnits = levels.reduce((s, i) => s + i.units, 0)
+  const isLive = !!stockLevels
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
@@ -45,9 +50,9 @@ export default function InventoryPage() {
           },
           {
             label: 'Data Source',
-            value: 'Manual',
-            sub: 'WeShip API — Phase 2',
-            muted: true,
+            value: isLive ? 'Shopify' : 'Mock',
+            sub: isLive ? 'Live · updates every 10 min' : 'API not connected',
+            muted: !isLive,
           },
         ].map((stat) => (
           <div key={stat.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
@@ -102,11 +107,11 @@ export default function InventoryPage() {
             </tr>
           </thead>
           <tbody>
-            {mockStockLevels.map((item, i) => (
+            {levels.map((item, i) => (
               <tr
                 key={item.sku}
                 style={{
-                  borderBottom: i < mockStockLevels.length - 1 ? '1px solid #1A1A1A' : 'none',
+                  borderBottom: i < levels.length - 1 ? '1px solid #1A1A1A' : 'none',
                   backgroundColor: item.is_low ? 'rgba(255,68,68,0.03)' : 'transparent',
                 }}
               >

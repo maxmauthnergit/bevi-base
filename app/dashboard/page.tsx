@@ -3,8 +3,8 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { metrics } from '@/lib/metrics-config'
-import { mockKpiValues, mockTrendData, mockUpcomingCosts } from '@/lib/mock/dashboard'
-import { mockLowStockItems } from '@/lib/mock/inventory'
+import { mockKpiValues, mockUpcomingCosts } from '@/lib/mock/dashboard'
+import { getDashboardKPIs, getTrendData, getInventoryLevels } from '@/lib/shopify/queries'
 
 function formatEur(value: number) {
   return new Intl.NumberFormat('en-GB', {
@@ -22,23 +22,39 @@ function formatDate(iso: string) {
   })
 }
 
-export default function DashboardPage() {
-  // Pick the 6 dashboard KPI metrics
+export const revalidate = 300 // revalidate page every 5 minutes
+
+export default async function DashboardPage() {
+  // ── Fetch live Shopify data ────────────────────────────────────────────────
+  const [shopifyKPIs, trendData, stockLevels] = await Promise.all([
+    getDashboardKPIs().catch(() => null),
+    getTrendData().catch(() => null),
+    getInventoryLevels().catch(() => null),
+  ])
+
+  // Merge live KPIs with mock fallbacks for metrics not yet wired (Meta, PayPal)
+  const liveKpis = shopifyKPIs?.kpis ?? {}
+  const kpiValues = { ...mockKpiValues, ...liveKpis }
+
+  const lowStockItems = stockLevels
+    ? stockLevels.filter((s) => s.is_low)
+    : []
+
   const dashboardMetricIds = [
     'revenue_mtd',
     'units_mtd',
-    'ad_spend_mtd',
-    'roas_mtd',
-    'contribution_margin_mtd',
-    'liquid_position',
+    'orders_mtd',
+    'aov_gross',
+    'ad_spend_mtd',      // mock — Meta not wired yet
+    'liquid_position',   // mock — PayPal + bank not wired yet
   ]
+
   const dashboardMetrics = dashboardMetricIds
     .map((id) => metrics.find((m) => m.id === id))
     .filter(Boolean) as typeof metrics
 
-  // Current date label
-  const today = new Date('2026-03-30')
-  const monthLabel = today.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const monthLabel = shopifyKPIs?.month_label ?? new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const isLive = !!shopifyKPIs
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
@@ -72,31 +88,31 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Live indicator */}
+        {/* Live / mock indicator */}
         <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
           <span
             style={{
               width: 6,
               height: 6,
               borderRadius: '50%',
-              backgroundColor: '#7DEFEF',
+              backgroundColor: isLive ? '#7DEFEF' : '#888',
               display: 'inline-block',
             }}
           />
-          <span className="label" style={{ color: '#7DEFEF' }}>
-            Mock Data
+          <span className="label" style={{ color: isLive ? '#7DEFEF' : '#888' }}>
+            {isLive ? 'Live · Shopify' : 'Mock Data'}
           </span>
         </div>
       </div>
 
-      {/* Low stock alert — shown if any priority SKUs are low */}
-      {mockLowStockItems.length > 0 && (
+      {/* Low stock alert */}
+      {lowStockItems.length > 0 && (
         <div className="mb-6">
-          <InventoryAlert items={mockLowStockItems} />
+          <InventoryAlert items={lowStockItems} />
         </div>
       )}
 
-      {/* KPI grid — 3 columns */}
+      {/* KPI grid */}
       <div
         style={{
           display: 'grid',
@@ -109,19 +125,32 @@ export default function DashboardPage() {
         }}
       >
         {dashboardMetrics.map((metric) => {
-          const data = mockKpiValues[metric.id]
+          const data = kpiValues[metric.id]
           if (!data) return null
+          const isLiveMetric = !!liveKpis[metric.id]
           return (
-            <KpiCard
-              key={metric.id}
-              metric={metric}
-              data={data}
-            />
+            <div key={metric.id} style={{ position: 'relative' }}>
+              <KpiCard metric={metric} data={data} />
+              {!isLiveMetric && (
+                <span
+                  className="label"
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    color: '#333',
+                    fontSize: '0.5625rem',
+                  }}
+                >
+                  mock
+                </span>
+              )}
+            </div>
           )
         })}
       </div>
 
-      {/* Main content: chart + upcoming costs */}
+      {/* Chart + upcoming costs */}
       <div
         style={{
           display: 'grid',
@@ -130,10 +159,16 @@ export default function DashboardPage() {
           alignItems: 'start',
         }}
       >
-        {/* Revenue vs Ad Spend — last 30 days */}
         <Card>
-          <CardHeader label="Revenue vs Ad Spend — Last 30 Days" />
-          <TrendChart data={mockTrendData} />
+          <CardHeader
+            label="Revenue — Last 30 Days"
+            action={
+              <span className="label" style={{ color: '#333' }}>
+                {isLive ? 'Shopify · live' : 'mock data'}
+              </span>
+            }
+          />
+          <TrendChart data={trendData ?? []} />
         </Card>
 
         {/* Upcoming costs */}
@@ -170,12 +205,8 @@ export default function DashboardPage() {
                 </span>
               </div>
             ))}
-
-            {/* Total */}
             <div className="flex items-center justify-between pt-1">
-              <span className="label" style={{ color: '#555' }}>
-                Total
-              </span>
+              <span className="label" style={{ color: '#555' }}>Total</span>
               <span className="metric" style={{ fontSize: '0.875rem', color: '#FFFFFF', fontWeight: 600 }}>
                 {formatEur(mockUpcomingCosts.reduce((s, c) => s + c.amount, 0))}
               </span>
