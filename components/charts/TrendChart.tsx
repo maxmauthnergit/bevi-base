@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -12,18 +13,20 @@ import {
   ReferenceLine,
 } from 'recharts'
 
-// ─── Price-change flag ────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const PRICE_CHANGE_DATE = '2026-03-27'
 
-// ─── Line definitions ─────────────────────────────────────────────────────────
-const LINES = [
-  { key: 'revenue_gross', label: 'Revenue (Gross)', color: '#7DEFEF', dash: undefined },
-  { key: 'revenue_net',   label: 'Revenue (Net)',   color: '#2A9090', dash: '4 3' },
-  { key: 'cogs',          label: 'COGS',            color: '#FF8C42', dash: undefined },
-  { key: 'meta_spend',    label: 'Ad Spend',        color: '#FF4444', dash: undefined },
+const TOGGLES = [
+  { key: 'revenue_gross', label: 'Revenue (Gross)', color: '#7DEFEF' },
+  { key: 'revenue_net',   label: 'Revenue (Net)',   color: '#5BBCBC' },
+  { key: 'cogs',          label: 'COGS',            color: '#FF8C42' },
+  { key: 'meta_spend',    label: 'Ad Spend',        color: '#6B8FD4' },
 ] as const
 
-type LineKey = (typeof LINES)[number]['key']
+type ToggleKey = (typeof TOGGLES)[number]['key']
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TrendPoint {
   date: string
@@ -31,6 +34,12 @@ interface TrendPoint {
   revenue_net: number
   cogs: number
   meta_spend: number
+}
+
+interface ChartPoint extends TrendPoint {
+  _ad_spend: number
+  _cogs: number
+  _cm: number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -45,8 +54,10 @@ function formatEur(v: number) {
 }
 
 function formatDateLabel(dateStr: string) {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+  })
 }
 
 function monthTitle(year: number, month: number) {
@@ -58,13 +69,28 @@ function monthTitle(year: number, month: number) {
 
 // ─── Tooltip ──────────────────────────────────────────────────────────────────
 
+const DATAKEY_LABELS: Record<string, { label: string; color: string }> = {
+  revenue_gross: { label: 'Revenue (Gross)', color: '#7DEFEF' },
+  revenue_net:   { label: 'Revenue (Net)',   color: '#5BBCBC' },
+  _ad_spend:     { label: 'Ad Spend',        color: '#6B8FD4' },
+  _cogs:         { label: 'COGS',            color: '#FF8C42' },
+  _cm:           { label: 'Contribution Margin', color: '#7DEFEF' },
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
+
+  // filter out zero or hidden entries
+  const entries = payload.filter(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (e: any) => e.value !== 0 && DATAKEY_LABELS[e.dataKey]
+  )
+
   return (
     <div
       style={{
-        backgroundColor: '#1A1A1A',
+        backgroundColor: '#141414',
         border: '1px solid #2A2A2A',
         borderRadius: 4,
         padding: '10px 14px',
@@ -72,15 +98,18 @@ function CustomTooltip({ active, payload, label }: any) {
         fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
       }}
     >
-      <p style={{ color: '#666', marginBottom: 6, fontSize: '0.6875rem' }}>
+      <p style={{ color: '#555', marginBottom: 6, fontSize: '0.6875rem' }}>
         {formatDateLabel(label)}
       </p>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {payload.map((entry: any, i: number) => (
-        <p key={i} style={{ color: entry.color, marginBottom: 2 }}>
-          {entry.name}: {formatEur(entry.value)}
-        </p>
-      ))}
+      {entries.map((entry: any, i: number) => {
+        const def = DATAKEY_LABELS[entry.dataKey]
+        return (
+          <p key={i} style={{ color: def.color, marginBottom: 2 }}>
+            {def.label}: {formatEur(entry.value)}
+          </p>
+        )
+      })}
     </div>
   )
 }
@@ -94,14 +123,13 @@ export function TrendChart() {
   const [data,  setData]  = useState<TrendPoint[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [visible, setVisible] = useState<Record<LineKey, boolean>>({
-    revenue_gross: true,
+  const [visible, setVisible] = useState<Record<ToggleKey, boolean>>({
+    revenue_gross: false,  // gross line off by default — net/CM area tells the story
     revenue_net:   true,
     cogs:          true,
     meta_spend:    true,
   })
 
-  // Fetch when month changes
   useEffect(() => {
     setLoading(true)
     fetch(`/api/dashboard/trend?year=${year}&month=${month}`)
@@ -124,22 +152,34 @@ export function TrendChart() {
     else setMonth((m) => m + 1)
   }
 
-  function toggleLine(key: LineKey) {
-    setVisible((v) => ({ ...v, [key]: !v[key] }))
-  }
+  // ── Derive stacked chart data ──────────────────────────────────────────────
+  // Layer order (bottom → top): Ad Spend → COGS → Contribution Margin
+  // CM = Revenue Net − Ad Spend − COGS (clamped to 0)
+  const chartData: ChartPoint[] = data.map((d) => {
+    const adSpend = visible.meta_spend ? d.meta_spend : 0
+    const cogs    = visible.cogs       ? d.cogs       : 0
+    const cm      = visible.revenue_net
+      ? Math.max(0, d.revenue_net - adSpend - cogs)
+      : 0
+    return { ...d, _ad_spend: adSpend, _cogs: cogs, _cm: cm }
+  })
 
   // ── Y-axis: €500 steps ──────────────────────────────────────────────────────
-  const relevantValues = data.flatMap((d) => [
-    visible.revenue_gross ? d.revenue_gross : 0,
-    visible.revenue_net   ? d.revenue_net   : 0,
-    visible.cogs          ? d.cogs          : 0,
-    visible.meta_spend    ? d.meta_spend    : 0,
-  ])
-  const maxVal = Math.max(...relevantValues, 500)
+  const maxVal = Math.max(
+    ...data.map((d) =>
+      Math.max(
+        visible.revenue_gross ? d.revenue_gross : 0,
+        visible.revenue_net   ? d.revenue_net   : 0,
+        (visible.meta_spend ? d.meta_spend : 0) +
+          (visible.cogs ? d.cogs : 0),
+      )
+    ),
+    500
+  )
   const yMax   = Math.ceil(maxVal / 500) * 500
   const yTicks = Array.from({ length: yMax / 500 + 1 }, (_, i) => i * 500)
 
-  // ── X-axis: every 5th day ───────────────────────────────────────────────────
+  // ── X-axis: every 5th day ──────────────────────────────────────────────────
   const xTicks = data
     .filter((_, i) => i % 5 === 0 || i === data.length - 1)
     .map((d) => d.date)
@@ -148,7 +188,7 @@ export function TrendChart() {
 
   return (
     <div>
-      {/* ── Controls row ────────────────────────────────────────────────────── */}
+      {/* ── Controls ──────────────────────────────────────────────────────── */}
       <div
         style={{
           display: 'flex',
@@ -164,8 +204,8 @@ export function TrendChart() {
           <button
             onClick={prevMonth}
             style={{
-              background: 'none', border: 'none', color: '#555',
-              cursor: 'pointer', fontSize: 16, padding: '2px 4px',
+              background: 'none', border: 'none', color: '#666',
+              cursor: 'pointer', fontSize: 18, padding: '0 4px',
               fontFamily: 'inherit', lineHeight: 1,
             }}
           >
@@ -186,9 +226,9 @@ export function TrendChart() {
             onClick={nextMonth}
             style={{
               background: 'none', border: 'none',
-              color: isCurrentMonth ? '#2A2A2A' : '#555',
+              color: isCurrentMonth ? '#2A2A2A' : '#666',
               cursor: isCurrentMonth ? 'default' : 'pointer',
-              fontSize: 16, padding: '2px 4px',
+              fontSize: 18, padding: '0 4px',
               fontFamily: 'inherit', lineHeight: 1,
             }}
           >
@@ -198,15 +238,17 @@ export function TrendChart() {
 
         {/* Line toggles */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {LINES.map((line) => (
+          {TOGGLES.map((t) => (
             <button
-              key={line.key}
-              onClick={() => toggleLine(line.key)}
+              key={t.key}
+              onClick={() =>
+                setVisible((v) => ({ ...v, [t.key]: !v[t.key] }))
+              }
               style={{
                 background: 'none',
-                border: `1px solid ${visible[line.key] ? line.color : '#2A2A2A'}`,
+                border: `1px solid ${visible[t.key] ? t.color : '#252525'}`,
                 borderRadius: 3,
-                color: visible[line.key] ? line.color : '#333',
+                color: visible[t.key] ? t.color : '#333',
                 cursor: 'pointer',
                 fontSize: '0.5625rem',
                 fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
@@ -215,49 +257,41 @@ export function TrendChart() {
                 padding: '3px 8px',
               }}
             >
-              {line.label}
+              {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Chart ───────────────────────────────────────────────────────────── */}
+      {/* ── Chart ─────────────────────────────────────────────────────────── */}
       {loading ? (
-        <div
-          style={{
-            height: 260,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <span
-            className="label"
-            style={{ color: '#333' }}
-          >
-            Loading…
-          </span>
+        <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span className="label" style={{ color: '#333' }}>Loading…</span>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart
-            data={data}
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart
+            data={chartData}
             margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
           >
-            <CartesianGrid
-              strokeDasharray="4 4"
-              stroke="#1A1A1A"
-              vertical={false}
-            />
+            <defs>
+              <linearGradient id="gradAdSpend" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b5998" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#3b5998" stopOpacity={0.6} />
+              </linearGradient>
+              <linearGradient id="gradCogs" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#FF8C42" stopOpacity={0.85} />
+                <stop offset="100%" stopColor="#FF8C42" stopOpacity={0.5} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="4 4" stroke="#1A1A1A" vertical={false} />
+
             <XAxis
               dataKey="date"
               ticks={xTicks}
               tickFormatter={formatDateLabel}
-              tick={{
-                fill: '#444',
-                fontSize: 10,
-                fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-              }}
+              tick={{ fill: '#444', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
               axisLine={false}
               tickLine={false}
             />
@@ -265,79 +299,86 @@ export function TrendChart() {
               ticks={yTicks}
               domain={[0, yMax]}
               tickFormatter={(v) => formatEur(v)}
-              tick={{
-                fill: '#444',
-                fontSize: 10,
-                fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-              }}
+              tick={{ fill: '#444', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
               axisLine={false}
               tickLine={false}
               width={58}
             />
+
             <Tooltip content={<CustomTooltip />} />
 
-            {/* Price-change reference line */}
             {showPriceFlag && (
               <ReferenceLine
                 x={PRICE_CHANGE_DATE}
-                stroke="#444"
+                stroke="#3A3A3A"
                 strokeDasharray="3 3"
                 label={{
                   value: 'price ↑',
                   position: 'insideTopRight',
-                  fill: '#555',
+                  fill: '#444',
                   fontSize: 9,
                   fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
                 }}
               />
             )}
 
+            {/* ── Stacked areas (bottom → top) ───────────────────────────── */}
+            <Area
+              type="monotone"
+              dataKey="_ad_spend"
+              stackId="a"
+              fill="url(#gradAdSpend)"
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="_cogs"
+              stackId="a"
+              fill="url(#gradCogs)"
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Area
+              type="monotone"
+              dataKey="_cm"
+              stackId="a"
+              fill="#7DEFEF"
+              fillOpacity={0.18}
+              stroke="none"
+              isAnimationActive={false}
+            />
+
+            {/* ── Revenue Net — solid top boundary line ──────────────────── */}
+            {visible.revenue_net && (
+              <Line
+                type="monotone"
+                dataKey="revenue_net"
+                name="Revenue (Net)"
+                stroke="#7DEFEF"
+                strokeWidth={1.5}
+                dot={false}
+                activeDot={{ r: 3, fill: '#7DEFEF' }}
+                isAnimationActive={false}
+              />
+            )}
+
+            {/* ── Revenue Gross — optional dashed overlay ─────────────────── */}
             {visible.revenue_gross && (
               <Line
                 type="monotone"
                 dataKey="revenue_gross"
                 name="Revenue (Gross)"
                 stroke="#7DEFEF"
-                strokeWidth={1.5}
+                strokeWidth={1}
+                strokeDasharray="4 3"
+                strokeOpacity={0.5}
                 dot={false}
                 activeDot={{ r: 3, fill: '#7DEFEF' }}
+                isAnimationActive={false}
               />
             )}
-            {visible.revenue_net && (
-              <Line
-                type="monotone"
-                dataKey="revenue_net"
-                name="Revenue (Net)"
-                stroke="#2A9090"
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-                dot={false}
-                activeDot={{ r: 3, fill: '#2A9090' }}
-              />
-            )}
-            {visible.cogs && (
-              <Line
-                type="monotone"
-                dataKey="cogs"
-                name="COGS"
-                stroke="#FF8C42"
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, fill: '#FF8C42' }}
-              />
-            )}
-            {visible.meta_spend && (
-              <Line
-                type="monotone"
-                dataKey="meta_spend"
-                name="Ad Spend"
-                stroke="#FF4444"
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, fill: '#FF4444' }}
-              />
-            )}
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       )}
     </div>
