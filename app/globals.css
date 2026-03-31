@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   Gustavo — add font files to /public/fonts/
+   Expected files:
+     Gustavo-Regular.woff2 / .woff
+     Gustavo-Medium.woff2  / .woff
+     Gustavo-Bold.woff2    / .woff
+   ───────────────────────────────────────────── */
+@font-face {
+  font-family: 'Gustavo';
+  src: url('/fonts/Gustavo-Regular.woff2') format('woff2'),
+       url('/fonts/Gustavo-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gustavo';
+  src: url('/fonts/Gustavo-Medium.woff2') format('woff2'),
+       url('/fonts/Gustavo-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Gustavo';
+  src: url('/fonts/Gustavo-Bold.woff2') format('woff2'),
+       url('/fonts/Gustavo-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ─────────────────────────────────────────────
+   Tailwind v4 Theme — Bevi Design Tokens
+   ───────────────────────────────────────────── */
+@theme {
+  /* Colors */
+  --color-bg:        #0A0A0A;
+  --color-surface:   #141414;
+  --color-surface-2: #1A1A1A;
+  --color-border:    #222222;
+  --color-text:      #FFFFFF;
+  --color-muted:     #888888;
+  --color-accent:    #7DEFEF;
+  --color-beige:     #E8DFD0;
+  --color-danger:    #FF4444;
+
+  /* Typography */
+  --font-gustavo: 'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+
+  /* Border radius — max 4px per brief */
+  --radius:    4px;
+  --radius-sm: 2px;
+}
+
+/* ─────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  background-color: #0A0A0A;
+}
+
+body {
+  min-height: 100%;
+  font-family: 'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background-color: #0A0A0A;
+  color: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─────────────────────────────────────────────
+   Global utility classes
+   ───────────────────────────────────────────── */
+
+/* Uppercase category label */
+.label {
+  font-family: 'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #888888;
+  line-height: 1;
+}
+
+/* Monospaced metric value */
+.metric {
+  font-family: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Scrollbar */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: #141414; }
+::-webkit-scrollbar-thumb  { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
