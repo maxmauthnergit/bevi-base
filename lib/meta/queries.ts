@@ -144,8 +144,11 @@ export async function getDailySpend(): Promise<DailySpend[]> {
   const from = new Date(now)
   from.setDate(from.getDate() - 29)
   from.setHours(0, 0, 0, 0)
+  return getDailySpendForRange(from, now)
+}
 
-  const rows = await getInsights(isoDate(from), isoDate(now), '1')
+export async function getDailySpendForRange(from: Date, to: Date): Promise<DailySpend[]> {
+  const rows = await getInsights(isoDate(from), isoDate(to), '1')
 
   return rows.map((row) => ({
     date:        row.date_start,

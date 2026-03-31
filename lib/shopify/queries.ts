@@ -150,51 +150,75 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   }
 }
 
-// ─── 30-day trend data ────────────────────────────────────────────────────────
+// ─── COGS per unit (Gesamt Kosten Bestellung beim Kunden) ─────────────────────
+// Prices valid from launch; selling price changed 2026-03-27 but COGS unchanged.
 
-export async function getTrendData(): Promise<DailySnapshot[]> {
-  const now  = new Date()
-  const from = new Date(now)
-  from.setDate(from.getDate() - 29)
-  from.setHours(0, 0, 0, 0)
+const UNIT_COGS: [string, number][] = [
+  ['squad',    52.13],
+  ['bundle l', 28.49],
+  ['bundle m', 26.00],
+  ['bundle s', 24.58],
+  ['full set', 23.59],
+]
 
-  const orders = await getOrdersInRange(from, now)
+function getUnitCogs(productTitle: string): number {
+  const t = productTitle.toLowerCase()
+  for (const [key, cost] of UNIT_COGS) {
+    if (t.includes(key)) return cost
+  }
+  return 0
+}
 
-  // Group by calendar date
-  const byDate = new Map<string, { gross: number; orders: number; units: number }>()
+// ─── Trend data for a specific calendar month ─────────────────────────────────
 
-  // Seed all 30 days with zeros so chart has no gaps
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(from)
-    d.setDate(from.getDate() + i)
-    byDate.set(isoDate(d), { gross: 0, orders: 0, units: 0 })
+export interface TrendPoint {
+  date: string
+  revenue_gross: number
+  revenue_net: number   // gross minus actual tax
+  cogs: number          // sum of unit COGS × quantity per day
+  meta_spend: number    // merged externally by API route
+}
+
+export async function getTrendDataForMonth(
+  year: number,
+  month: number
+): Promise<TrendPoint[]> {
+  const from = new Date(year, month - 1, 1)
+  const to   = new Date(year, month, 0, 23, 59, 59) // last day of month
+
+  const orders = await getOrdersInRange(from, to)
+
+  // Seed all days of the month
+  const byDate = new Map<string, { gross: number; tax: number; cogs: number }>()
+  const daysInMonth = new Date(year, month, 0).getDate()
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    byDate.set(date, { gross: 0, tax: 0, cogs: 0 })
   }
 
   for (const order of orders) {
     if (order.cancelled_at || order.financial_status === 'voided') continue
-    const date = order.created_at.split('T')[0]
+    const date  = order.created_at.split('T')[0]
     const entry = byDate.get(date)
-    if (entry) {
-      entry.gross  += toFloat(order.total_price)
-      entry.orders += 1
-      entry.units  += order.line_items.reduce((s, li) => s + li.quantity, 0)
+    if (!entry) continue
+    entry.gross += toFloat(order.total_price)
+    entry.tax   += toFloat(order.total_tax)
+    for (const li of order.line_items) {
+      entry.cogs += getUnitCogs(li.title) * li.quantity
     }
   }
 
-  return Array.from(byDate.entries()).map(([date, d]) => ({
-    date,
-    shopify_revenue_gross: Math.round(d.gross * 100) / 100,
-    shopify_revenue_net:   Math.round(d.gross * 0.84 * 100) / 100,
-    shopify_orders:        d.orders,
-    shopify_sessions:      d.orders * 18,
-    // Meta spend stays mock until Meta API is connected
-    meta_spend:   0,
-    meta_roas:    0,
-    meta_cac:     0,
-    weship_costs: 0,
-    paypal_balance: 0,
-    bank_balance:   null,
-  }))
+  const today = isoDate(new Date())
+
+  return Array.from(byDate.entries())
+    .filter(([date]) => date <= today)   // exclude future days in current month
+    .map(([date, d]) => ({
+      date,
+      revenue_gross: Math.round(d.gross * 100) / 100,
+      revenue_net:   Math.round((d.gross - d.tax) * 100) / 100,
+      cogs:          Math.round(d.cogs  * 100) / 100,
+      meta_spend:    0,
+    }))
 }
 
 // ─── Inventory levels ─────────────────────────────────────────────────────────
