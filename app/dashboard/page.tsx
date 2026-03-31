@@ -7,7 +7,7 @@ import { mockKpiValues, mockTrendData, mockUpcomingCosts } from '@/lib/mock/dash
 import { mockLowStockItems } from '@/lib/mock/inventory'
 
 function formatEur(value: number) {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
@@ -16,7 +16,7 @@ function formatEur(value: number) {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('de-DE', {
+  return new Date(iso).toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
   })
@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
   // Current date label
   const today = new Date('2026-03-30')
-  const monthLabel = today.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })
+  const monthLabel = today.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
@@ -58,7 +58,7 @@ export default function DashboardPage() {
               margin: 0,
             }}
           >
-            Mission Control
+            Bevi Base
           </h1>
           <p
             style={{
@@ -68,7 +68,7 @@ export default function DashboardPage() {
               fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             }}
           >
-            {monthLabel} · alle Daten vorläufig
+            {monthLabel} · all data provisional
           </p>
         </div>
 

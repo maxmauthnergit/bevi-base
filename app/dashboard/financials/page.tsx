@@ -7,7 +7,7 @@ import {
 } from '@/lib/mock/financials'
 
 function formatEur(value: number) {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
@@ -232,7 +232,7 @@ export default function FinancialsPage() {
                         color: '#888',
                       }}
                     >
-                      {new Date(row.month + '-01').toLocaleDateString('de-DE', { month: 'long', year: '2-digit' })}
+                      {new Date(row.month + '-01').toLocaleDateString('en-GB', { month: 'long', year: '2-digit' })}
                     </span>
                     <span
                       className="label"

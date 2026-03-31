@@ -2,7 +2,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { mockMonthlyRevenue, mockUnitsBySku, mockRevenueByCountry, mockReturnRate, mockBundleAttachRate } from '@/lib/mock/sales'
 
 function formatEur(value: number) {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
@@ -49,10 +49,10 @@ export default function SalesPage() {
         }}
       >
         {[
-          { label: 'Total Revenue (6 Mo)', value: formatEur(totalRevenue), sub: 'Brutto' },
-          { label: 'Total Orders (6 Mo)', value: totalOrders.toLocaleString('de-DE'), sub: 'Bestellungen' },
-          { label: 'AOV (Mar)', value: formatEur(aov), sub: 'Durchschnittswert' },
-          { label: 'Return Rate (Mar)', value: `${mockReturnRate[mockReturnRate.length - 1].rate}%`, sub: 'Rücksendungen' },
+          { label: 'Total Revenue (6 Mo)', value: formatEur(totalRevenue), sub: 'Gross' },
+          { label: 'Total Orders (6 Mo)', value: totalOrders.toLocaleString('en-GB'), sub: 'Orders' },
+          { label: 'AOV (Mar)', value: formatEur(aov), sub: 'Average order value' },
+          { label: 'Return Rate (Mar)', value: `${mockReturnRate[mockReturnRate.length - 1].rate}%`, sub: 'Returns' },
         ].map((stat) => (
           <div key={stat.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
             <span className="label" style={{ display: 'block', marginBottom: 8 }}>{stat.label}</span>

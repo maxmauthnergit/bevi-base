@@ -13,23 +13,23 @@ export const mockLiquidPosition: LiquidPosition = {
 export const mockLiabilities: Liability[] = [
   {
     id: 'patent-cost',
-    name: 'Patentkosten',
+    name: 'Patent Costs',
     amount: 9_500,
     due_date: null,
-    note: 'Laufende Patentkosten',
+    note: 'Ongoing patent costs',
   },
   {
     id: 'shareholder-loan',
-    name: 'Gesellschafterdarlehen',
+    name: 'Shareholder Loan',
     amount: 9_500,
     due_date: null,
-    note: 'Rückzahlung bei Profitabilität',
+    note: 'Repay when profitable',
   },
 ]
 
 export const mockMonthlyPnL = [
   {
-    month: 'Okt 25',
+    month: 'Oct 25',
     revenue_gross: 7_200,
     revenue_net: 6_048,
     cogs: 2_184,
@@ -49,7 +49,7 @@ export const mockMonthlyPnL = [
     result: 563,
   },
   {
-    month: 'Dez 25',
+    month: 'Dec 25',
     revenue_gross: 14_100,
     revenue_net: 11_844,
     cogs: 4_272,
@@ -79,7 +79,7 @@ export const mockMonthlyPnL = [
     result: 773,
   },
   {
-    month: 'Mär 26',
+    month: 'Mar 26',
     revenue_gross: 14_820,
     revenue_net: 12_449,
     cogs: 4_464,

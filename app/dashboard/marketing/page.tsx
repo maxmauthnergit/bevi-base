@@ -8,7 +8,7 @@ import {
 } from '@/lib/mock/marketing'
 
 function formatEur(value: number) {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 0,
@@ -77,8 +77,8 @@ export default function MarketingPage() {
           },
           {
             label: 'Instagram Followers',
-            value: mockInstagramFollowers.current.toLocaleString('de-DE'),
-            sub: `+${mockInstagramFollowers.delta.toLocaleString('de-DE')} this month`,
+            value: mockInstagramFollowers.current.toLocaleString('en-GB'),
+            sub: `+${mockInstagramFollowers.delta.toLocaleString('en-GB')} this month`,
             color: '#7DEFEF',
           },
         ].map((stat) => (

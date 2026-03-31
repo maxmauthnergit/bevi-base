@@ -92,9 +92,9 @@ body {
   line-height: 1;
 }
 
-/* Monospaced metric value */
+/* Metric value — Gustavo with tabular nums */
 .metric {
-  font-family: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+  font-family: 'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }

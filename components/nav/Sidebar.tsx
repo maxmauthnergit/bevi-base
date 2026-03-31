@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BeviWordmark } from '@/components/logo/BeviLogo'
 import { clsx } from 'clsx'
 
 const navItems = [
@@ -93,15 +92,41 @@ export function Sidebar() {
       {/* Logo / wordmark */}
       <div
         className="flex items-center"
-        style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1C1C1C' }}
+        style={{ padding: '22px 20px 18px', borderBottom: '1px solid #1C1C1C' }}
       >
-        <BeviWordmark height={22} />
+        {/* Full Bevi wordmark — place your PNG at /public/bevi-wordmark.png to use it */}
+        {/* Falls back to Gustavo text wordmark */}
+        <img
+          src="/bevi-wordmark.png"
+          alt="Bevi"
+          height={26}
+          style={{ height: 26, display: 'block', objectFit: 'contain' }}
+          onError={(e) => {
+            const el = e.currentTarget
+            el.style.display = 'none'
+            const fallback = el.nextElementSibling as HTMLElement | null
+            if (fallback) fallback.style.display = 'block'
+          }}
+        />
+        <span
+          style={{
+            display: 'none',
+            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#FFFFFF',
+            letterSpacing: '-0.01em',
+            lineHeight: 1,
+          }}
+        >
+          Bevi
+        </span>
       </div>
 
       {/* Section label */}
       <div style={{ padding: '20px 20px 8px' }}>
         <span className="label" style={{ color: '#333' }}>
-          Mission Control
+          Bevi Base
         </span>
       </div>
 

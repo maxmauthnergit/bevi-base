@@ -7,7 +7,7 @@ function formatValue(value: number, format: FormatType): string {
   switch (format) {
     case 'currency':
     case 'euro':
-      return new Intl.NumberFormat('de-DE', {
+      return new Intl.NumberFormat('en-GB', {
         style: 'currency',
         currency: 'EUR',
         minimumFractionDigits: 0,
@@ -17,7 +17,7 @@ function formatValue(value: number, format: FormatType): string {
       return `${value.toFixed(1)}%`
     case 'number':
       if (value % 1 !== 0) return value.toFixed(2)
-      return new Intl.NumberFormat('de-DE').format(value)
+      return new Intl.NumberFormat('en-GB').format(value)
     default:
       return String(value)
   }
@@ -26,7 +26,7 @@ function formatValue(value: number, format: FormatType): string {
 function formatDelta(delta: number, format: FormatType): string {
   if (format === 'currency' || format === 'euro') {
     const abs = Math.abs(delta)
-    return `${delta >= 0 ? '+' : '−'}${new Intl.NumberFormat('de-DE', {
+    return `${delta >= 0 ? '+' : '−'}${new Intl.NumberFormat('en-GB', {
       style: 'currency',
       currency: 'EUR',
       minimumFractionDigits: 0,
@@ -36,7 +36,7 @@ function formatDelta(delta: number, format: FormatType): string {
   if (format === 'percent') return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp`
   if (format === 'number') {
     if (delta % 1 !== 0) return `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`
-    return `${delta >= 0 ? '+' : ''}${new Intl.NumberFormat('de-DE').format(delta)}`
+    return `${delta >= 0 ? '+' : ''}${new Intl.NumberFormat('en-GB').format(delta)}`
   }
   return `${delta >= 0 ? '+' : ''}${delta}`
 }
@@ -105,7 +105,7 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
       {delta !== undefined && (
         <div className="flex items-center justify-between">
           <span style={{ fontSize: '0.75rem', color: '#888888' }}>
-            {subtitle ?? 'vs. Vormonat'}
+            {subtitle ?? 'vs. prev. month'}
           </span>
           <span
             className="metric"
