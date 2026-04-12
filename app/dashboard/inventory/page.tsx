@@ -1,14 +1,52 @@
 import { Card, CardHeader } from '@/components/ui/Card'
-import { getInventoryLevels } from '@/lib/shopify/queries'
+import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
+import { getWeShipStock } from '@/lib/weship/queries'
 
-export const revalidate = 600 // revalidate every 10 minutes
+export const revalidate = 600
+
+function formatDate(d: Date) {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+}
+
+// Dot colour per variant colour label
+function variantDot(color: string | undefined) {
+  if (color === 'black') return { bg: '#1C1C1C', border: '1px solid #606060' }
+  if (color === 'beige') return { bg: '#C8A882', border: 'none' }
+  return null
+}
 
 export default async function InventoryPage() {
-  const stockLevels = await getInventoryLevels().catch(() => null)
-  const levels = stockLevels ?? []
-  const lowItems = levels.filter((s) => s.is_low)
-  const totalUnits = levels.reduce((s, i) => s + i.units, 0)
-  const isLive = !!stockLevels
+  const [shopifyLevels, weshipStock, avgDailySales] = await Promise.all([
+    getInventoryLevels().catch(() => null),
+    getWeShipStock().catch(() => null),
+    getAvgDailySalesBySku().catch(() => null),
+  ])
+
+  const levels = shopifyLevels ?? []
+
+  // Build enriched rows: merge WeShip stock + avg daily sales
+  const rows = levels.map((item) => {
+    const ws          = weshipStock?.find((w) => w.sku === item.sku)
+    const unitsWeship = ws?.on_stock ?? null
+    const unitsShopify = item.units
+
+    // "Will last until" — based on WeShip units (primary) or Shopify as fallback
+    const stockForForecast = unitsWeship ?? unitsShopify
+    const avgSales = avgDailySales?.[item.sku] ?? 0
+    const daysLeft = avgSales > 0 ? Math.floor(stockForForecast / avgSales) : null
+    const lastUntil = daysLeft !== null
+      ? new Date(Date.now() + daysLeft * 86_400_000)
+      : null
+
+    // Low-stock is against WeShip units when available
+    const effectiveUnits = unitsWeship ?? unitsShopify
+    const isLow = effectiveUnits < item.reorder_threshold
+
+    return { ...item, unitsWeship, unitsShopify, daysLeft, lastUntil, isLow }
+  })
+
+  const isWeShipLive  = !!weshipStock
+  const isShopifyLive = !!shopifyLevels
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
@@ -28,211 +66,220 @@ export default async function InventoryPage() {
         </h1>
       </div>
 
-      {/* Stats */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '1px',
-          backgroundColor: '#222',
-          borderRadius: '4px',
-          overflow: 'hidden',
-          marginBottom: 24,
-        }}
-      >
-        {[
-          { label: 'Total Units in Stock', value: totalUnits.toString(), sub: 'All SKUs at WeShip' },
-          {
-            label: 'Low Stock Alerts',
-            value: lowItems.length.toString(),
-            sub: lowItems.map((i) => i.variant).join(', '),
-            danger: lowItems.length > 0,
-          },
-          {
-            label: 'Data Source',
-            value: isLive ? 'Shopify' : 'Mock',
-            sub: isLive ? 'Live · updates every 10 min' : 'API not connected',
-            muted: !isLive,
-          },
-        ].map((stat) => (
-          <div key={stat.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
-            <span className="label" style={{ display: 'block', marginBottom: 8 }}>{stat.label}</span>
-            <span
-              className="metric"
-              style={{
-                display: 'block',
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: stat.danger ? '#FF4444' : stat.muted ? '#444' : '#FFFFFF',
-                lineHeight: 1,
-                marginBottom: 6,
-              }}
-            >
-              {stat.value}
-            </span>
-            <span className="label" style={{ color: stat.danger ? 'rgba(255,68,68,0.5)' : '#333' }}>
-              {stat.sub}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Stock levels */}
+      {/* Stock table */}
       <Card>
         <CardHeader
           label="Current Stock Levels"
           action={
-            <span className="label" style={{ color: '#444' }}>
-              Updated manually via Settings
+            <span className="label" style={{ color: '#333' }}>
+              {isWeShipLive ? 'WeShip · live' : 'WeShip · offline'}
+              {' · '}
+              {isShopifyLive ? 'Shopify · live' : 'Shopify · offline'}
             </span>
           }
         />
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['SKU', 'Product', 'Variant', 'Units', 'Threshold', 'Status'].map((h) => (
-                <th
-                  key={h}
-                  className="label"
-                  style={{
-                    textAlign: h === 'Units' || h === 'Threshold' ? 'right' : 'left',
-                    paddingBottom: 10,
-                    borderBottom: '1px solid #1C1C1C',
-                    color: '#333',
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {levels.map((item, i) => (
-              <tr
-                key={item.sku}
-                style={{
-                  borderBottom: i < levels.length - 1 ? '1px solid #1A1A1A' : 'none',
-                  backgroundColor: item.is_low ? 'rgba(255,68,68,0.03)' : 'transparent',
-                }}
-              >
-                <td
-                  className="metric"
-                  style={{ padding: '12px 0', fontSize: '0.75rem', color: '#444' }}
-                >
-                  {item.sku}
-                </td>
-                <td
-                  style={{
-                    padding: '12px 0',
-                    fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                    fontSize: '0.8125rem',
-                    color: '#CCC',
-                  }}
-                >
-                  {item.product_name}
-                </td>
-                <td style={{ padding: '12px 0' }}>
-                  <div className="flex items-center gap-2">
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        backgroundColor: item.color === 'beige' ? '#E8DFD0' : '#FFFFFF',
-                        border: item.color === 'black' ? '1px solid #444' : 'none',
-                        display: 'inline-block',
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                        fontSize: '0.8125rem',
-                        color: item.color === 'beige' ? '#E8DFD0' : '#FFFFFF',
-                      }}
-                    >
-                      {item.variant}
-                    </span>
-                  </div>
-                </td>
-                <td
-                  className="metric"
-                  style={{
-                    textAlign: 'right',
-                    padding: '12px 0',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                    color: item.is_low ? '#FF4444' : '#FFFFFF',
-                  }}
-                >
-                  {item.units}
-                </td>
-                <td
-                  className="metric"
-                  style={{ textAlign: 'right', padding: '12px 0', fontSize: '0.8125rem', color: '#444' }}
-                >
-                  {item.reorder_threshold}
-                </td>
-                <td style={{ padding: '12px 0' }}>
-                  <div
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+            <thead>
+              <tr>
+                {[
+                  { label: 'SKU',              align: 'left'  },
+                  { label: 'Product',          align: 'left'  },
+                  { label: 'Variant',          align: 'left'  },
+                  { label: 'Units WeShip',     align: 'right' },
+                  { label: 'Units Shopify',    align: 'right' },
+                  { label: 'Stock lasts until',align: 'left'  },
+                  { label: 'Threshold',        align: 'right' },
+                  { label: 'Status',           align: 'left'  },
+                ].map(({ label, align }) => (
+                  <th
+                    key={label}
+                    className="label"
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: '3px 8px',
-                      borderRadius: '2px',
-                      backgroundColor: item.is_low ? 'rgba(255,68,68,0.1)' : 'rgba(125,239,239,0.07)',
-                      border: `1px solid ${item.is_low ? 'rgba(255,68,68,0.3)' : 'rgba(125,239,239,0.15)'}`,
+                      textAlign: align as 'left' | 'right',
+                      paddingBottom: 10,
+                      paddingRight: label === 'Threshold' ? 32 : 0,
+                      borderBottom: '1px solid #1C1C1C',
+                      color: '#333',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <span
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: '50%',
-                        backgroundColor: item.is_low ? '#FF4444' : '#7DEFEF',
-                        display: 'inline-block',
-                      }}
-                    />
-                    <span
-                      className="label"
-                      style={{ color: item.is_low ? '#FF4444' : '#7DEFEF' }}
-                    >
-                      {item.is_low ? 'Reorder' : 'OK'}
-                    </span>
-                  </div>
-                </td>
+                    {label}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </thead>
+            <tbody>
+              {rows.map((item, i) => {
+                const dot = variantDot(item.color)
+                // Variant cell: show "Default Title" as empty
+                const variantLabel =
+                  !item.variant || item.variant.toLowerCase() === 'default title'
+                    ? ''
+                    : item.variant
 
-      {/* Reorder note */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: '14px 16px',
-          backgroundColor: '#141414',
-          border: '1px solid #1C1C1C',
-          borderRadius: '4px',
-        }}
-      >
-        <span className="label" style={{ color: '#333', display: 'block', marginBottom: 4 }}>
-          Reorder workflow
-        </span>
-        <p
-          style={{
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '0.8125rem',
-            color: '#555',
-            margin: 0,
-          }}
-        >
-          Stock levels are updated manually. When a SKU falls below threshold, contact WeShip EU/AT to arrange restock.
-          Automated WeShip API sync planned for Phase 2.
-        </p>
-      </div>
+                return (
+                  <tr
+                    key={item.sku}
+                    style={{
+                      borderBottom: i < rows.length - 1 ? '1px solid #1A1A1A' : 'none',
+                    }}
+                  >
+                    {/* SKU */}
+                    <td
+                      className="metric"
+                      style={{ padding: '12px 0', fontSize: '0.75rem', color: '#444', paddingRight: 16 }}
+                    >
+                      {item.sku}
+                    </td>
+
+                    {/* Product */}
+                    <td
+                      style={{
+                        padding: '12px 0',
+                        paddingRight: 16,
+                        fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                        color: '#CCC',
+                      }}
+                    >
+                      {item.product_name}
+                    </td>
+
+                    {/* Variant */}
+                    <td style={{ padding: '12px 0', paddingRight: 16 }}>
+                      {variantLabel ? (
+                        <div className="flex items-center gap-2">
+                          {dot && (
+                            <span
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                backgroundColor: dot.bg,
+                                border: dot.border,
+                                display: 'inline-block',
+                                flexShrink: 0,
+                              }}
+                            />
+                          )}
+                          <span
+                            style={{
+                              fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                              color: item.color === 'beige' ? '#C8A882' : '#FFFFFF',
+                            }}
+                          >
+                            {variantLabel}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#333' }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Units WeShip */}
+                    <td
+                      className="metric"
+                      style={{
+                        textAlign: 'right',
+                        padding: '12px 0',
+                        paddingRight: 16,
+                        fontWeight: 600,
+                        color: item.isLow ? '#FF4444' : '#FFFFFF',
+                      }}
+                    >
+                      {item.unitsWeship !== null ? item.unitsWeship : (
+                        <span style={{ color: '#333' }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Units Shopify */}
+                    <td
+                      className="metric"
+                      style={{
+                        textAlign: 'right',
+                        padding: '12px 0',
+                        paddingRight: 24,
+                        color: '#444',
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      {item.unitsShopify}
+                    </td>
+
+                    {/* Stock lasts until */}
+                    <td style={{ padding: '12px 0', paddingRight: 16 }}>
+                      {item.lastUntil ? (
+                        <span
+                          style={{
+                            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                            color: item.daysLeft !== null && item.daysLeft < 14
+                              ? '#FF8C42'
+                              : '#888',
+                          }}
+                        >
+                          {formatDate(item.lastUntil)}
+                          <span style={{ color: '#333', marginLeft: 6, fontSize: '0.6875rem' }}>
+                            ({item.daysLeft}d)
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#333' }}>—</span>
+                      )}
+                    </td>
+
+                    {/* Threshold */}
+                    <td
+                      className="metric"
+                      style={{
+                        textAlign: 'right',
+                        padding: '12px 0',
+                        paddingRight: 32,
+                        fontSize: '0.8125rem',
+                        color: '#333',
+                      }}
+                    >
+                      {item.reorder_threshold}
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '12px 0' }}>
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 5,
+                          padding: '3px 8px',
+                          borderRadius: 2,
+                          backgroundColor: item.isLow
+                            ? 'rgba(255,68,68,0.1)'
+                            : 'rgba(125,239,239,0.07)',
+                          border: `1px solid ${item.isLow ? 'rgba(255,68,68,0.3)' : 'rgba(125,239,239,0.15)'}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: '50%',
+                            backgroundColor: item.isLow ? '#FF4444' : '#7DEFEF',
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span
+                          className="label"
+                          style={{ color: item.isLow ? '#FF4444' : '#7DEFEF' }}
+                        >
+                          {item.isLow ? 'Reorder' : 'OK'}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </main>
   )
 }

@@ -221,6 +221,31 @@ export async function getTrendDataForMonth(
     }))
 }
 
+// ─── Avg daily sales by SKU (last 30 days) ────────────────────────────────────
+
+export async function getAvgDailySalesBySku(): Promise<Record<string, number>> {
+  const now  = new Date()
+  const from = new Date(now)
+  from.setDate(from.getDate() - 29)
+  from.setHours(0, 0, 0, 0)
+
+  const orders = await getOrdersInRange(from, now)
+  const totals: Record<string, number> = {}
+
+  for (const order of orders) {
+    if (order.cancelled_at || order.financial_status === 'voided') continue
+    for (const li of order.line_items) {
+      if (!li.sku) continue
+      totals[li.sku] = (totals[li.sku] ?? 0) + li.quantity
+    }
+  }
+
+  // Divide by 30 to get avg per day
+  return Object.fromEntries(
+    Object.entries(totals).map(([sku, total]) => [sku, total / 30])
+  )
+}
+
 // ─── Inventory levels ─────────────────────────────────────────────────────────
 
 // Reorder thresholds per SKU — update as business needs change
