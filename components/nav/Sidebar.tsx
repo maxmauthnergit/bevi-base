@@ -89,16 +89,16 @@ export function Sidebar() {
         borderRight: '1px solid #1E1E1C',
       }}
     >
-      {/* Logo */}
+      {/* Logo — height 52 + 32t + 28b = 112px total, matches right-side padding-top */}
       <div
         className="flex items-center"
-        style={{ padding: '28px 20px 28px' }}
+        style={{ padding: '32px 24px 28px' }}
       >
         <img
           src="/bevi-base-wordmark.png"
           alt="Bevi Base"
-          height={42}
-          style={{ height: 42, display: 'block', objectFit: 'contain' }}
+          height={52}
+          style={{ height: 52, display: 'block', objectFit: 'contain' }}
           onError={(e) => {
             const el = e.currentTarget
             el.style.display = 'none'
@@ -110,7 +110,7 @@ export function Sidebar() {
           style={{
             display: 'none',
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.25rem',
+            fontSize: '1.375rem',
             fontWeight: 700,
             color: '#FFFFFF',
             lineHeight: 1.15,
@@ -121,7 +121,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-col gap-2 px-3 flex-1">
+      <nav className="flex flex-col gap-1 px-3 flex-1">
         {navItems.map((item) => {
           const active = isActive(item.href)
           return (
@@ -129,7 +129,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={clsx(
-                'flex items-center gap-3 px-3 py-3.5 transition-colors',
+                'flex items-center gap-3 px-3 py-2 transition-colors',
                 active ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
               )}
               style={{
