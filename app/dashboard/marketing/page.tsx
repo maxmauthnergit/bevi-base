@@ -30,12 +30,11 @@ export default function MarketingPage() {
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
       <div className="mb-8">
-        <span className="label" style={{ display: 'block', marginBottom: 8 }}>Analytics</span>
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.5rem',
-            fontWeight: 500,
+            fontSize: '1.75rem',
+            fontWeight: 600,
             color: '#111110',
             margin: 0,
           }}

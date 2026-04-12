@@ -49,10 +49,9 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
         <div>
-          <span className="label" style={{ display: 'block', marginBottom: 8 }}>Dashboard</span>
           <h1 style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.625rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
+            fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
           }}>
             Bevi Base
           </h1>
