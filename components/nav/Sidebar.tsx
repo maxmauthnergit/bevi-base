@@ -92,13 +92,13 @@ export function Sidebar() {
       {/* Logo */}
       <div
         className="flex items-center"
-        style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1E1E1C' }}
+        style={{ padding: '24px 20px 20px' }}
       >
         <img
           src="/bevi-base-wordmark.png"
           alt="Bevi Base"
-          height={30}
-          style={{ height: 30, display: 'block', objectFit: 'contain' }}
+          height={60}
+          style={{ height: 60, display: 'block', objectFit: 'contain' }}
           onError={(e) => {
             const el = e.currentTarget
             el.style.display = 'none'
@@ -118,11 +118,6 @@ export function Sidebar() {
         >
           Bevi Base
         </span>
-      </div>
-
-      {/* Section label */}
-      <div style={{ padding: '20px 20px 10px' }}>
-        <span className="label" style={{ color: '#3A3A38' }}>Bevi Base</span>
       </div>
 
       {/* Nav */}
