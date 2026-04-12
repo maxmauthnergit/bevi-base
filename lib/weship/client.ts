@@ -77,8 +77,7 @@ export async function weshipFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       // Try both common auth header formats — server accepts whichever it knows
-      Authorization: `Session ${token}`,
-      'X-Session-ID': token,
+      Cookie: `session_id=${token}`,
       ...(rest.headers ?? {}),
     },
     next: next ?? { revalidate: 0 },

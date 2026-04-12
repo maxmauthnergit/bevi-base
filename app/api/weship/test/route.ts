@@ -1,17 +1,35 @@
 import { NextResponse } from 'next/server'
-import { getWeShipStock } from '@/lib/weship/queries'
+import { weshipFetch } from '@/lib/weship/client'
+import type { WeShipProductsResponse, WeShipOrdersResponse } from '@/lib/weship/client'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const results: Record<string, unknown> = {}
+
   try {
-    const stock = await getWeShipStock()
-    return NextResponse.json({
+    const products = await weshipFetch<WeShipProductsResponse>('/mapi/product/search')
+    results.products = {
       ok: true,
-      count: stock.length,
-      stock,
-    })
+      total: products.total,
+      count: products.count_rows,
+      first: products.rows?.[0] ?? null,
+    }
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 })
+    results.products = { ok: false, error: String(e) }
   }
+
+  try {
+    const orders = await weshipFetch<WeShipOrdersResponse>('/mapi/order/search')
+    results.orders = {
+      ok: true,
+      total: orders.total,
+      count: orders.count_rows,
+      first: orders.rows?.[0] ?? null,
+    }
+  } catch (e) {
+    results.orders = { ok: false, error: String(e) }
+  }
+
+  return NextResponse.json({ ok: true, results })
 }
