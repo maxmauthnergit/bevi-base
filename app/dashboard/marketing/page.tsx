@@ -30,13 +30,12 @@ export default function MarketingPage() {
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
       <div className="mb-8">
-        <span className="label" style={{ display: 'block', marginBottom: 8 }}>Analytics</span>
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.5rem',
-            fontWeight: 500,
-            color: '#FFFFFF',
+            fontSize: '1.75rem',
+            fontWeight: 600,
+            color: '#111110',
             margin: 0,
           }}
         >
@@ -50,8 +49,8 @@ export default function MarketingPage() {
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '1px',
-          backgroundColor: '#222',
-          borderRadius: '4px',
+          backgroundColor: '#E3E2DC',
+          borderRadius: 16,
           overflow: 'hidden',
           marginBottom: 24,
         }}
@@ -61,28 +60,28 @@ export default function MarketingPage() {
             label: 'Ad Spend MTD',
             value: formatEur(latest.meta),
             sub: 'Meta Ads',
-            color: '#FF4444',
+            color: '#DC2626',
           },
           {
             label: 'ROAS',
             value: latestRoas.roas.toFixed(2) + '×',
             sub: roasDelta >= 0 ? `↑ ${roasDelta.toFixed(2)} vs. Vormonat` : `↓ ${Math.abs(roasDelta).toFixed(2)} vs. Vormonat`,
-            color: roasDelta >= 0 ? '#7DEFEF' : '#FF4444',
+            color: roasDelta >= 0 ? '#0D8585' : '#DC2626',
           },
           {
             label: 'CAC',
             value: formatEur(latestCac.cac),
             sub: cacDelta <= 0 ? `↓ ${formatEur(Math.abs(cacDelta))} vs. Vormonat` : `↑ ${formatEur(cacDelta)} vs. Vormonat`,
-            color: cacDelta <= 0 ? '#7DEFEF' : '#FF4444',
+            color: cacDelta <= 0 ? '#0D8585' : '#DC2626',
           },
           {
             label: 'Instagram Followers',
             value: mockInstagramFollowers.current.toLocaleString('en-GB'),
             sub: `+${mockInstagramFollowers.delta.toLocaleString('en-GB')} this month`,
-            color: '#7DEFEF',
+            color: '#0D8585',
           },
         ].map((stat) => (
-          <div key={stat.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
+          <div key={stat.label} style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
             <span className="label" style={{ display: 'block', marginBottom: 8 }}>{stat.label}</span>
             <span
               className="metric"
@@ -90,7 +89,7 @@ export default function MarketingPage() {
                 display: 'block',
                 fontSize: '1.5rem',
                 fontWeight: 600,
-                color: '#FFF',
+                color: '#111110',
                 lineHeight: 1,
                 marginBottom: 6,
               }}
@@ -118,17 +117,17 @@ export default function MarketingPage() {
               return (
                 <div key={m.month} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <span className="label" style={{ color: '#555' }}>{m.month}</span>
+                    <span className="label" style={{ color: '#9E9D98' }}>{m.month}</span>
                     <div className="flex items-center gap-4">
-                      <span className="metric" style={{ fontSize: '0.75rem', color: '#FF4444' }}>
+                      <span className="metric" style={{ fontSize: '0.75rem', color: '#DC2626' }}>
                         {formatEur(m.spend)}
                       </span>
-                      <span className="metric" style={{ fontSize: '0.75rem', color: '#7DEFEF' }}>
+                      <span className="metric" style={{ fontSize: '0.75rem', color: '#0D8585' }}>
                         {formatEur(m.revenue)}
                       </span>
                     </div>
                   </div>
-                  <div style={{ position: 'relative', height: 4, backgroundColor: '#1C1C1C', borderRadius: 2 }}>
+                  <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>
                     {/* Revenue bar */}
                     <div
                       style={{
@@ -139,7 +138,7 @@ export default function MarketingPage() {
                         width: `${(m.revenue / maxRev) * 100}%`,
                         backgroundColor: '#7DEFEF',
                         borderRadius: 2,
-                        opacity: 0.3,
+                        opacity: 0.4,
                       }}
                     />
                     {/* Spend bar */}
@@ -150,9 +149,9 @@ export default function MarketingPage() {
                         top: 0,
                         height: '100%',
                         width: `${(m.spend / maxRev) * 100}%`,
-                        backgroundColor: '#FF4444',
+                        backgroundColor: '#DC2626',
                         borderRadius: 2,
-                        opacity: 0.7,
+                        opacity: 0.5,
                       }}
                     />
                   </div>
@@ -161,12 +160,12 @@ export default function MarketingPage() {
             })}
             <div className="flex items-center gap-4 mt-1">
               <div className="flex items-center gap-1.5">
-                <div style={{ width: 8, height: 3, backgroundColor: '#7DEFEF', opacity: 0.3, borderRadius: 1 }} />
-                <span className="label" style={{ color: '#555' }}>Revenue</span>
+                <div style={{ width: 8, height: 3, backgroundColor: '#7DEFEF', opacity: 0.4, borderRadius: 1 }} />
+                <span className="label" style={{ color: '#9E9D98' }}>Revenue</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div style={{ width: 8, height: 3, backgroundColor: '#FF4444', opacity: 0.7, borderRadius: 1 }} />
-                <span className="label" style={{ color: '#555' }}>Spend</span>
+                <div style={{ width: 8, height: 3, backgroundColor: '#DC2626', opacity: 0.5, borderRadius: 1 }} />
+                <span className="label" style={{ color: '#9E9D98' }}>Spend</span>
               </div>
             </div>
           </div>
@@ -180,8 +179,8 @@ export default function MarketingPage() {
               const maxRoas = Math.max(...mockRoasTrend.map((x) => x.roas))
               return (
                 <div key={m.month} className="flex items-center gap-3">
-                  <span className="label" style={{ width: 30, color: '#555' }}>{m.month}</span>
-                  <div style={{ flex: 1, height: 4, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
+                  <span className="label" style={{ width: 30, color: '#9E9D98' }}>{m.month}</span>
+                  <div style={{ flex: 1, height: 4, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
                     <div
                       style={{
                         width: `${(m.roas / maxRoas) * 100}%`,
@@ -191,7 +190,7 @@ export default function MarketingPage() {
                       }}
                     />
                   </div>
-                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#CCC', width: 36, textAlign: 'right' }}>
+                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#6B6A64', width: 36, textAlign: 'right' }}>
                     {m.roas.toFixed(2)}×
                   </span>
                 </div>
@@ -205,19 +204,19 @@ export default function MarketingPage() {
               const maxCac = Math.max(...mockCacTrend.map((x) => x.cac))
               return (
                 <div key={m.month} className="flex items-center gap-3">
-                  <span className="label" style={{ width: 30, color: '#555' }}>{m.month}</span>
-                  <div style={{ flex: 1, height: 4, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
+                  <span className="label" style={{ width: 30, color: '#9E9D98' }}>{m.month}</span>
+                  <div style={{ flex: 1, height: 4, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
                     <div
                       style={{
                         width: `${(m.cac / maxCac) * 100}%`,
                         height: '100%',
-                        backgroundColor: '#E8DFD0',
+                        backgroundColor: '#C8A882',
                         borderRadius: 2,
-                        opacity: 0.6,
+                        opacity: 0.7,
                       }}
                     />
                   </div>
-                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#888', width: 40, textAlign: 'right' }}>
+                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#9E9D98', width: 40, textAlign: 'right' }}>
                     {formatEur(m.cac)}
                   </span>
                 </div>
@@ -241,8 +240,7 @@ export default function MarketingPage() {
                     style={{
                       textAlign: h === 'Month' ? 'left' : 'right',
                       paddingBottom: 10,
-                      borderBottom: '1px solid #1C1C1C',
-                      color: '#333',
+                      borderBottom: '1px solid #E3E2DC',
                     }}
                   >
                     {h}
@@ -252,18 +250,18 @@ export default function MarketingPage() {
             </thead>
             <tbody>
               {mockMonthlyAdSpend.map((row, i) => (
-                <tr key={row.month} style={{ borderBottom: i < mockMonthlyAdSpend.length - 1 ? '1px solid #141414' : 'none' }}>
-                  <td className="label" style={{ padding: '10px 0', color: '#888' }}>{row.month}</td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#FF4444' }}>
+                <tr key={row.month} style={{ borderBottom: i < mockMonthlyAdSpend.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                  <td className="label" style={{ padding: '10px 0', color: '#6B6A64' }}>{row.month}</td>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#DC2626' }}>
                     {formatEur(row.meta)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#333' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#9E9D98' }}>
                     —
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#E8DFD0' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#9A7A5A' }}>
                     {formatEur(row.influencer)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#FFF', fontWeight: 600 }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontSize: '0.8125rem', color: '#111110', fontWeight: 600 }}>
                     {formatEur(row.total)}
                   </td>
                 </tr>

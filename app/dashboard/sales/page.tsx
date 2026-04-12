@@ -20,15 +20,12 @@ export default function SalesPage() {
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
       <div className="mb-8">
-        <span className="label" style={{ display: 'block', marginBottom: 8 }}>
-          Analytics
-        </span>
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.5rem',
-            fontWeight: 500,
-            color: '#FFFFFF',
+            fontSize: '1.75rem',
+            fontWeight: 600,
+            color: '#111110',
             margin: 0,
           }}
         >
@@ -42,8 +39,8 @@ export default function SalesPage() {
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '1px',
-          backgroundColor: '#222',
-          borderRadius: '4px',
+          backgroundColor: '#E3E2DC',
+          borderRadius: 16,
           overflow: 'hidden',
           marginBottom: 24,
         }}
@@ -54,12 +51,12 @@ export default function SalesPage() {
           { label: 'AOV (Mar)', value: formatEur(aov), sub: 'Average order value' },
           { label: 'Return Rate (Mar)', value: `${mockReturnRate[mockReturnRate.length - 1].rate}%`, sub: 'Returns' },
         ].map((stat) => (
-          <div key={stat.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
+          <div key={stat.label} style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
             <span className="label" style={{ display: 'block', marginBottom: 8 }}>{stat.label}</span>
-            <span className="metric" style={{ display: 'block', fontSize: '1.5rem', fontWeight: 600, color: '#FFF', lineHeight: 1, marginBottom: 4 }}>
+            <span className="metric" style={{ display: 'block', fontSize: '1.5rem', fontWeight: 600, color: '#111110', lineHeight: 1, marginBottom: 4 }}>
               {stat.value}
             </span>
-            <span className="label" style={{ color: '#333' }}>{stat.sub}</span>
+            <span className="label" style={{ color: '#9E9D98' }}>{stat.sub}</span>
           </div>
         ))}
       </div>
@@ -74,14 +71,14 @@ export default function SalesPage() {
               const pct = (m.revenue_gross / maxRev) * 100
               return (
                 <div key={m.month} className="flex items-center gap-3">
-                  <span className="label" style={{ width: 30, color: '#555' }}>{m.month}</span>
-                  <div style={{ flex: 1, height: 4, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
+                  <span className="label" style={{ width: 30, color: '#9E9D98' }}>{m.month}</span>
+                  <div style={{ flex: 1, height: 4, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#7DEFEF', borderRadius: 2 }} />
                   </div>
-                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#CCC', width: 68, textAlign: 'right' }}>
+                  <span className="metric" style={{ fontSize: '0.8125rem', color: '#111110', width: 68, textAlign: 'right' }}>
                     {formatEur(m.revenue_gross)}
                   </span>
-                  <span className="metric" style={{ fontSize: '0.75rem', color: '#444', width: 30, textAlign: 'right' }}>
+                  <span className="metric" style={{ fontSize: '0.75rem', color: '#9E9D98', width: 30, textAlign: 'right' }}>
                     {m.orders}
                   </span>
                 </div>
@@ -100,15 +97,15 @@ export default function SalesPage() {
               return (
                 <div key={item.sku} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <span style={{ fontFamily: "'Gustavo', sans-serif", fontSize: '0.8125rem', color: '#CCC' }}>
+                    <span style={{ fontFamily: "'Gustavo', sans-serif", fontSize: '0.8125rem', color: '#6B6A64' }}>
                       {item.name}
                     </span>
                     <div className="flex items-center gap-3">
-                      <span className="metric" style={{ fontSize: '0.8125rem', color: '#FFF', fontWeight: 600 }}>{item.units}</span>
-                      <span className="metric" style={{ fontSize: '0.75rem', color: '#555' }}>{formatEur(item.revenue)}</span>
+                      <span className="metric" style={{ fontSize: '0.8125rem', color: '#111110', fontWeight: 600 }}>{item.units}</span>
+                      <span className="metric" style={{ fontSize: '0.75rem', color: '#9E9D98' }}>{formatEur(item.revenue)}</span>
                     </div>
                   </div>
-                  <div style={{ height: 3, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: 3, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#7DEFEF', borderRadius: 2, opacity: 0.7 }} />
                   </div>
                 </div>
@@ -125,14 +122,14 @@ export default function SalesPage() {
           <div className="flex flex-col gap-2">
             {mockRevenueByCountry.map((c) => (
               <div key={c.code} className="flex items-center gap-3">
-                <span className="label" style={{ width: 20, color: '#555' }}>{c.code}</span>
-                <span style={{ fontFamily: "'Gustavo', sans-serif", fontSize: '0.8125rem', color: '#CCC', flex: 1 }}>
+                <span className="label" style={{ width: 20, color: '#9E9D98' }}>{c.code}</span>
+                <span style={{ fontFamily: "'Gustavo', sans-serif", fontSize: '0.8125rem', color: '#6B6A64', flex: 1 }}>
                   {c.country}
                 </span>
-                <div style={{ width: 80, height: 3, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ width: 80, height: 3, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ width: `${c.percent}%`, height: '100%', backgroundColor: '#7DEFEF', borderRadius: 2 }} />
                 </div>
-                <span className="metric" style={{ fontSize: '0.8125rem', color: '#888', width: 40, textAlign: 'right' }}>
+                <span className="metric" style={{ fontSize: '0.8125rem', color: '#9E9D98', width: 40, textAlign: 'right' }}>
                   {c.percent}%
                 </span>
               </div>
@@ -146,11 +143,11 @@ export default function SalesPage() {
           <div className="flex flex-col gap-2 mb-6">
             {mockBundleAttachRate.map((m) => (
               <div key={m.month} className="flex items-center gap-3">
-                <span className="label" style={{ width: 30, color: '#555' }}>{m.month}</span>
-                <div style={{ flex: 1, height: 4, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ width: `${(m.rate / 30) * 100}%`, height: '100%', backgroundColor: '#E8DFD0', borderRadius: 2 }} />
+                <span className="label" style={{ width: 30, color: '#9E9D98' }}>{m.month}</span>
+                <div style={{ flex: 1, height: 4, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${(m.rate / 30) * 100}%`, height: '100%', backgroundColor: '#C8A882', borderRadius: 2 }} />
                 </div>
-                <span className="metric" style={{ fontSize: '0.8125rem', color: '#CCC', width: 40, textAlign: 'right' }}>
+                <span className="metric" style={{ fontSize: '0.8125rem', color: '#6B6A64', width: 40, textAlign: 'right' }}>
                   {m.rate}%
                 </span>
               </div>
@@ -161,11 +158,11 @@ export default function SalesPage() {
           <div className="flex flex-col gap-2">
             {mockReturnRate.map((m) => (
               <div key={m.month} className="flex items-center gap-3">
-                <span className="label" style={{ width: 30, color: '#555' }}>{m.month}</span>
-                <div style={{ flex: 1, height: 4, backgroundColor: '#1C1C1C', borderRadius: 2, overflow: 'hidden' }}>
-                  <div style={{ width: `${(m.rate / 5) * 100}%`, height: '100%', backgroundColor: '#FF4444', borderRadius: 2, opacity: 0.6 }} />
+                <span className="label" style={{ width: 30, color: '#9E9D98' }}>{m.month}</span>
+                <div style={{ flex: 1, height: 4, backgroundColor: '#E3E2DC', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: `${(m.rate / 5) * 100}%`, height: '100%', backgroundColor: '#DC2626', borderRadius: 2, opacity: 0.5 }} />
                 </div>
-                <span className="metric" style={{ fontSize: '0.8125rem', color: '#888', width: 40, textAlign: 'right' }}>
+                <span className="metric" style={{ fontSize: '0.8125rem', color: '#9E9D98', width: 40, textAlign: 'right' }}>
                   {m.rate}%
                 </span>
               </div>

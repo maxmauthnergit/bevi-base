@@ -16,7 +16,7 @@ function formatEur(value: number) {
 }
 
 function sign(value: number) {
-  return value >= 0 ? '#7DEFEF' : '#FF4444'
+  return value >= 0 ? '#0D8585' : '#DC2626'
 }
 
 export default function FinancialsPage() {
@@ -27,13 +27,12 @@ export default function FinancialsPage() {
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
       <div className="mb-8">
-        <span className="label" style={{ display: 'block', marginBottom: 8 }}>Finance</span>
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.5rem',
-            fontWeight: 500,
-            color: '#FFFFFF',
+            fontSize: '1.75rem',
+            fontWeight: 600,
+            color: '#111110',
             margin: 0,
           }}
         >
@@ -47,8 +46,8 @@ export default function FinancialsPage() {
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr)',
           gap: '1px',
-          backgroundColor: '#222',
-          borderRadius: '4px',
+          backgroundColor: '#E3E2DC',
+          borderRadius: 16,
           overflow: 'hidden',
           marginBottom: 24,
         }}
@@ -59,7 +58,7 @@ export default function FinancialsPage() {
           { label: 'Total Liquid', value: mockLiquidPosition.total, sub: `as of ${mockLiquidPosition.as_of}`, accent: true },
           { label: 'Net of Liabilities', value: netPosition, sub: `− ${formatEur(totalLiabilities)} liabilities`, accent: false },
         ].map((item) => (
-          <div key={item.label} style={{ backgroundColor: '#141414', padding: '20px' }}>
+          <div key={item.label} style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
             <span className="label" style={{ display: 'block', marginBottom: 8 }}>{item.label}</span>
             <span
               className="metric"
@@ -67,14 +66,14 @@ export default function FinancialsPage() {
                 display: 'block',
                 fontSize: '1.5rem',
                 fontWeight: 600,
-                color: item.accent ? '#7DEFEF' : '#FFFFFF',
+                color: item.accent ? '#0D8585' : '#111110',
                 lineHeight: 1,
                 marginBottom: 6,
               }}
             >
               {formatEur(item.value)}
             </span>
-            <span className="label" style={{ color: '#333' }}>{item.sub}</span>
+            <span className="label" style={{ color: '#9E9D98' }}>{item.sub}</span>
           </div>
         ))}
       </div>
@@ -94,8 +93,7 @@ export default function FinancialsPage() {
                       style={{
                         textAlign: h === '' ? 'left' : 'right',
                         paddingBottom: 10,
-                        borderBottom: '1px solid #1C1C1C',
-                        color: '#333',
+                        borderBottom: '1px solid #E3E2DC',
                         fontWeight: 500,
                       }}
                     >
@@ -108,22 +106,22 @@ export default function FinancialsPage() {
                 {mockMonthlyPnL.map((row, i) => (
                   <tr
                     key={row.month}
-                    style={{ borderBottom: i < mockMonthlyPnL.length - 1 ? '1px solid #1A1A1A' : 'none' }}
+                    style={{ borderBottom: i < mockMonthlyPnL.length - 1 ? '1px solid #F0EFE9' : 'none' }}
                   >
-                    <td className="label" style={{ padding: '9px 0', color: '#666' }}>{row.month}</td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#7DEFEF' }}>
+                    <td className="label" style={{ padding: '9px 0', color: '#6B6A64' }}>{row.month}</td>
+                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#0D8585' }}>
                       {formatEur(row.revenue_gross)}
                     </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#888' }}>
+                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
                       −{formatEur(row.cogs)}
                     </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#888' }}>
+                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
                       −{formatEur(row.cac)}
                     </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#888' }}>
+                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
                       −{formatEur(row.weship)}
                     </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#555' }}>
+                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#6B6A64' }}>
                       −{formatEur(row.fixed)}
                     </td>
                     <td
@@ -152,24 +150,24 @@ export default function FinancialsPage() {
               <div
                 key={l.id}
                 className="flex flex-col gap-1 pb-3"
-                style={{ borderBottom: i < mockLiabilities.length - 1 ? '1px solid #1C1C1C' : 'none' }}
+                style={{ borderBottom: i < mockLiabilities.length - 1 ? '1px solid #F0EFE9' : 'none' }}
               >
                 <div className="flex items-center justify-between">
                   <span
                     style={{
                       fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                       fontSize: '0.8125rem',
-                      color: '#CCC',
+                      color: '#111110',
                     }}
                   >
                     {l.name}
                   </span>
-                  <span className="metric" style={{ fontSize: '0.875rem', color: '#FF4444', fontWeight: 600 }}>
+                  <span className="metric" style={{ fontSize: '0.875rem', color: '#DC2626', fontWeight: 600 }}>
                     {formatEur(l.amount)}
                   </span>
                 </div>
                 {l.note && (
-                  <span className="label" style={{ color: '#333' }}>{l.note}</span>
+                  <span className="label" style={{ color: '#9E9D98' }}>{l.note}</span>
                 )}
               </div>
             ))}
@@ -178,10 +176,10 @@ export default function FinancialsPage() {
           {/* Total */}
           <div
             className="flex items-center justify-between pt-3"
-            style={{ borderTop: '1px solid #1C1C1C' }}
+            style={{ borderTop: '1px solid #E3E2DC' }}
           >
-            <span className="label" style={{ color: '#555' }}>Total</span>
-            <span className="metric" style={{ fontSize: '0.875rem', color: '#FF4444', fontWeight: 700 }}>
+            <span className="label">Total</span>
+            <span className="metric" style={{ fontSize: '0.875rem', color: '#DC2626', fontWeight: 700 }}>
               {formatEur(totalLiabilities)}
             </span>
           </div>
@@ -193,7 +191,7 @@ export default function FinancialsPage() {
         <CardHeader
           label="3-Month Rolling Forecast"
           action={
-            <span className="label" style={{ color: '#444' }}>
+            <span className="label" style={{ color: '#9E9D98' }}>
               Mock projections — edit in Settings
             </span>
           }
@@ -209,8 +207,7 @@ export default function FinancialsPage() {
                     style={{
                       textAlign: h === 'Month' ? 'left' : 'right',
                       paddingBottom: 10,
-                      borderBottom: '1px solid #1C1C1C',
-                      color: '#333',
+                      borderBottom: '1px solid #E3E2DC',
                     }}
                   >
                     {h}
@@ -222,38 +219,38 @@ export default function FinancialsPage() {
               {mockCashflowForecast.map((row, i) => (
                 <tr
                   key={row.month}
-                  style={{ borderBottom: i < mockCashflowForecast.length - 1 ? '1px solid #1A1A1A' : 'none' }}
+                  style={{ borderBottom: i < mockCashflowForecast.length - 1 ? '1px solid #F0EFE9' : 'none' }}
                 >
                   <td style={{ padding: '10px 0' }}>
                     <span
                       style={{
                         fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                         fontSize: '0.8125rem',
-                        color: '#888',
+                        color: '#6B6A64',
                       }}
                     >
                       {new Date(row.month + '-01').toLocaleDateString('en-GB', { month: 'long', year: '2-digit' })}
                     </span>
                     <span
                       className="label"
-                      style={{ marginLeft: 8, color: '#333' }}
+                      style={{ marginLeft: 8, color: '#9E9D98' }}
                     >
                       Forecast
                     </span>
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#7DEFEF' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#0D8585' }}>
                     {formatEur(row.projected_revenue)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#FF4444' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#DC2626' }}>
                     −{formatEur(row.projected_ad_spend)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#888' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#9E9D98' }}>
                     −{formatEur(row.projected_cogs)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#888' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#9E9D98' }}>
                     −{formatEur(row.projected_weship_cost)}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#555' }}>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#6B6A64' }}>
                     −{formatEur(row.projected_fixed_costs)}
                   </td>
                   <td
@@ -276,19 +273,19 @@ export default function FinancialsPage() {
         {/* Running liquid position */}
         <div
           className="flex items-center justify-between mt-5 pt-4"
-          style={{ borderTop: '1px solid #1C1C1C' }}
+          style={{ borderTop: '1px solid #E3E2DC' }}
         >
           <div>
-            <span className="label" style={{ color: '#444', display: 'block', marginBottom: 4 }}>
+            <span className="label" style={{ display: 'block', marginBottom: 4 }}>
               Projected Liquid Position after Q2
             </span>
-            <span className="label" style={{ color: '#333' }}>
+            <span className="label" style={{ color: '#9E9D98' }}>
               Current {formatEur(mockLiquidPosition.total)} + 3× projected results
             </span>
           </div>
           <span
             className="metric"
-            style={{ fontSize: '1.25rem', fontWeight: 700, color: '#7DEFEF' }}
+            style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0D8585' }}
           >
             {formatEur(
               mockLiquidPosition.total +

@@ -1,4 +1,3 @@
-import { clsx } from 'clsx'
 import type { KpiValue, MetricDefinition, FormatType } from '@/lib/types'
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -46,7 +45,6 @@ function formatDelta(delta: number, format: FormatType): string {
 interface KpiCardProps {
   metric: MetricDefinition
   data: KpiValue
-  /** Show a secondary line of text below the value */
   subtitle?: string
 }
 
@@ -56,61 +54,57 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
   const isPositive = isPositiveUp ? trend === 'up' : trend === 'down'
   const isNegative = isPositiveUp ? trend === 'down' : trend === 'up'
 
-  const deltaColor = isPositive
-    ? '#7DEFEF'
+  const deltaColor = isPositive ? '#0D8585' : isNegative ? '#DC2626' : '#9E9D98'
+  const deltaBg    = isPositive
+    ? 'rgba(125,239,239,0.18)'
     : isNegative
-    ? '#FF4444'
-    : '#888888'
+    ? 'rgba(220,38,38,0.08)'
+    : 'rgba(0,0,0,0.04)'
 
   const trendArrow = trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'
 
   return (
     <div
-      className="p-5 flex flex-col gap-3"
+      className="p-6 flex flex-col gap-3"
       style={{
-        backgroundColor: '#141414',
-        border: '1px solid #222222',
-        borderRadius: '4px',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
       }}
     >
-      {/* Label */}
       <span className="label">{metric.label}</span>
 
-      {/* Value */}
       <div className="flex items-end justify-between gap-2">
         <span
           className="metric"
-          style={{ fontSize: '1.625rem', fontWeight: 600, color: '#FFFFFF', lineHeight: 1 }}
+          style={{ fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1 }}
         >
           {formatValue(value, metric.format)}
         </span>
 
-        {/* Delta badge */}
         {delta !== undefined && deltaPercent !== undefined && (
           <div
             className="flex items-center gap-1 shrink-0 mb-0.5"
-            style={{ color: deltaColor }}
+            style={{
+              backgroundColor: deltaBg,
+              borderRadius: 100,
+              padding: '3px 8px',
+              color: deltaColor,
+            }}
           >
-            <span style={{ fontSize: '0.75rem', fontFamily: 'inherit' }}>
-              {trendArrow}
-            </span>
-            <span className="metric" style={{ fontSize: '0.75rem', fontWeight: 500 }}>
+            <span style={{ fontSize: '0.6875rem' }}>{trendArrow}</span>
+            <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600 }}>
               {deltaPercent.toFixed(1)}%
             </span>
           </div>
         )}
       </div>
 
-      {/* Delta vs previous period */}
       {delta !== undefined && (
         <div className="flex items-center justify-between">
-          <span style={{ fontSize: '0.75rem', color: '#888888' }}>
+          <span style={{ fontSize: '0.75rem', color: '#9E9D98', fontFamily: 'inherit' }}>
             {subtitle ?? 'vs. prev. month'}
           </span>
-          <span
-            className="metric"
-            style={{ fontSize: '0.75rem', color: deltaColor }}
-          >
+          <span className="metric" style={{ fontSize: '0.75rem', color: deltaColor }}>
             {formatDelta(delta, metric.format)}
           </span>
         </div>
