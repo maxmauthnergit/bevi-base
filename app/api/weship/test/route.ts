@@ -1,35 +1,52 @@
 import { NextResponse } from 'next/server'
-import { weshipFetch } from '@/lib/weship/client'
-import type { WeShipProductsResponse, WeShipOrdersResponse } from '@/lib/weship/client'
 
 export const dynamic = 'force-dynamic'
 
+async function login(): Promise<{ token: string; raw: unknown }> {
+  const baseUrl  = process.env.WESHIP_BASE_URL!
+  const username = process.env.WESHIP_USERNAME!
+  const password = process.env.WESHIP_PASSWORD!
+
+  const res = await fetch(`${baseUrl}/mapi/public/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: username, password }),
+    cache: 'no-store',
+  })
+  const data = await res.json() as Record<string, string>
+  const token = data.session_id ?? data.token ?? data.key ?? data.access_token ?? ''
+  return { token, raw: data }
+}
+
+async function probe(url: string, headers: Record<string, string>) {
+  try {
+    const res = await fetch(url, { headers, cache: 'no-store' })
+    const text = await res.text()
+    let body: unknown = text
+    try { body = JSON.parse(text) } catch { /* keep text */ }
+    return { status: res.status, ok: res.ok, body }
+  } catch (e) {
+    return { status: 0, ok: false, body: String(e) }
+  }
+}
+
 export async function GET() {
-  const results: Record<string, unknown> = {}
+  const baseUrl = process.env.WESHIP_BASE_URL!
+  const { token, raw: loginRaw } = await login()
+  const url = `${baseUrl}/mapi/product/search`
 
-  try {
-    const products = await weshipFetch<WeShipProductsResponse>('/mapi/product/search')
-    results.products = {
-      ok: true,
-      total: products.total,
-      count: products.count_rows,
-      first: products.rows?.[0] ?? null,
-    }
-  } catch (e) {
-    results.products = { ok: false, error: String(e) }
-  }
+  const formats = [
+    { name: 'Cookie: session_id',        headers: { Cookie: `session_id=${token}`, 'Content-Type': 'application/json' } },
+    { name: 'Cookie: session',           headers: { Cookie: `session=${token}`,    'Content-Type': 'application/json' } },
+    { name: 'Authorization: Token',      headers: { Authorization: `Token ${token}`,   'Content-Type': 'application/json' } },
+    { name: 'Authorization: Bearer',     headers: { Authorization: `Bearer ${token}`,  'Content-Type': 'application/json' } },
+    { name: 'X-Session-ID header',       headers: { 'X-Session-ID': token,             'Content-Type': 'application/json' } },
+    { name: 'No auth (check if public)', headers: { 'Content-Type': 'application/json' } },
+  ]
 
-  try {
-    const orders = await weshipFetch<WeShipOrdersResponse>('/mapi/order/search')
-    results.orders = {
-      ok: true,
-      total: orders.total,
-      count: orders.count_rows,
-      first: orders.rows?.[0] ?? null,
-    }
-  } catch (e) {
-    results.orders = { ok: false, error: String(e) }
-  }
+  const results = await Promise.all(
+    formats.map(async (f) => ({ format: f.name, ...(await probe(url, f.headers)) }))
+  )
 
-  return NextResponse.json({ ok: true, results })
+  return NextResponse.json({ loginRaw, token_length: token.length, url, results })
 }
