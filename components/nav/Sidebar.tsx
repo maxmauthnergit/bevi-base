@@ -10,10 +10,10 @@ const navItems = [
     label: 'Overview',
     icon: (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="0" y="0" width="6" height="6" fill="currentColor" opacity="0.9" />
-        <rect x="8" y="0" width="6" height="6" fill="currentColor" opacity="0.9" />
-        <rect x="0" y="8" width="6" height="6" fill="currentColor" opacity="0.9" />
-        <rect x="8" y="8" width="6" height="6" fill="currentColor" opacity="0.9" />
+        <rect x="0" y="0" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
+        <rect x="8" y="0" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
+        <rect x="0" y="8" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
+        <rect x="8" y="8" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
       </svg>
     ),
   },
@@ -41,9 +41,9 @@ const navItems = [
     label: 'Financials',
     icon: (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="8" width="2.5" height="5" fill="currentColor" />
-        <rect x="5.5" y="5" width="2.5" height="8" fill="currentColor" />
-        <rect x="10" y="2" width="2.5" height="11" fill="currentColor" />
+        <rect x="1" y="8" width="2.5" height="5" rx="1" fill="currentColor" />
+        <rect x="5.5" y="5" width="2.5" height="8" rx="1" fill="currentColor" />
+        <rect x="10" y="2" width="2.5" height="11" rx="1" fill="currentColor" />
       </svg>
     ),
   },
@@ -52,10 +52,10 @@ const navItems = [
     label: 'Inventory',
     icon: (
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="1" width="5.5" height="5.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="7.5" y="1" width="5.5" height="5.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="1" y="7.5" width="5.5" height="5.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="7.5" y="7.5" width="5.5" height="5.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="1" y="1" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="7.5" y="1" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="1" y="7.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
       </svg>
     ),
   },
@@ -83,19 +83,17 @@ export function Sidebar() {
     <aside
       className="flex flex-col h-full"
       style={{
-        width: 200,
-        minWidth: 200,
-        backgroundColor: '#0E0E0E',
-        borderRight: '1px solid #1C1C1C',
+        width: 210,
+        minWidth: 210,
+        backgroundColor: '#111110',
+        borderRight: '1px solid #1E1E1C',
       }}
     >
-      {/* Logo / wordmark */}
+      {/* Logo */}
       <div
         className="flex items-center"
-        style={{ padding: '22px 20px 18px', borderBottom: '1px solid #1C1C1C' }}
+        style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1E1E1C' }}
       >
-        {/* Full Bevi wordmark — place your PNG at /public/bevi-wordmark.png to use it */}
-        {/* Falls back to Gustavo text wordmark */}
         <img
           src="/bevi-wordmark.png"
           alt="Bevi"
@@ -115,7 +113,6 @@ export function Sidebar() {
             fontSize: '1.25rem',
             fontWeight: 700,
             color: '#FFFFFF',
-            letterSpacing: '-0.01em',
             lineHeight: 1,
           }}
         >
@@ -124,14 +121,12 @@ export function Sidebar() {
       </div>
 
       {/* Section label */}
-      <div style={{ padding: '20px 20px 8px' }}>
-        <span className="label" style={{ color: '#333' }}>
-          Bevi Base
-        </span>
+      <div style={{ padding: '20px 20px 10px' }}>
+        <span className="label" style={{ color: '#3A3A38' }}>Bevi Base</span>
       </div>
 
-      {/* Nav items */}
-      <nav className="flex flex-col gap-0.5 px-2 flex-1">
+      {/* Nav */}
+      <nav className="flex flex-col gap-1 px-3 flex-1">
         {navItems.map((item) => {
           const active = isActive(item.href)
           return (
@@ -140,11 +135,11 @@ export function Sidebar() {
               href={item.href}
               className={clsx(
                 'flex items-center gap-3 px-3 py-2.5 transition-colors',
-                active ? 'text-white' : 'text-[#555] hover:text-[#999]',
+                active ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
               )}
               style={{
-                borderRadius: '4px',
-                backgroundColor: active ? '#1A1A1A' : 'transparent',
+                borderRadius: 10,
+                backgroundColor: active ? '#1E1E1C' : 'transparent',
                 textDecoration: 'none',
               }}
             >
@@ -163,18 +158,17 @@ export function Sidebar() {
                   fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                   fontSize: '0.8125rem',
                   fontWeight: active ? 500 : 400,
-                  letterSpacing: '0.02em',
+                  letterSpacing: '0.01em',
                 }}
               >
                 {item.label}
               </span>
-              {/* Active indicator dot */}
               {active && (
                 <span
                   style={{
                     marginLeft: 'auto',
-                    width: 4,
-                    height: 4,
+                    width: 5,
+                    height: 5,
                     borderRadius: '50%',
                     backgroundColor: '#7DEFEF',
                     flexShrink: 0,
@@ -187,18 +181,9 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div
-        style={{
-          padding: '16px 20px',
-          borderTop: '1px solid #1C1C1C',
-        }}
-      >
-        <p className="label" style={{ color: '#2A2A2A', marginBottom: 2 }}>
-          Bevi Bag GmbH
-        </p>
-        <p className="label" style={{ color: '#222' }}>
-          Internal use only
-        </p>
+      <div style={{ padding: '16px 20px', borderTop: '1px solid #1E1E1C' }}>
+        <p className="label" style={{ color: '#3A3A38', marginBottom: 2 }}>Bevi Bag GmbH</p>
+        <p className="label" style={{ color: '#2A2A28' }}>Internal use only</p>
       </div>
     </aside>
   )

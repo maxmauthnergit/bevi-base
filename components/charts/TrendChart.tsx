@@ -90,15 +90,16 @@ function CustomTooltip({ active, payload, label }: any) {
   return (
     <div
       style={{
-        backgroundColor: '#141414',
-        border: '1px solid #2A2A2A',
-        borderRadius: 4,
+        backgroundColor: '#FFFFFF',
+        border: '1px solid #E3E2DC',
+        borderRadius: 10,
         padding: '10px 14px',
         fontSize: '0.75rem',
         fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
+        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
       }}
     >
-      <p style={{ color: '#555', marginBottom: 6, fontSize: '0.6875rem' }}>
+      <p style={{ color: '#9E9D98', marginBottom: 6, fontSize: '0.6875rem' }}>
         {formatDateLabel(label)}
       </p>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
@@ -285,13 +286,13 @@ export function TrendChart() {
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="4 4" stroke="#1A1A1A" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke="#EDECEA" vertical={false} />
 
             <XAxis
               dataKey="date"
               ticks={xTicks}
               tickFormatter={formatDateLabel}
-              tick={{ fill: '#444', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
+              tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
               axisLine={false}
               tickLine={false}
             />
@@ -299,7 +300,7 @@ export function TrendChart() {
               ticks={yTicks}
               domain={[0, yMax]}
               tickFormatter={(v) => formatEur(v)}
-              tick={{ fill: '#444', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
+              tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
               axisLine={false}
               tickLine={false}
               width={58}

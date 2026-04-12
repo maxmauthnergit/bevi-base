@@ -58,7 +58,7 @@ export default async function InventoryPage() {
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: '1.5rem',
             fontWeight: 500,
-            color: '#FFFFFF',
+            color: '#111110',
             margin: 0,
           }}
         >
@@ -71,7 +71,7 @@ export default async function InventoryPage() {
         <CardHeader
           label="Current Stock Levels"
           action={
-            <span className="label" style={{ color: '#333' }}>
+            <span className="label" style={{ color: '#9E9D98' }}>
               {isWeShipLive ? 'WeShip · live' : 'WeShip · offline'}
               {' · '}
               {isShopifyLive ? 'Shopify · live' : 'Shopify · offline'}
@@ -99,8 +99,7 @@ export default async function InventoryPage() {
                       textAlign: align as 'left' | 'right',
                       paddingBottom: 10,
                       paddingRight: label === 'Threshold' ? 32 : 0,
-                      borderBottom: '1px solid #1C1C1C',
-                      color: '#333',
+                      borderBottom: '1px solid #E3E2DC',
                       whiteSpace: 'nowrap',
                     }}
                   >
@@ -122,13 +121,13 @@ export default async function InventoryPage() {
                   <tr
                     key={item.sku}
                     style={{
-                      borderBottom: i < rows.length - 1 ? '1px solid #1A1A1A' : 'none',
+                      borderBottom: i < rows.length - 1 ? '1px solid #F0EFE9' : 'none',
                     }}
                   >
                     {/* SKU */}
                     <td
                       className="metric"
-                      style={{ padding: '12px 0', fontSize: '0.75rem', color: '#444', paddingRight: 16 }}
+                      style={{ padding: '12px 0', fontSize: '0.75rem', color: '#9E9D98', paddingRight: 16 }}
                     >
                       {item.sku}
                     </td>
@@ -139,7 +138,7 @@ export default async function InventoryPage() {
                         padding: '12px 0',
                         paddingRight: 16,
                         fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                        color: '#CCC',
+                        color: '#111110',
                       }}
                     >
                       {item.product_name}
@@ -165,14 +164,14 @@ export default async function InventoryPage() {
                           <span
                             style={{
                               fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                              color: item.color === 'beige' ? '#C8A882' : '#FFFFFF',
+                              color: item.color === 'beige' ? '#9A7A5A' : '#111110',
                             }}
                           >
                             {variantLabel}
                           </span>
                         </div>
                       ) : (
-                        <span style={{ color: '#333' }}>—</span>
+                        <span style={{ color: '#9E9D98' }}>—</span>
                       )}
                     </td>
 
@@ -184,11 +183,11 @@ export default async function InventoryPage() {
                         padding: '12px 0',
                         paddingRight: 16,
                         fontWeight: 600,
-                        color: item.isLow ? '#FF4444' : '#FFFFFF',
+                        color: item.isLow ? '#DC2626' : '#111110',
                       }}
                     >
                       {item.unitsWeship !== null ? item.unitsWeship : (
-                        <span style={{ color: '#333' }}>—</span>
+                        <span style={{ color: '#9E9D98' }}>—</span>
                       )}
                     </td>
 
@@ -199,7 +198,7 @@ export default async function InventoryPage() {
                         textAlign: 'right',
                         padding: '12px 0',
                         paddingRight: 24,
-                        color: '#444',
+                        color: '#9E9D98',
                         fontSize: '0.75rem',
                       }}
                     >
@@ -214,16 +213,16 @@ export default async function InventoryPage() {
                             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                             color: item.daysLeft !== null && item.daysLeft < 14
                               ? '#FF8C42'
-                              : '#888',
+                              : '#6B6A64',
                           }}
                         >
                           {formatDate(item.lastUntil)}
-                          <span style={{ color: '#333', marginLeft: 6, fontSize: '0.6875rem' }}>
+                          <span style={{ color: '#9E9D98', marginLeft: 6, fontSize: '0.6875rem' }}>
                             ({item.daysLeft}d)
                           </span>
                         </span>
                       ) : (
-                        <span style={{ color: '#333' }}>—</span>
+                        <span style={{ color: '#9E9D98' }}>—</span>
                       )}
                     </td>
 
@@ -235,7 +234,7 @@ export default async function InventoryPage() {
                         padding: '12px 0',
                         paddingRight: 32,
                         fontSize: '0.8125rem',
-                        color: '#333',
+                        color: '#9E9D98',
                       }}
                     >
                       {item.reorder_threshold}
@@ -249,11 +248,11 @@ export default async function InventoryPage() {
                           alignItems: 'center',
                           gap: 5,
                           padding: '3px 8px',
-                          borderRadius: 2,
+                          borderRadius: 6,
                           backgroundColor: item.isLow
-                            ? 'rgba(255,68,68,0.1)'
-                            : 'rgba(125,239,239,0.07)',
-                          border: `1px solid ${item.isLow ? 'rgba(255,68,68,0.3)' : 'rgba(125,239,239,0.15)'}`,
+                            ? 'rgba(220,38,38,0.08)'
+                            : 'rgba(13,133,133,0.08)',
+                          border: `1px solid ${item.isLow ? 'rgba(220,38,38,0.2)' : 'rgba(13,133,133,0.15)'}`,
                         }}
                       >
                         <span
@@ -261,13 +260,13 @@ export default async function InventoryPage() {
                             width: 5,
                             height: 5,
                             borderRadius: '50%',
-                            backgroundColor: item.isLow ? '#FF4444' : '#7DEFEF',
+                            backgroundColor: item.isLow ? '#DC2626' : '#0D8585',
                             display: 'inline-block',
                           }}
                         />
                         <span
                           className="label"
-                          style={{ color: item.isLow ? '#FF4444' : '#7DEFEF' }}
+                          style={{ color: item.isLow ? '#DC2626' : '#0D8585' }}
                         >
                           {item.isLow ? 'Reorder' : 'OK'}
                         </span>
