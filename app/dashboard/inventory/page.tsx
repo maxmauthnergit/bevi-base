@@ -40,7 +40,7 @@ export default async function InventoryPage() {
   })
 
   return (
-    <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
+    <main style={{ padding: '52px 40px', maxWidth: 1280 }}>
       {/* Header */}
       <div className="mb-8">
         <h1
