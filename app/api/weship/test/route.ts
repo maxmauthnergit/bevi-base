@@ -35,13 +35,14 @@ export async function GET() {
   const { token, raw: loginRaw } = await login()
   const url = `${baseUrl}/mapi/product/search`
 
-  const formats = [
-    { name: 'Cookie: session_id',        headers: { Cookie: `session_id=${token}`, 'Content-Type': 'application/json' } },
-    { name: 'Cookie: session',           headers: { Cookie: `session=${token}`,    'Content-Type': 'application/json' } },
-    { name: 'Authorization: Token',      headers: { Authorization: `Token ${token}`,   'Content-Type': 'application/json' } },
-    { name: 'Authorization: Bearer',     headers: { Authorization: `Bearer ${token}`,  'Content-Type': 'application/json' } },
-    { name: 'X-Session-ID header',       headers: { 'X-Session-ID': token,             'Content-Type': 'application/json' } },
-    { name: 'No auth (check if public)', headers: { 'Content-Type': 'application/json' } },
+  const ct = 'application/json'
+  const formats: { name: string; headers: Record<string, string> }[] = [
+    { name: 'Cookie: session_id',        headers: { Cookie: `session_id=${token}`, 'Content-Type': ct } },
+    { name: 'Cookie: session',           headers: { Cookie: `session=${token}`,    'Content-Type': ct } },
+    { name: 'Authorization: Token',      headers: { Authorization: `Token ${token}`,  'Content-Type': ct } },
+    { name: 'Authorization: Bearer',     headers: { Authorization: `Bearer ${token}`, 'Content-Type': ct } },
+    { name: 'X-Session-ID header',       headers: { 'X-Session-ID': token,            'Content-Type': ct } },
+    { name: 'No auth (check if public)', headers: { 'Content-Type': ct } },
   ]
 
   const results = await Promise.all(
