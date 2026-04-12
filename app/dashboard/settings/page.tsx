@@ -169,7 +169,7 @@ export default function SettingsPage() {
               style={{
                 padding: '14px 16px',
                 backgroundColor: '#F5F4F0',
-                borderRadius: 10,
+                borderRadius: 16,
                 border: '1px solid #E3E2DC',
               }}
             >

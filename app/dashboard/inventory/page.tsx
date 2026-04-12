@@ -286,7 +286,7 @@ export default async function InventoryPage() {
           marginTop: 24,
           padding: '20px 20px',
           backgroundColor: '#EDECEA',
-          borderRadius: 10,
+          borderRadius: 16,
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
