@@ -47,9 +47,8 @@ async function getToken(): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await res.json() as Record<string, any>
 
-  // Try common token field names (DRF: "token"/"key", OAuth: "access_token")
   const token: string | undefined =
-    data.token ?? data.key ?? data.access_token ?? data.session_token
+    data.session_id ?? data.token ?? data.key ?? data.access_token
 
   if (!token) {
     throw new Error(
@@ -78,7 +77,8 @@ export async function weshipFetch<T>(
     headers: {
       'Content-Type': 'application/json',
       // Try both common auth header formats — server accepts whichever it knows
-      Authorization: `Token ${token}`,
+      Authorization: `Session ${token}`,
+      'X-Session-ID': token,
       ...(rest.headers ?? {}),
     },
     next: next ?? { revalidate: 0 },
