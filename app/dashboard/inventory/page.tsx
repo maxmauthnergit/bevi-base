@@ -279,6 +279,62 @@ export default async function InventoryPage() {
           </table>
         </div>
       </Card>
+
+      {/* Methodology footnote */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: '14px 20px',
+          backgroundColor: '#EDECEA',
+          borderRadius: 10,
+          display: 'flex',
+          gap: 32,
+          flexWrap: 'wrap',
+        }}
+      >
+        {[
+          {
+            term: 'Avg Sales/Day',
+            desc: 'Based on Shopify orders placed within the last 30 days',
+          },
+          {
+            term: 'Stock Lasts Until',
+            desc: 'Projected date at current avg sales/day from WeShip stock',
+          },
+          {
+            term: 'Stock Level Min',
+            desc: (
+              <>
+                Reorder threshold per product — configure in{' '}
+                <a
+                  href="/dashboard/settings"
+                  style={{ color: '#6B6A64', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                >
+                  Settings
+                </a>
+              </>
+            ),
+          },
+        ].map(({ term, desc }) => (
+          <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span
+              className="label"
+              style={{ color: '#9E9D98', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}
+            >
+              {term}
+            </span>
+            <span
+              style={{
+                fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                fontSize: '0.75rem',
+                color: '#9E9D98',
+              }}
+            >
+              {desc}
+            </span>
+          </div>
+        ))}
+      </div>
     </main>
   )
 }
