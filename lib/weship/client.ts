@@ -35,7 +35,7 @@ async function getToken(): Promise<string> {
   const res = await fetch(`${baseUrl}/mapi/public/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ user: username, password }),
     cache: 'no-store',
   })
 
