@@ -24,7 +24,7 @@ export default function FinancialsPage() {
   const netPosition = mockLiquidPosition.total - totalLiabilities
 
   return (
-    <main style={{ padding: '52px 40px', maxWidth: 1200 }}>
+    <main style={{ padding: '112px 40px', maxWidth: 1200 }}>
       {/* Header */}
       <div className="mb-8">
         <h1
