@@ -21,7 +21,7 @@ export default function DashboardLayout({
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'flex-end',
-            padding: '32px 40px 0',
+            padding: '32px 52px 0',
             backgroundColor: '#F5F4F0',
           }}
         >
