@@ -95,10 +95,10 @@ export function Sidebar() {
         style={{ padding: '24px 20px 20px', borderBottom: '1px solid #1E1E1C' }}
       >
         <img
-          src="/bevi-wordmark.png"
-          alt="Bevi"
-          height={26}
-          style={{ height: 26, display: 'block', objectFit: 'contain' }}
+          src="/bevi-base-wordmark.png"
+          alt="Bevi Base"
+          height={30}
+          style={{ height: 30, display: 'block', objectFit: 'contain' }}
           onError={(e) => {
             const el = e.currentTarget
             el.style.display = 'none'
@@ -110,13 +110,13 @@ export function Sidebar() {
           style={{
             display: 'none',
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.25rem',
+            fontSize: '1.4375rem',
             fontWeight: 700,
             color: '#FFFFFF',
             lineHeight: 1,
           }}
         >
-          Bevi
+          Bevi Base
         </span>
       </div>
 

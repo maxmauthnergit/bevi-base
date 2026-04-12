@@ -38,41 +38,17 @@ export default async function DashboardPage() {
     .map((id) => metrics.find((m) => m.id === id))
     .filter(Boolean) as typeof metrics
 
-  const monthLabel = shopifyKPIs?.month_label
-    ?? new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-
-  const isLive     = !!shopifyKPIs
-  const isMetaLive = !!metaKPIs
 
   return (
     <main style={{ padding: '36px 40px', maxWidth: 1200 }}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 style={{
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
-          }}>
-            Bevi Base
-          </h1>
-          <p style={{
-            fontSize: '0.8125rem', color: '#9E9D98', marginTop: 6,
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-          }}>
-            {monthLabel} · all data provisional
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%',
-            backgroundColor: isLive ? '#0D8585' : '#D0CFC8',
-            display: 'inline-block',
-          }} />
-          <span className="label" style={{ color: isLive ? '#0D8585' : '#9E9D98' }}>
-            {isLive && isMetaLive ? 'Live · Shopify + Meta' : isLive ? 'Live · Shopify' : 'Mock Data'}
-          </span>
-        </div>
+      <div className="mb-8">
+        <h1 style={{
+          fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+          fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
+        }}>
+          Overview
+        </h1>
       </div>
 
       {/* Low stock alert */}
@@ -110,14 +86,7 @@ export default async function DashboardPage() {
       {/* Chart + upcoming costs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>
         <Card>
-          <CardHeader
-            label="Performance"
-            action={
-              <span className="label">
-                {isLive && isMetaLive ? 'Shopify + Meta · live' : isLive ? 'Shopify · Meta pending' : 'mock data'}
-              </span>
-            }
-          />
+          <CardHeader label="Performance" />
           <TrendChart />
         </Card>
 

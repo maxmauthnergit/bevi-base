@@ -60,17 +60,16 @@ export default function SettingsPage() {
     <main style={{ padding: '32px 40px', maxWidth: 1000 }}>
       {/* Header */}
       <div className="mb-8">
-        <span className="label" style={{ display: 'block', marginBottom: 8 }}>Configuration</span>
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.5rem',
-            fontWeight: 500,
-            color: '#FFFFFF',
+            fontSize: '1.75rem',
+            fontWeight: 600,
+            color: '#111110',
             margin: 0,
           }}
         >
-          Settings & Data Sync
+          Settings
         </h1>
       </div>
 
@@ -82,27 +81,27 @@ export default function SettingsPage() {
             <div
               key={integration.name}
               className="flex items-center justify-between py-3"
-              style={{ borderBottom: i < integrations.length - 1 ? '1px solid #1C1C1C' : 'none' }}
+              style={{ borderBottom: i < integrations.length - 1 ? '1px solid #F0EFE9' : 'none' }}
             >
               <div>
                 <span
                   style={{
                     fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '0.875rem',
-                    color: '#CCC',
+                    color: '#111110',
                     display: 'block',
                     marginBottom: 2,
                   }}
                 >
                   {integration.displayName}
                 </span>
-                <span className="label" style={{ color: '#333' }}>
+                <span className="label">
                   {integration.name === 'weship' ? 'Manual entry only' : 'Nightly sync · API'}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
-                <span className="label" style={{ color: '#444' }}>Last sync: —</span>
+                <span className="label">Last sync: —</span>
 
                 {/* Status badge */}
                 <div
@@ -111,9 +110,9 @@ export default function SettingsPage() {
                     alignItems: 'center',
                     gap: 5,
                     padding: '3px 10px',
-                    borderRadius: '2px',
-                    backgroundColor: 'rgba(255,68,68,0.08)',
-                    border: '1px solid rgba(255,68,68,0.2)',
+                    borderRadius: 6,
+                    backgroundColor: 'rgba(220,38,38,0.08)',
+                    border: '1px solid rgba(220,38,38,0.2)',
                   }}
                 >
                   <span
@@ -121,11 +120,11 @@ export default function SettingsPage() {
                       width: 5,
                       height: 5,
                       borderRadius: '50%',
-                      backgroundColor: '#FF4444',
+                      backgroundColor: '#DC2626',
                       display: 'inline-block',
                     }}
                   />
-                  <span className="label" style={{ color: '#FF4444' }}>
+                  <span className="label" style={{ color: '#DC2626' }}>
                     {integration.name === 'weship' ? 'Manual' : 'Not connected'}
                   </span>
                 </div>
@@ -136,10 +135,10 @@ export default function SettingsPage() {
                     disabled
                     style={{
                       padding: '4px 12px',
-                      borderRadius: '2px',
-                      border: '1px solid #2A2A2A',
-                      backgroundColor: 'transparent',
-                      color: '#444',
+                      borderRadius: 8,
+                      border: '1px solid #E3E2DC',
+                      backgroundColor: '#FFFFFF',
+                      color: '#9E9D98',
                       fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                       fontSize: '0.75rem',
                       cursor: 'not-allowed',
@@ -160,20 +159,18 @@ export default function SettingsPage() {
         <CardHeader
           label="API Credentials"
           action={
-            <span className="label" style={{ color: '#333' }}>
-              Stored encrypted in Supabase
-            </span>
+            <span className="label">Stored in .env.local</span>
           }
         />
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {apiCredentialFields.map((api) => (
             <div
               key={api.source}
               style={{
                 padding: '14px 16px',
-                backgroundColor: '#111',
-                borderRadius: '4px',
-                border: '1px solid #1C1C1C',
+                backgroundColor: '#F5F4F0',
+                borderRadius: 10,
+                border: '1px solid #E3E2DC',
               }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -181,12 +178,12 @@ export default function SettingsPage() {
                   style={{
                     fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '0.875rem',
-                    color: '#999',
+                    color: '#111110',
                   }}
                 >
                   {api.source}
                 </span>
-                <span className="label" style={{ color: '#333' }}>{api.status}</span>
+                <span className="label">{api.status}</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {api.fields.map((field) => (
@@ -195,10 +192,10 @@ export default function SettingsPage() {
                     className="metric"
                     style={{
                       fontSize: '0.6875rem',
-                      color: '#333',
-                      backgroundColor: '#0D0D0D',
-                      border: '1px solid #1A1A1A',
-                      borderRadius: '2px',
+                      color: '#6B6A64',
+                      backgroundColor: '#EDECEA',
+                      border: '1px solid #E3E2DC',
+                      borderRadius: 4,
                       padding: '2px 7px',
                     }}
                   >
@@ -213,13 +210,13 @@ export default function SettingsPage() {
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: '0.75rem',
-            color: '#333',
+            color: '#9E9D98',
             marginTop: 12,
             marginBottom: 0,
           }}
         >
-          Configure credentials in <code style={{ color: '#444', fontFamily: 'monospace' }}>.env.local</code> —
-          see <code style={{ color: '#444', fontFamily: 'monospace' }}>.env.local.example</code> for all required keys.
+          Configure credentials in <code style={{ color: '#6B6A64', fontFamily: 'monospace' }}>.env.local</code> —
+          see <code style={{ color: '#6B6A64', fontFamily: 'monospace' }}>.env.local.example</code> for all required keys.
         </p>
       </Card>
 
@@ -228,40 +225,40 @@ export default function SettingsPage() {
         <CardHeader
           label="Manual Data Entry"
           action={
-            <span className="label" style={{ color: '#333' }}>Stored in Supabase · manual_entries</span>
+            <span className="label">Stored in Supabase · manual_entries</span>
           }
         />
-        <div className="flex flex-col gap-3">
-          {manualInputFields.map((field) => (
+        <div className="flex flex-col">
+          {manualInputFields.map((field, i) => (
             <div
               key={field.id}
               className="flex items-center justify-between py-3"
-              style={{ borderBottom: '1px solid #1A1A1A' }}
+              style={{ borderBottom: i < manualInputFields.length - 1 ? '1px solid #F0EFE9' : 'none' }}
             >
               <div>
                 <span
                   style={{
                     fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '0.875rem',
-                    color: '#CCC',
+                    color: '#111110',
                     display: 'block',
                     marginBottom: 2,
                   }}
                 >
                   {field.label}
                 </span>
-                <span className="label" style={{ color: '#333' }}>{field.description}</span>
+                <span className="label">{field.description}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="label" style={{ color: '#333' }}>{field.frequency}</span>
+                <span className="label">{field.frequency}</span>
                 <button
                   disabled
                   style={{
                     padding: '5px 14px',
-                    borderRadius: '2px',
-                    border: '1px solid #2A2A2A',
-                    backgroundColor: 'transparent',
-                    color: '#555',
+                    borderRadius: 8,
+                    border: '1px solid #E3E2DC',
+                    backgroundColor: '#FFFFFF',
+                    color: '#9E9D98',
                     fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                     fontSize: '0.75rem',
                     cursor: 'not-allowed',
@@ -278,7 +275,7 @@ export default function SettingsPage() {
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontSize: '0.75rem',
-            color: '#333',
+            color: '#9E9D98',
             marginTop: 12,
             marginBottom: 0,
           }}
