@@ -284,12 +284,12 @@ export default async function InventoryPage() {
       <div
         style={{
           marginTop: 12,
-          padding: '14px 20px',
+          padding: '16px 20px',
           backgroundColor: '#EDECEA',
           borderRadius: 10,
           display: 'flex',
-          gap: 32,
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          gap: 12,
         }}
       >
         {[
@@ -316,10 +316,10 @@ export default async function InventoryPage() {
             ),
           },
         ].map(({ term, desc }) => (
-          <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>
             <span
               className="label"
-              style={{ color: '#9E9D98', whiteSpace: 'nowrap', letterSpacing: '0.06em' }}
+              style={{ color: '#9E9D98', whiteSpace: 'nowrap', letterSpacing: '0.06em', minWidth: 140 }}
             >
               {term}
             </span>
