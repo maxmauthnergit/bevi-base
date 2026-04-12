@@ -21,12 +21,32 @@ export default function DashboardLayout({
             display: 'flex',
             alignItems: 'flex-start',
             justifyContent: 'flex-end',
-            padding: '32px 60px 0',
+            padding: '32px 40px 0',
             backgroundColor: '#F5F4F0',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {/* Avatar */}
+            {/* Name + role — right-aligned text, left of avatar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, textAlign: 'right' }}>
+              <span
+                style={{
+                  fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  color: '#111110',
+                  lineHeight: 1,
+                }}
+              >
+                Max Mauthner
+              </span>
+              <span
+                className="label"
+                style={{ color: '#9E9D98', fontSize: '0.625rem', lineHeight: 1 }}
+              >
+                Co-Founder
+              </span>
+            </div>
+            {/* Avatar bubble — rightmost, aligned with page right edge */}
             <div
               style={{
                 width: 30,
@@ -49,26 +69,6 @@ export default function DashboardLayout({
                 }}
               >
                 MM
-              </span>
-            </div>
-            {/* Name + role */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span
-                style={{
-                  fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  fontSize: '0.8125rem',
-                  fontWeight: 500,
-                  color: '#111110',
-                  lineHeight: 1,
-                }}
-              >
-                Max Mauthner
-              </span>
-              <span
-                className="label"
-                style={{ color: '#9E9D98', fontSize: '0.625rem', lineHeight: 1 }}
-              >
-                Co-Founder
               </span>
             </div>
           </div>
