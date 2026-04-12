@@ -57,7 +57,7 @@ const apiCredentialFields = [
 
 export default function SettingsPage() {
   return (
-    <main style={{ padding: '60px 40px', maxWidth: 1000 }}>
+    <main style={{ padding: '32px 40px', maxWidth: 1000 }}>
       {/* Header */}
       <div className="mb-8">
         <h1

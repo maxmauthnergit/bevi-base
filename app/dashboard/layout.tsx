@@ -10,18 +10,18 @@ export default function DashboardLayout({
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-y-auto">
 
-        {/* Top bar — 52px, sticky, user badge right */}
+        {/* Top bar — 80px, badge top aligns with logo top (paddingTop 32px matches sidebar) */}
         <div
           style={{
             position: 'sticky',
             top: 0,
             zIndex: 10,
-            height: 52,
+            height: 80,
             flexShrink: 0,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'flex-end',
-            padding: '0 40px',
+            padding: '32px 60px 0',
             backgroundColor: '#F5F4F0',
           }}
         >
