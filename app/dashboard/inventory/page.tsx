@@ -269,7 +269,7 @@ export default async function InventoryPage() {
       {/* Methodology footnote */}
       <div
         style={{
-          marginTop: 12,
+          marginTop: 30,
           padding: '20px 20px',
           backgroundColor: '#EDECEA',
           borderRadius: 16,
