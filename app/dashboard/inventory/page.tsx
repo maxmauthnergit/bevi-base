@@ -59,6 +59,7 @@ export default async function InventoryPage() {
       {/* Stock table */}
       <Card>
         <CardHeader label="Current Stock Levels" />
+        <div style={{ height: 12 }} />
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
@@ -268,7 +269,7 @@ export default async function InventoryPage() {
       {/* Methodology footnote */}
       <div
         style={{
-          marginTop: 48,
+          marginTop: 12,
           padding: '20px 20px',
           backgroundColor: '#EDECEA',
           borderRadius: 16,
