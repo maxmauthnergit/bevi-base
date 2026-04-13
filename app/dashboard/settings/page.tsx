@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -218,6 +218,7 @@ export default function SettingsPage() {
     { date: '2025-12-02', amount: 11750 },
   ])
   const [weshipMonths, setWeshipMonths] = useState(buildMonths)
+  const [uploading, setUploading]     = useState<string | null>(null)
   const fileRef   = useRef<HTMLInputElement>(null)
   const uploadKey = useRef<string | null>(null)
   const [selProduct, setSelProduct]   = useState('bevi-bag')
@@ -229,13 +230,46 @@ export default function SettingsPage() {
     setDialogDate(''); setDialogAmt(''); setDialogOpen(false)
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    fetch('/api/weship-invoice/list')
+      .then(r => r.json())
+      .then(({ months }: { months: string[] }) => {
+        if (!Array.isArray(months)) return
+        setWeshipMonths(p => p.map(m => ({
+          ...m,
+          hasFile: months.includes(m.key),
+          fileName: months.includes(m.key) ? `weship-invoice-${m.key}.pdf` : undefined,
+        })))
+      })
+      .catch(() => {})
+  }, [])
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
-    if (f && uploadKey.current) {
-      const k = uploadKey.current
-      setWeshipMonths(p => p.map(m => m.key === k ? { ...m, hasFile: true, fileName: f.name } : m))
+    const k = uploadKey.current
+    if (!f || !k) return
+    setUploading(k)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      fd.append('month', k)
+      const r = await fetch('/api/weship-invoice/upload', { method: 'POST', body: fd })
+      if (r.ok) {
+        setWeshipMonths(p => p.map(m => m.key === k ? { ...m, hasFile: true, fileName: f.name } : m))
+      }
+    } finally {
+      setUploading(null)
+      uploadKey.current = null
+      if (fileRef.current) fileRef.current.value = ''
     }
-    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  async function handleDownload(monthKey: string) {
+    try {
+      const r = await fetch(`/api/weship-invoice/${monthKey}`)
+      const { url } = await r.json()
+      if (url) window.open(url, '_blank')
+    } catch {}
   }
 
   function updateItem(pid: string, section: 'material' | 'fulfillment', iid: string, val: string) {
@@ -344,10 +378,21 @@ export default function SettingsPage() {
                   {m.hasFile ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span className="label" style={{ color: '#9E9D98' }}>{m.fileName}</span>
-                      <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }}>Download</button>
+                      <button
+                        style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }}
+                        onClick={() => handleDownload(m.key)}
+                      >
+                        Download
+                      </button>
                     </div>
                   ) : (
-                    <button style={btn} onClick={() => { uploadKey.current = m.key; fileRef.current?.click() }}>Upload</button>
+                    <button
+                      style={{ ...btn, color: uploading === m.key ? '#9E9D98' : '#6B6A64', cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
+                      disabled={uploading === m.key}
+                      onClick={() => { uploadKey.current = m.key; fileRef.current?.click() }}
+                    >
+                      {uploading === m.key ? 'Uploading…' : 'Upload'}
+                    </button>
                   )}
                 </div>
               ))}
