@@ -36,7 +36,6 @@ const APIS = [
 
 // ─── WeShip invoice months ────────────────────────────────────────────────────
 
-const UPLOADED = new Set(['2024-11','2024-12','2025-01','2025-02','2025-03','2025-04','2025-05','2025-06','2025-07','2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03'])
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 function buildMonths() {
@@ -44,7 +43,7 @@ function buildMonths() {
   let y = 2024, m = 11
   while (y < 2026 || (y === 2026 && m <= 4)) {
     const key = `${y}-${String(m).padStart(2,'0')}`
-    out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasFile: UPLOADED.has(key), fileName: UPLOADED.has(key) ? `weship-invoice-${key}.pdf` : undefined })
+    out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasFile: false })
     if (++m > 12) { m = 1; y++ }
   }
   return out.reverse()
