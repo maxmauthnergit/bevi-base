@@ -132,6 +132,57 @@ const PRODUCTS: Product[] = [
     ],
   },
   {
+    id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
+    material: [
+      { id: 'm1', label: 'Quanzhou Pengxin Bags: Water Bladder + Tubes', amount: 2.53 },
+      { id: 'm2', label: 'Shenzen Amanda: Water Bladder + Tubes (Schätzung)', amount: 0.40 },
+    ],
+    fulfillment: [
+      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
+      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
+      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
+      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
+      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
+      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
+      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE (Schätzung)', amount: 2.50 },
+      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.63 },
+    ],
+  },
+  {
+    id: 'phone-strap', name: 'Bevi Phone Strap', subtitle: 'Individual product', vkBrutto: 14.90,
+    material: [
+      { id: 'm1', label: 'Dongguan Webbing: Patch + Lanyard', amount: 0.33 },
+      { id: 'm2', label: 'Langhai Printing: Envelope', amount: 0.11 },
+    ],
+    fulfillment: [
+      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
+      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
+      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
+      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
+      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
+      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.14 },
+      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 2.50 },
+      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.55 },
+    ],
+  },
+  {
+    id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
+    material: [
+      { id: 'm1', label: 'Licheng Plastic: Cleaning Kit', amount: 1.75 },
+      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Cleaning Kit', amount: 1.46 },
+    ],
+    fulfillment: [
+      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
+      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
+      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
+      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
+      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
+      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
+      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
+      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.75 },
+    ],
+  },
+  {
     id: 'squad', name: 'Squad Bundle', subtitle: '3× Bevi Bag', vkBrutto: 199.00,
     material: [
       { id: 'm1', label: 'Quanzhou Pengxin Bags: 3× Bevi Bag Full Set', amount: 27.03 },
