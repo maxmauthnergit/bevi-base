@@ -59,7 +59,7 @@ export default function SettingsPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1000 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -74,7 +74,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Data sources status */}
-      <Card className="mb-4">
+      <Card className="mb-3">
         <CardHeader label="Data Sources" />
         <div className="flex flex-col gap-0">
           {integrations.map((integration, i) => (
@@ -155,7 +155,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* API credentials */}
-      <Card className="mb-4">
+      <Card className="mb-3">
         <CardHeader
           label="API Credentials"
           action={

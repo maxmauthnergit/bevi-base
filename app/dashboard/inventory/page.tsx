@@ -42,7 +42,7 @@ export default async function InventoryPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -283,8 +283,8 @@ export default async function InventoryPage() {
       {/* Methodology footnote */}
       <div
         style={{
-          marginTop: 24,
-          padding: '20px 20px',
+          marginTop: 16,
+          padding: '16px 20px',
           backgroundColor: '#EDECEA',
           borderRadius: 16,
           display: 'flex',

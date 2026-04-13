@@ -19,7 +19,7 @@ export default function SalesPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -42,7 +42,7 @@ export default function SalesPage() {
           backgroundColor: '#E3E2DC',
           borderRadius: 16,
           overflow: 'hidden',
-          marginBottom: 24,
+          marginBottom: 16,
         }}
       >
         {[
@@ -61,7 +61,7 @@ export default function SalesPage() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         {/* Monthly Revenue */}
         <Card>
           <CardHeader label="Revenue by Month" />

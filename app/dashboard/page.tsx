@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1 style={{
           fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
 
       {/* Low stock alert */}
       {lowStockItems.length > 0 && (
-        <div className="mb-6"><InventoryAlert items={lowStockItems} /></div>
+        <div className="mb-4"><InventoryAlert items={lowStockItems} /></div>
       )}
 
       {/* KPI grid */}
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 12,
-        marginBottom: 20,
+        marginBottom: 14,
       }}>
         {dashboardMetrics.map((metric) => {
           const data = kpiValues[metric.id]

@@ -250,9 +250,9 @@ export async function getAvgDailySalesBySku(): Promise<Record<string, number>> {
 
 // Reorder thresholds per SKU — update as business needs change
 const REORDER_THRESHOLDS: Record<string, number> = {
-  '9180013220099': 60,  // Bevi Bag Black
-  '9180013220129': 60,  // Bevi Bag Beige
-  default: 30,
+  '9180013220099': 250,  // Bevi Bag Black
+  '9180013220129': 100,  // Bevi Bag Beige
+  default: 100,
 }
 
 export async function getInventoryLevels(): Promise<StockLevel[]> {
