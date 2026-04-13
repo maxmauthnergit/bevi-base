@@ -29,7 +29,7 @@ export default function MarketingPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -52,7 +52,7 @@ export default function MarketingPage() {
           backgroundColor: '#E3E2DC',
           borderRadius: 16,
           overflow: 'hidden',
-          marginBottom: 24,
+          marginBottom: 16,
         }}
       >
         {[
@@ -107,7 +107,7 @@ export default function MarketingPage() {
       </div>
 
       {/* Spend vs Revenue + Ad Spend Breakdown */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         {/* Spend vs Revenue */}
         <Card>
           <CardHeader label="Spend vs. Revenue" />

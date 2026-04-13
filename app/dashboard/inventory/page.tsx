@@ -42,7 +42,7 @@ export default async function InventoryPage() {
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-5">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -70,7 +70,8 @@ export default async function InventoryPage() {
                   { label: 'Units Shopify',      align: 'right', pl: 0,  pr: 40 },
                   { label: 'Avg Sales/Day',      align: 'right', pl: 0,  pr: 32 },
                   { label: 'Stock Lasts Until',  align: 'left',  pl: 0,  pr: 32 },
-                  { label: 'Stock Level',        align: 'left',  pl: 0,  pr: 0  },
+                  { label: 'Stock Level',        align: 'left',  pl: 0,  pr: 24 },
+                  { label: 'Status',             align: 'left',  pl: 0,  pr: 0  },
                 ].map(({ label, align, pr }) => (
                   <th
                     key={label}
@@ -190,23 +191,15 @@ export default async function InventoryPage() {
                     {/* Stock Lasts Until */}
                     <td style={{ padding: '12px 0', paddingRight: 32 }}>
                       {item.lastUntil ? (
-                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                          <span
-                            style={{
-                              fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                              color: '#6B6A64',
-                            }}
-                          >
-                            {formatDate(item.lastUntil)}
-                          </span>
-                          <span
-                            className="label"
-                            style={{
-                              fontSize: '0.6875rem',
-                              color: item.daysLeft !== null && item.daysLeft < 60 ? '#DC2626' : '#0D8585',
-                            }}
-                          >
-                            {item.daysLeft}d
+                        <span
+                          style={{
+                            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+                            color: item.daysLeft !== null && item.daysLeft < 14 ? '#FF8C42' : '#6B6A64',
+                          }}
+                        >
+                          {formatDate(item.lastUntil)}
+                          <span style={{ color: '#9E9D98', marginLeft: 6, fontSize: '0.6875rem' }}>
+                            ({item.daysLeft}d)
                           </span>
                         </span>
                       ) : (
@@ -257,6 +250,28 @@ export default async function InventoryPage() {
                       </div>
                     </td>
 
+                    {/* Status */}
+                    <td style={{ padding: '12px 0' }}>
+                      <div
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '3px 8px', borderRadius: 6,
+                          backgroundColor: item.isLow ? 'rgba(220,38,38,0.08)' : 'rgba(13,133,133,0.08)',
+                          border: `1px solid ${item.isLow ? 'rgba(220,38,38,0.2)' : 'rgba(13,133,133,0.15)'}`,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 5, height: 5, borderRadius: '50%',
+                            backgroundColor: item.isLow ? '#DC2626' : '#0D8585',
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span className="label" style={{ color: item.isLow ? '#DC2626' : '#0D8585' }}>
+                          {item.isLow ? 'Reorder' : 'OK'}
+                        </span>
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
@@ -268,8 +283,8 @@ export default async function InventoryPage() {
       {/* Methodology footnote */}
       <div
         style={{
-          marginTop: 48,
-          padding: '20px 20px',
+          marginTop: 16,
+          padding: '16px 20px',
           backgroundColor: '#EDECEA',
           borderRadius: 16,
           display: 'flex',

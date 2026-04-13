@@ -9,7 +9,7 @@ interface CardProps {
 export function Card({ children, className, noPadding = false }: CardProps) {
   return (
     <div
-      className={clsx(!noPadding && 'p-6', className)}
+      className={clsx(!noPadding && 'p-5', className)}
       style={{
         backgroundColor: '#FFFFFF',
         border: '1px solid #E3E2DC',
@@ -29,7 +29,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ label, action }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-5">
+    <div className="flex items-center justify-between mb-3">
       <span className="label">{label}</span>
       {action}
     </div>
