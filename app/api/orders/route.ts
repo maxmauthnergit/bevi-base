@@ -135,8 +135,8 @@ export async function GET(req: NextRequest) {
         cost_payment,
         cost_total,
         margin,
-        weship_source:   hasXlsx ? 'actual'    : 'estimated',
-        shipping_source: hasXlsx ? 'actual'    : 'estimated',
+        weship_source:   (hasXlsx ? 'actual'    : 'estimated') as 'actual' | 'estimated',
+        shipping_source: (hasXlsx ? 'actual'    : 'estimated') as 'actual' | 'estimated',
       }
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
