@@ -40,7 +40,6 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 
 type WeshipMonth = {
   key: string; label: string
-  hasInvoice: boolean; invoiceName?: string
   hasServices: boolean; servicesName?: string
 }
 
@@ -49,7 +48,7 @@ function buildMonths(): WeshipMonth[] {
   let y = 2024, m = 11
   while (y < 2026 || (y === 2026 && m <= 4)) {
     const key = `${y}-${String(m).padStart(2,'0')}`
-    out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasInvoice: false, hasServices: false })
+    out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasServices: false })
     if (++m > 12) { m = 1; y++ }
   }
   return out.reverse()
@@ -223,12 +222,11 @@ export default function SettingsPage() {
     { date: '2025-12-02', amount: 11750 },
   ])
   const [weshipMonths, setWeshipMonths] = useState<WeshipMonth[]>(buildMonths)
-  const [uploading, setUploading]     = useState<string | null>(null) // `${month}:invoice` | `${month}:services`
+  const [uploading, setUploading]     = useState<string | null>(null)
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [fileError, setFileError]     = useState<string | null>(null)
-  const fileRef    = useRef<HTMLInputElement>(null)
-  const uploadKey  = useRef<string | null>(null)
-  const uploadType = useRef<'invoice' | 'services'>('invoice')
+  const fileRef   = useRef<HTMLInputElement>(null)
+  const uploadKey = useRef<string | null>(null)
   const [selProduct, setSelProduct]   = useState('bevi-bag')
   const [products, setProducts]       = useState<Product[]>(PRODUCTS)
 
@@ -241,38 +239,30 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/weship-invoice/list')
       .then(r => r.json())
-      .then(({ invoices, services }: { invoices?: string[]; services?: string[] }) => {
+      .then(({ services }: { services?: string[] }) => {
         setWeshipMonths(p => p.map(m => ({
           ...m,
-          hasInvoice:   (invoices  ?? []).includes(m.key),
-          invoiceName:  (invoices  ?? []).includes(m.key)  ? `weship-invoice-${m.key}.pdf`      : undefined,
-          hasServices:  (services  ?? []).includes(m.key),
-          servicesName: (services  ?? []).includes(m.key)  ? `weship-${m.key}-services.xlsx`    : undefined,
+          hasServices:  (services ?? []).includes(m.key),
+          servicesName: (services ?? []).includes(m.key) ? `weship-${m.key}-services.xlsx` : undefined,
         })))
       })
       .catch(() => {})
   }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const f   = e.target.files?.[0]
-    const k   = uploadKey.current
-    const typ = uploadType.current
+    const f = e.target.files?.[0]
+    const k = uploadKey.current
     if (!f || !k) return
-    const stateKey = `${k}:${typ}`
-    setUploading(stateKey)
+    setUploading(k)
     setFileError(null)
     try {
       const fd = new FormData()
       fd.append('file', f)
       fd.append('month', k)
-      fd.append('type', typ)
+      fd.append('type', 'services')
       const r = await fetch('/api/weship-invoice/upload', { method: 'POST', body: fd })
       if (r.ok) {
-        if (typ === 'invoice') {
-          setWeshipMonths(p => p.map(m => m.key === k ? { ...m, hasInvoice: true, invoiceName: `weship-invoice-${k}.pdf` } : m))
-        } else {
-          setWeshipMonths(p => p.map(m => m.key === k ? { ...m, hasServices: true, servicesName: `weship-${k}-services.xlsx` } : m))
-        }
+        setWeshipMonths(p => p.map(m => m.key === k ? { ...m, hasServices: true, servicesName: `weship-${k}-services.xlsx` } : m))
       } else {
         const { error } = await r.json().catch(() => ({ error: 'Upload failed' }))
         setFileError(error ?? 'Upload failed')
@@ -286,25 +276,20 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleDownload(monthKey: string, type: 'invoice' | 'services') {
-    const r = await fetch(`/api/weship-invoice/${monthKey}?type=${type}`)
+  async function handleDownload(monthKey: string) {
+    const r = await fetch(`/api/weship-invoice/${monthKey}?type=services`)
     const { url, error } = await r.json()
     if (url) window.open(url, '_blank')
     else setFileError(error ?? 'Download failed')
   }
 
-  async function handleDelete(monthKey: string, type: 'invoice' | 'services') {
-    const stateKey = `${monthKey}:${type}`
-    setDeleting(stateKey)
+  async function handleDelete(monthKey: string) {
+    setDeleting(monthKey)
     setFileError(null)
     try {
-      const r = await fetch(`/api/weship-invoice/${monthKey}?type=${type}`, { method: 'DELETE' })
+      const r = await fetch(`/api/weship-invoice/${monthKey}?type=services`, { method: 'DELETE' })
       if (r.ok) {
-        if (type === 'invoice') {
-          setWeshipMonths(p => p.map(m => m.key === monthKey ? { ...m, hasInvoice: false, invoiceName: undefined } : m))
-        } else {
-          setWeshipMonths(p => p.map(m => m.key === monthKey ? { ...m, hasServices: false, servicesName: undefined } : m))
-        }
+        setWeshipMonths(p => p.map(m => m.key === monthKey ? { ...m, hasServices: false, servicesName: undefined } : m))
       } else {
         const { error } = await r.json().catch(() => ({ error: 'Delete failed' }))
         setFileError(error ?? 'Delete failed')
@@ -410,7 +395,7 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 12, paddingBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>WeShip Monthly Files</span>
-              <span className="label">Monthly · PDF invoice + XLSX service list from WeShip EU/AT</span>
+              <span className="label">Monthly · XLSX service list from WeShip EU/AT</span>
             </div>
             <button style={iconBtn} onClick={() => setWeshipOpen(!weshipOpen)}><Chevron open={weshipOpen} /></button>
           </div>
@@ -423,44 +408,30 @@ export default function SettingsPage() {
               )}
               {weshipMonths.map((m, i) => {
                 const isLast = i === weshipMonths.length - 1
-                const invKey = `${m.key}:invoice`
-                const svcKey = `${m.key}:services`
-                function FileRow({ type, hasFile, fileName }: { type: 'invoice' | 'services'; hasFile: boolean; fileName?: string }) {
-                  const stateKey  = type === 'invoice' ? invKey : svcKey
-                  const label     = type === 'invoice' ? 'PDF Invoice' : 'XLSX Services'
-                  const accept    = type === 'invoice' ? '.pdf' : '.xlsx'
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, paddingBottom: 6 }}>
-                      <span className="label" style={{ color: '#9E9D98', minWidth: 90 }}>{label}</span>
-                      {hasFile ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span className="label" style={{ color: '#9E9D98' }}>{fileName}</span>
-                          <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }} onClick={() => handleDownload(m.key, type)}>Download</button>
-                          <button
-                            style={{ ...btn, color: deleting === stateKey ? '#9E9D98' : '#DC2626', borderColor: deleting === stateKey ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: deleting === stateKey ? 'not-allowed' : 'pointer' }}
-                            disabled={deleting === stateKey}
-                            onClick={() => handleDelete(m.key, type)}
-                          >
-                            {deleting === stateKey ? 'Deleting…' : 'Delete'}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          style={{ ...btn, color: uploading === stateKey ? '#9E9D98' : '#6B6A64', cursor: uploading === stateKey ? 'not-allowed' : 'pointer' }}
-                          disabled={uploading === stateKey}
-                          onClick={() => { setFileError(null); uploadKey.current = m.key; uploadType.current = type; fileRef.current!.accept = accept; fileRef.current?.click() }}
-                        >
-                          {uploading === stateKey ? 'Uploading…' : 'Upload'}
-                        </button>
-                      )}
-                    </div>
-                  )
-                }
                 return (
-                  <div key={m.key} style={{ padding: '6px 0', borderBottom: !isLast ? '1px solid #EDECEA' : 'none' }}>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', display: 'block', marginBottom: 2 }}>{m.label}</span>
-                    <FileRow type="invoice"  hasFile={m.hasInvoice}  fileName={m.invoiceName}  />
-                    <FileRow type="services" hasFile={m.hasServices} fileName={m.servicesName} />
+                  <div key={m.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 0', borderBottom: !isLast ? '1px solid #EDECEA' : 'none' }}>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64' }}>{m.label}</span>
+                    {m.hasServices ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="label" style={{ color: '#9E9D98' }}>{m.servicesName}</span>
+                        <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }} onClick={() => handleDownload(m.key)}>Download</button>
+                        <button
+                          style={{ ...btn, color: deleting === m.key ? '#9E9D98' : '#DC2626', borderColor: deleting === m.key ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
+                          disabled={deleting === m.key}
+                          onClick={() => handleDelete(m.key)}
+                        >
+                          {deleting === m.key ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        style={{ ...btn, color: uploading === m.key ? '#9E9D98' : '#6B6A64', cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
+                        disabled={uploading === m.key}
+                        onClick={() => { setFileError(null); uploadKey.current = m.key; fileRef.current!.accept = '.xlsx'; fileRef.current?.click() }}
+                      >
+                        {uploading === m.key ? 'Uploading…' : 'Upload'}
+                      </button>
+                    )}
                   </div>
                 )
               })}
