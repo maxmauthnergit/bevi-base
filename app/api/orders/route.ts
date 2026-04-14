@@ -34,13 +34,10 @@ function getCosts(title: string): CostProfile {
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
-// Note: billing_address is used for country — same set of proven fields as
-// the rest of the app (queries.ts). shipping_address omitted to avoid API issues.
-
 const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'total_tax',
   'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at',
-  'line_items', 'billing_address',
+  'line_items', 'shipping_address', 'billing_address',
 ].join(',')
 
 export async function GET(req: NextRequest) {
@@ -107,7 +104,7 @@ export async function GET(req: NextRequest) {
         created_at:         o.created_at,
         financial_status:   o.financial_status,
         fulfillment_status: o.fulfillment_status,
-        country_code:       o.billing_address?.country_code ?? null,
+        country_code:       o.shipping_address?.country_code ?? o.billing_address?.country_code ?? null,
         revenue_tax:        Math.round(tax * 100) / 100,
         items: o.line_items.map(li => {
           const p = getCosts(li.title)
