@@ -25,8 +25,8 @@ export interface WeShipMonthData {
 // Adjust these lists if your WeShip file uses different column names.
 
 const ORDER_REF_COLS  = ['reference', 'referenz', 'ihre auftragsnummer', 'bestellnummer', 'auftragsnummer', 'order', 'shopify', 'bestellung', 'ext. referenz', 'externe referenz', 'kundennummer']
-const SERVICE_TYPE_COLS = ['leistung', 'leistungsart', 'service', 'beschreibung', 'position', 'art', 'leistungsbeschreibung']
-const AMOUNT_COLS     = ['gesamt', 'netto', 'betrag', 'total', 'preis', 'kosten', 'summe', 'einzelpreis', 'gesamtpreis', 'amount', 'credit', 'debit']
+const SERVICE_TYPE_COLS = ['product', 'leistung', 'leistungsart', 'service', 'beschreibung', 'position', 'art', 'leistungsbeschreibung']
+const AMOUNT_COLS     = ['total price', 'gesamt', 'netto', 'betrag', 'total', 'preis', 'kosten', 'summe', 'einzelpreis', 'gesamtpreis', 'amount']
 
 // "Versand" is the exact WeShip line-item name for end-customer delivery.
 // Carrier names (DHL, UPS…) are kept as fallback for column-header Format B.
@@ -48,8 +48,11 @@ function findHeader(headers: string[], candidates: string[]): string | null {
 }
 
 function parseAmount(v: unknown): number {
-  if (typeof v === 'number') return v
-  return parseFloat(String(v ?? '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0
+  if (typeof v === 'number') return isFinite(v) ? v : 0
+  const s = String(v ?? '').trim()
+  // Reject date-like strings (YYYY-MM-DD) before parseFloat sees them
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return 0
+  return parseFloat(s.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0
 }
 
 function normaliseOrderRef(raw: string): string {
