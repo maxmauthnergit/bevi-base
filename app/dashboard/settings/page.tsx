@@ -57,150 +57,35 @@ function buildMonths(): WeshipMonth[] {
 // ─── COGS data ────────────────────────────────────────────────────────────────
 
 type Item = { id: string; label: string; amount: number }
-type Product = { id: string; name: string; subtitle: string; vkBrutto: number; material: Item[]; fulfillment: Item[] }
+type Product = { id: string; name: string; subtitle: string; vkBrutto: number; material: Item[] }
 
 const PRODUCTS: Product[] = [
   {
     id: 'bevi-bag', name: 'Bevi Bag Full Set', subtitle: 'Individual product', vkBrutto: 99.90,
     material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: Bevi Bag Full Set', amount: 9.01 },
-      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Bevi Bag', amount: 3.89 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,35–1,40 €)', amount: 1.14 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 2.25 },
-    ],
-  },
-  {
-    id: 'bundle-s', name: 'Bundle S', subtitle: 'Bevi Bag + Phone Strap', vkBrutto: 104.90,
-    material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: Bevi Bag Full Set', amount: 9.01 },
-      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Bevi Bag', amount: 3.89 },
-      { id: 'm3', label: 'Dongguan Webbing: Patch + Lanyard', amount: 0.33 },
-      { id: 'm4', label: 'Langhai Printing: Envelope', amount: 0.11 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.60 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,35–1,40 €)', amount: 1.30 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 2.35 },
-    ],
-  },
-  {
-    id: 'bundle-m', name: 'Bundle M', subtitle: 'Bevi Bag + Cleaning Kit', vkBrutto: 109.90,
-    material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: Bevi Bag Full Set', amount: 9.01 },
-      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Bevi Bag', amount: 3.89 },
-      { id: 'm3', label: 'Licheng Plastic: Cleaning Kit', amount: 1.75 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.60 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,35–1,40 €)', amount: 1.30 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 2.45 },
-    ],
-  },
-  {
-    id: 'bundle-l', name: 'Bundle L', subtitle: 'Bevi Bag + Phone Strap + Cleaning Kit', vkBrutto: 119.90,
-    material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: Bevi Bag Full Set', amount: 9.01 },
-      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Bevi Bag', amount: 3.89 },
-      { id: 'm3', label: 'Licheng Plastic: Cleaning Kit', amount: 1.75 },
-      { id: 'm4', label: 'Shenzen Amanda: Shipping + Zoll Cleaning Kit', amount: 1.46 },
-      { id: 'm5', label: 'Dongguan Webbing: Patch + Lanyard', amount: 0.33 },
-      { id: 'm6', label: 'Langhai Printing: Envelope', amount: 0.11 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.90 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,35–1,40 €)', amount: 1.39 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 2.65 },
+      { id: 'm1', label: 'Quanzhou Pengxin — Production costs', amount: 9.01 },
+      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 3.89 },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
     material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: Water Bladder + Tubes', amount: 2.53 },
-      { id: 'm2', label: 'Shenzen Amanda: Water Bladder + Tubes (Schätzung)', amount: 0.40 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE (Schätzung)', amount: 2.50 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.63 },
+      { id: 'm1', label: 'Quanzhou Pengxin — Production costs', amount: 2.53 },
+      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 0.40 },
     ],
   },
   {
     id: 'phone-strap', name: 'Bevi Phone Strap', subtitle: 'Individual product', vkBrutto: 14.90,
     material: [
-      { id: 'm1', label: 'Dongguan Webbing: Patch + Lanyard', amount: 0.33 },
-      { id: 'm2', label: 'Langhai Printing: Envelope', amount: 0.11 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.14 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 2.50 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.55 },
+      { id: 'm1', label: 'Dongguan Webbing — Production costs', amount: 0.33 },
+      { id: 'm2', label: 'Langhai Printing — Packaging', amount: 0.11 },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
     material: [
-      { id: 'm1', label: 'Licheng Plastic: Cleaning Kit', amount: 1.75 },
-      { id: 'm2', label: 'Shenzen Amanda: Shipping + Zoll Cleaning Kit', amount: 1.46 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.30 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,15–1,40 €)', amount: 1.15 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 0.75 },
-    ],
-  },
-  {
-    id: 'squad', name: 'Squad Bundle', subtitle: '3× Bevi Bag', vkBrutto: 199.00,
-    material: [
-      { id: 'm1', label: 'Quanzhou Pengxin Bags: 3× Bevi Bag Full Set', amount: 27.03 },
-      { id: 'm2', label: 'Shenzen Amanda: 3× Shipping + Zoll Bevi Bag', amount: 11.67 },
-    ],
-    fulfillment: [
-      { id: 'f1', label: 'WeShip: Auftragsabwicklung pro Paket', amount: 0.56 },
-      { id: 'f2', label: 'WeShip: Kommissionierung (ca. 0,30 €/SKU)', amount: 0.90 },
-      { id: 'f3', label: 'WeShip: Verpackung und Versand (1,35–1,40 €)', amount: 1.70 },
-      { id: 'f4', label: 'WeShip: Paketbeilager', amount: 0.25 },
-      { id: 'f5', label: 'WeShip: Verpackungsmaterial (Karton + Füllmaterial)', amount: 0.64 },
-      { id: 'f6', label: 'WeShip: Warenannahme (2,90 €/Anlieferungskarton)', amount: 0.15 },
-      { id: 'f7', label: 'Post/DHL: Versandkosten nach DE', amount: 5.40 },
-      { id: 'f8', label: 'Shopify: Payment Fee (2% + 0,25 € je Bestellung)', amount: 4.23 },
+      { id: 'm1', label: 'Licheng Plastic — Production costs', amount: 1.75 },
+      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 1.46 },
     ],
   },
 ]
@@ -301,23 +186,21 @@ export default function SettingsPage() {
     }
   }
 
-  function updateItem(pid: string, section: 'material' | 'fulfillment', iid: string, val: string) {
+  function updateItem(pid: string, iid: string, val: string) {
     const n = parseFloat(val)
     if (isNaN(n)) return
     setProducts(p => p.map(prod => {
       if (prod.id !== pid) return prod
-      return { ...prod, [section]: prod[section].map(it => it.id === iid ? { ...it, amount: n } : it) }
+      return { ...prod, material: prod.material.map(it => it.id === iid ? { ...it, amount: n } : it) }
     }))
   }
 
-  const prod = products.find(p => p.id === selProduct)!
-  const totalMat  = prod.material.reduce((s, i) => s + i.amount, 0)
-  const totalFul  = prod.fulfillment.reduce((s, i) => s + i.amount, 0)
-  const totalCogs = totalMat + totalFul
+  const prod     = products.find(p => p.id === selProduct)!
+  const totalCogs = prod.material.reduce((s, i) => s + i.amount, 0)
   const vkNetto   = prod.vkBrutto / 1.20
   const db        = vkNetto - totalCogs
   const margin    = (db / vkNetto) * 100
-  const multiple  = (vkNetto / totalCogs) * 100
+  const multiple  = vkNetto / totalCogs
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
@@ -464,76 +347,41 @@ export default function SettingsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
               <tr>
-                {['Position', 'Betrag', '% of COGS'].map((h, i) => (
+                {['Position', 'Amount', '% of Total'].map((h, i) => (
                   <th key={h} className="label" style={{ textAlign: i === 0 ? 'left' : 'right', paddingBottom: 10, borderBottom: '1px solid #E3E2DC', paddingRight: i < 2 ? 16 : 0, fontWeight: 500 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* Material section */}
-              <tr>
-                <td colSpan={3} style={{ padding: '10px 0 4px', paddingTop: 14 }}>
-                  <span className="label" style={{ color: '#9E9D98', letterSpacing: '0.08em' }}>MATERIAL + PRODUKT SOURCING</span>
-                </td>
-              </tr>
               {prod.material.map((item, i) => (
                 <tr key={item.id} style={{ borderBottom: i < prod.material.length - 1 ? '1px solid #F9F8F5' : 'none' }}>
-                  <td style={{ padding: '7px 16px 7px 12px', color: '#6B6A64', fontFamily: G }}>{item.label}</td>
-                  <td style={{ padding: '7px 16px 7px 0', textAlign: 'right' }}>
+                  <td style={{ padding: '8px 16px 8px 12px', color: '#6B6A64', fontFamily: G }}>{item.label}</td>
+                  <td style={{ padding: '8px 16px 8px 0', textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
-                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, 'material', item.id, e.target.value)}
+                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, item.id, e.target.value)}
                         style={{ ...inp, width: 68, textAlign: 'right', padding: '3px 6px' }} />
                     </div>
                   </td>
-                  <td style={{ padding: '7px 0', textAlign: 'right', color: '#9E9D98', fontSize: '0.75rem' }}>{((item.amount / totalCogs) * 100).toFixed(2)}%</td>
+                  <td style={{ padding: '8px 0', textAlign: 'right', color: '#9E9D98', fontSize: '0.75rem' }}>{((item.amount / totalCogs) * 100).toFixed(1)}%</td>
                 </tr>
               ))}
-              {/* Material subtotal */}
-              <tr style={{ borderTop: '1px solid #E3E2DC', borderBottom: '1px solid #E3E2DC' }}>
-                <td style={{ padding: '8px 16px 8px 12px', fontFamily: G, color: '#111110', fontWeight: 600 }}>Gesamt Material + Shipping ins Lager</td>
-                <td style={{ padding: '8px 16px 8px 0', textAlign: 'right', fontFamily: G, fontWeight: 600, color: '#111110' }}>{fmt(totalMat)}</td>
-                <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: 600, color: '#6B6A64', fontSize: '0.75rem' }}>{((totalMat / totalCogs) * 100).toFixed(2)}%</td>
-              </tr>
-
-              {/* Fulfillment section */}
-              <tr>
-                <td colSpan={3} style={{ padding: '14px 0 4px' }}>
-                  <span className="label" style={{ color: '#9E9D98', letterSpacing: '0.08em' }}>ZAHLUNGSABWICKLUNG + SHIPPING</span>
-                </td>
-              </tr>
-              {prod.fulfillment.map((item, i) => (
-                <tr key={item.id} style={{ borderBottom: i < prod.fulfillment.length - 1 ? '1px solid #F9F8F5' : 'none' }}>
-                  <td style={{ padding: '7px 16px 7px 12px', color: '#6B6A64', fontFamily: G }}>{item.label}</td>
-                  <td style={{ padding: '7px 16px 7px 0', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
-                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, 'fulfillment', item.id, e.target.value)}
-                        style={{ ...inp, width: 68, textAlign: 'right', padding: '3px 6px' }} />
-                    </div>
-                  </td>
-                  <td style={{ padding: '7px 0', textAlign: 'right', color: '#9E9D98', fontSize: '0.75rem' }}>{((item.amount / totalCogs) * 100).toFixed(2)}%</td>
-                </tr>
-              ))}
-
-              {/* COGS total */}
               <tr style={{ borderTop: '1px solid #E3E2DC' }}>
-                <td style={{ padding: '10px 16px 10px 12px', fontFamily: G, color: '#111110', fontWeight: 700 }}>Gesamt Kosten Bestellung beim Kunden</td>
+                <td style={{ padding: '10px 16px 10px 12px', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production (EXW) + Shipping to warehouse</td>
                 <td style={{ padding: '10px 16px 10px 0', textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110' }}>{fmt(totalCogs)}</td>
-                <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 700, color: '#6B6A64', fontSize: '0.75rem' }}>100.00%</td>
+                <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 700, color: '#6B6A64', fontSize: '0.75rem' }}>100%</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* Summary */}
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E3E2DC', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '1px', backgroundColor: '#E3E2DC', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E3E2DC', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: '#E3E2DC', borderRadius: 12, overflow: 'hidden' }}>
           {[
-            { label: 'VK Preis Netto',     value: fmt(vkNetto),          color: '#111110' },
-            { label: 'VK Preis Brutto',    value: fmt(prod.vkBrutto),    color: '#111110' },
-            { label: 'DB Netto',           value: fmt(db),               color: '#0D8585' },
-            { label: 'Netto Gewinnmarge',  value: `${margin.toFixed(2)}%`, color: margin >= 60 ? '#0D8585' : '#DC2626' },
-            { label: 'Multiple auf Kosten', value: `${multiple.toFixed(2)}%`, color: '#6B6A64' },
+            { label: 'Selling Price (net)',  value: fmt(vkNetto),             color: '#111110' },
+            { label: 'Selling Price (gross)', value: fmt(prod.vkBrutto),      color: '#111110' },
+            { label: 'Production COGS',      value: fmt(totalCogs),           color: '#6B6A64' },
+            { label: 'Cost multiple',        value: `${multiple.toFixed(2)}×`, color: '#6B6A64' },
           ].map(s => (
             <div key={s.label} style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
               <span className="label" style={{ display: 'block', marginBottom: 6 }}>{s.label}</span>
