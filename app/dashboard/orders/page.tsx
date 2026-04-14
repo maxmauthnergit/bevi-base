@@ -15,15 +15,21 @@ function fmt(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €'
 }
 
-function countryBadge(cc: string | null) {
+function countryFlag(cc: string | null) {
   if (!cc) return null
   return (
     <span style={{
-      fontFamily: G, fontSize: '0.625rem', letterSpacing: '0.04em',
-      color: '#9E9D98', backgroundColor: '#F0EFE9',
-      padding: '2px 7px', borderRadius: 5, whiteSpace: 'nowrap' as const,
+      display: 'inline-flex', overflow: 'hidden', borderRadius: 3,
+      flexShrink: 0, lineHeight: 0, width: 20, height: 14,
     }}>
-      {cc.toUpperCase()}
+      <img
+        src={`https://flagcdn.com/w20/${cc.toLowerCase()}.png`}
+        srcSet={`https://flagcdn.com/w40/${cc.toLowerCase()}.png 2x`}
+        width={20}
+        height={14}
+        alt={cc.toUpperCase()}
+        style={{ display: 'block', objectFit: 'cover', width: '100%', height: '100%' }}
+      />
     </span>
   )
 }
@@ -141,20 +147,24 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
   )
 }
 
-// ─── KPI tile row item (label + value pair inside a combined tile) ────────────
+// ─── KPI tile components ──────────────────────────────────────────────────────
 
-function KpiRow({ label, value, color, large }: { label: string; value: string; color?: string; large?: boolean }) {
+function KpiHero({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '3px 0' }}>
-      <span className="label" style={{ color: '#9E9D98' }}>{label}</span>
-      <span className="metric" style={{
-        fontSize: large ? '1.5rem' : '0.9375rem',
-        fontWeight: 600,
-        color: color ?? '#111110',
-        lineHeight: 1,
-      }}>
+    <div>
+      <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontFamily: G, fontSize: '1.875rem', fontWeight: 700, color: color ?? '#111110', lineHeight: 1, letterSpacing: '-0.02em' }}>
         {value}
-      </span>
+      </div>
+    </div>
+  )
+}
+
+function KpiDetail({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '2px 0' }}>
+      <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>{label}</span>
+      <span style={{ fontFamily: G, fontSize: '0.75rem', fontWeight: 500, color: color ?? '#6B6A64' }}>{value}</span>
     </div>
   )
 }
@@ -256,63 +266,73 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* ── KPI summary — 3 combined tiles in Sales page style ─────────────── */}
+      {/* ── KPI summary ─────────────────────────────────────────────────────── */}
       {totals && (() => {
         const avgMarginPerOrder = orders!.length > 0
           ? orders!.reduce((s, o) => s + o.margin, 0) / orders!.length
           : 0
         const totalCosts = totals.prod + totals.ws + totals.ship + totals.pay
 
+        const tileLabel: React.CSSProperties = {
+          fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.09em',
+          textTransform: 'uppercase', color: '#9E9D98', display: 'block', marginBottom: 18,
+        }
+        const divider = <div style={{ height: 1, backgroundColor: '#F0EFE9', margin: '16px 0' }} />
+
         return (
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1px',
-            backgroundColor: '#E3E2DC',
+            border: '1px solid #E3E2DC',
             borderRadius: 16,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+            backgroundColor: '#E3E2DC',
             overflow: 'hidden',
             marginBottom: 20,
           }}>
-            {/* Tile 1 — Revenue */}
-            <div style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
-              <span className="label" style={{ display: 'block', marginBottom: 10 }}>Revenue</span>
-              <KpiRow label="Orders"        value={String(totals.count)} large />
-              <KpiRow label="Gross Revenue" value={fmt(totals.gross)} />
-              <KpiRow label="Net Revenue"   value={fmt(totals.net)} />
-            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px' }}>
 
-            {/* Tile 2 — Costs */}
-            <div style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
-              <span className="label" style={{ display: 'block', marginBottom: 10 }}>Costs</span>
-              <KpiRow label="Prod / Ship"  value={fmt(totals.prod)} />
-              <KpiRow label="WeShip"       value={fmt(totals.ws)} />
-              <KpiRow label="Shipping"     value={fmt(totals.ship)} />
-              <KpiRow label="Payment Fee"  value={fmt(totals.pay)} />
-              <div style={{ height: 1, backgroundColor: '#F0EFE9', margin: '6px 0' }} />
-              <KpiRow label="Total Costs"  value={fmt(totalCosts)} />
-            </div>
+              {/* Tile 1 — Revenue */}
+              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+                <span style={tileLabel}>Revenue</span>
+                <KpiHero label="Net Revenue" value={fmt(totals.net)} />
+                {divider}
+                <KpiDetail label="Gross" value={fmt(totals.gross)} />
+                <KpiDetail label="Orders" value={String(totals.count)} />
+              </div>
 
-            {/* Tile 3 — Profit & Margin */}
-            <div style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
-              <span className="label" style={{ display: 'block', marginBottom: 10 }}>Profit & Margin</span>
-              <KpiRow
-                label="Profit (DB)"
-                value={fmt(totalDb)}
-                color={totalDb >= 0 ? '#0D8585' : '#DC2626'}
-                large
-              />
-              {totalMargin !== null && (
-                <KpiRow
-                  label="Margin"
-                  value={`${totalMargin.toFixed(1)}%`}
-                  color={marginColor(totalMargin)}
+              {/* Tile 2 — Costs */}
+              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+                <span style={tileLabel}>Costs</span>
+                <KpiHero label="Total Costs" value={fmt(totalCosts)} />
+                {divider}
+                <KpiDetail label="Production" value={fmt(totals.prod)} />
+                <KpiDetail label="WeShip" value={fmt(totals.ws)} />
+                <KpiDetail label="Shipping" value={fmt(totals.ship)} />
+                <KpiDetail label="Payment Fee" value={fmt(totals.pay)} />
+              </div>
+
+              {/* Tile 3 — Profit */}
+              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+                <span style={tileLabel}>Profit</span>
+                <KpiHero
+                  label="Profit (DB)"
+                  value={fmt(totalDb)}
+                  color={totalDb >= 0 ? '#0D8585' : '#DC2626'}
                 />
-              )}
-              <KpiRow
-                label="Avg Margin / order"
-                value={`${avgMarginPerOrder.toFixed(1)}%`}
-                color={marginColor(avgMarginPerOrder)}
-              />
+                {divider}
+                {totalMargin !== null && (
+                  <KpiDetail
+                    label="Margin"
+                    value={`${totalMargin.toFixed(1)}%`}
+                    color={marginColor(totalMargin)}
+                  />
+                )}
+                <KpiDetail
+                  label="Avg margin / order"
+                  value={`${avgMarginPerOrder.toFixed(1)}%`}
+                  color={marginColor(avgMarginPerOrder)}
+                />
+              </div>
+
             </div>
           </div>
         )
@@ -538,7 +558,7 @@ export default function OrdersPage() {
                         </span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'wrap' as const }}>
                           <span className="label" style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>{dateStr}</span>
-                          {countryBadge(o.country_code)}
+                          {countryFlag(o.country_code)}
                           {fulfillmentBadge(o.fulfillment_status)}
                         </span>
                       </td>
