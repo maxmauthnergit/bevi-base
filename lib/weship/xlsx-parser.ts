@@ -4,8 +4,10 @@ import { createServerClient } from '@/lib/supabase'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface WeShipOrderCosts {
-  weship:   number   // fulfillment variable (Auftragsabwicklung, Kommissionierung, etc.)
-  shipping: number   // DHL / Post delivery cost
+  weship:        number   // fulfillment variable total
+  shipping:      number   // DHL / Post delivery total
+  weshipItems:   { product: string; amount: number }[]
+  shippingItems: { product: string; amount: number }[]
 }
 
 export interface WeShipMonthData {
@@ -147,25 +149,31 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
       let lagergebuehr = 0
 
       for (const row of rows) {
-        const ref = String(row[orderCol] ?? '').trim()
-        const svc = String(row[serviceCol] ?? '').toLowerCase().trim()
-        const amt = parseAmount(row[amountCol])
+        const ref     = String(row[orderCol] ?? '').trim()
+        const svc     = String(row[serviceCol] ?? '').trim()
+        const svcLow  = svc.toLowerCase()
+        const amt     = parseAmount(row[amountCol])
         if (!amt) continue
 
         // Storage fees are not per-order — accumulate separately
-        if (matchesAny(svc, STORAGE_KEYWORDS)) {
+        if (matchesAny(svcLow, STORAGE_KEYWORDS)) {
           lagergebuehr += amt
           continue
         }
         if (!ref) continue
 
         const key = normaliseOrderRef(ref)
-        if (!byOrder.has(key)) byOrder.set(key, { weship: 0, shipping: 0 })
+        if (!byOrder.has(key)) byOrder.set(key, { weship: 0, shipping: 0, weshipItems: [], shippingItems: [] })
         const entry = byOrder.get(key)!
 
         // "Versand" (and carrier names) → shipping; everything else → weship
-        if (matchesAny(svc, SHIPPING_KEYWORDS)) entry.shipping += amt
-        else entry.weship += amt
+        if (matchesAny(svcLow, SHIPPING_KEYWORDS)) {
+          entry.shipping += amt
+          entry.shippingItems.push({ product: svc, amount: amt })
+        } else {
+          entry.weship += amt
+          entry.weshipItems.push({ product: svc, amount: amt })
+        }
       }
 
       return {
@@ -194,7 +202,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
         }
 
         if (ref && (weship + shipping > 0)) {
-          byOrder.set(normaliseOrderRef(ref), { weship, shipping })
+          byOrder.set(normaliseOrderRef(ref), { weship, shipping, weshipItems: [], shippingItems: [] })
         }
       }
 

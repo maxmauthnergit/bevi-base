@@ -75,6 +75,8 @@ export interface OrderRow {
   margin:           number        // (netto − total costs) / netto × 100
   weship_source:    'actual' | 'estimated'
   shipping_source:  'actual' | 'estimated'
+  weship_items?:   { product: string; amount: number }[]  // line items when source='actual'
+  shipping_items?: { product: string; amount: number }[]
 }
 
 export interface Order {

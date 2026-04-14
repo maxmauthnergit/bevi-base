@@ -457,7 +457,11 @@ export default function OrdersPage() {
 
                   const weshipTip = o.weship_source === 'actual' ? (
                     <>
-                      <TipLabel>Auftragsabw. · Komm. · Verpackung · Lager</TipLabel>
+                      <TipLabel>WeShip fulfillment costs</TipLabel>
+                      {o.weship_items?.map((it, j) => (
+                        <TipRow key={j} label={it.product} value={fmt(it.amount)} />
+                      ))}
+                      <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_weship)} total />
                       <TipDivider />
                       <TipSource source="actual" />
@@ -481,6 +485,10 @@ export default function OrdersPage() {
                   const shipTip = o.shipping_source === 'actual' ? (
                     <>
                       <TipLabel>Post / DHL to end customer</TipLabel>
+                      {o.shipping_items?.map((it, j) => (
+                        <TipRow key={j} label={it.product} value={fmt(it.amount)} />
+                      ))}
+                      <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_shipping)} total />
                       <TipDivider />
                       <TipSource source="actual" />
