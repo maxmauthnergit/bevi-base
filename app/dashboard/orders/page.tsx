@@ -338,12 +338,12 @@ export default function OrdersPage() {
               }} />
               <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
                 {xlsxInfo.parsed
-                  ? xlsxInfo.matched > 0
-                    ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched · ${xlsxInfo.debug.filename ?? ''}`
-                    : `WeShip file found (${xlsxInfo.debug.detectedFormat}, ${xlsxInfo.debug.rowCount} rows, ${xlsxInfo.debug.filename}) — no order refs matched`
+                  ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched · ${xlsxInfo.debug.filename ?? ''}`
                   : xlsxInfo.debug.error
                     ? `WeShip: ${xlsxInfo.debug.error}`
-                    : 'WeShip file not found — all costs are estimated'}
+                    : xlsxInfo.debug.rowCount > 0
+                      ? `WeShip file read (${xlsxInfo.debug.rowCount} rows, ${xlsxInfo.debug.detectedFormat}) — no orders matched · ${xlsxInfo.debug.filename ?? ''}`
+                      : 'WeShip file not found for this month — costs are estimated'}
               </span>
             </span>
             {xlsxInfo.parsed && xlsxInfo.matched === 0 && (

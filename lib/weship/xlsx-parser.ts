@@ -98,12 +98,20 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
     const fetchRes = await fetch(signed.signedUrl)
     if (!fetchRes.ok) return empty('unknown', `HTTP ${fetchRes.status} fetching ${filename}`)
 
-    const buffer = await fetchRes.arrayBuffer()
-    const wb     = XLSX.read(buffer, { type: 'buffer' })
-    const ws     = wb.Sheets[wb.SheetNames[0]]
-    const rows   = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+    // Convert to Node.js Buffer — SheetJS type:'buffer' requires this, not ArrayBuffer
+    const buffer = Buffer.from(await fetchRes.arrayBuffer())
+    let wb, rows: Record<string, unknown>[]
+    try {
+      wb   = XLSX.read(buffer, { type: 'buffer' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+    } catch (parseErr) {
+      return empty('unknown', `XLSX parse error: ${String(parseErr)}`)
+    }
 
-    if (!rows.length) return empty()
+    if (!rows.length) {
+      return empty('unknown', `File ${filename} was fetched but contains no rows (sheet: ${wb!.SheetNames[0]})`)
+    }
 
     const headers    = Object.keys(rows[0])
     const orderCol   = findHeader(headers, ORDER_REF_COLS)
@@ -173,7 +181,8 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
     }
 
     return { byOrder: new Map(), lagergebuehr: 0, parsed: false,
-      debug: { headers, rowCount: rows.length, detectedFormat: 'unknown', filename } }
+      debug: { headers, rowCount: rows.length, detectedFormat: 'unknown', filename,
+               error: `No order-ref column found. Headers: ${headers.join(', ')}` } }
 
   } catch (e) {
     return empty('unknown', String(e))
