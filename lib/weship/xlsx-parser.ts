@@ -16,6 +16,7 @@ export interface WeShipMonthData {
     headers:    string[]                       // all column headers found in the sheet
     rowCount:   number
     detectedFormat: 'row-per-service' | 'row-per-order' | 'unknown'
+    filename?:  string                         // actual file used
     error?:     string                         // Supabase / parse error message if any
   }
 }
@@ -63,11 +64,29 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
   try {
     const client = createServerClient()
-    const { data, error } = await client.storage
-      .from('weship-invoices')
-      .download(`${month}-services.xlsx`)
 
-    if (error || !data) return empty('unknown', error?.message ?? 'File not found or download failed')
+    // ── Find the file: try canonical name first, then scan the bucket ─────────
+    // Users may upload files directly to Supabase with arbitrary names.
+    // We look for any .xlsx whose name contains the month string (e.g. "2026-03").
+    let filename = `${month}-services.xlsx`
+    let downloadResult = await client.storage.from('weship-invoices').download(filename)
+
+    if (downloadResult.error || !downloadResult.data) {
+      // Scan bucket for any xlsx mentioning this month
+      const { data: listed } = await client.storage.from('weship-invoices').list()
+      const candidate = listed?.find(f =>
+        f.name.endsWith('.xlsx') && f.name.includes(month)
+      )
+      if (!candidate) {
+        const allNames = listed?.map(f => f.name).join(', ') || 'bucket empty or inaccessible'
+        return empty('unknown', `No XLSX for ${month} found. Files in bucket: ${allNames}`)
+      }
+      filename = candidate.name
+      downloadResult = await client.storage.from('weship-invoices').download(filename)
+    }
+
+    const { data, error } = downloadResult
+    if (error || !data) return empty('unknown', error?.message ?? `Download failed for ${filename}`)
 
     const buffer = await data.arrayBuffer()
     const wb     = XLSX.read(buffer, { type: 'buffer' })
@@ -109,7 +128,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
       return {
         byOrder, lagergebuehr, parsed: byOrder.size > 0,
-        debug: { headers, rowCount: rows.length, detectedFormat: 'row-per-service' },
+        debug: { headers, rowCount: rows.length, detectedFormat: 'row-per-service', filename },
       }
     }
 
@@ -139,12 +158,12 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
       return {
         byOrder, lagergebuehr, parsed: byOrder.size > 0,
-        debug: { headers, rowCount: rows.length, detectedFormat: 'row-per-order' },
+        debug: { headers, rowCount: rows.length, detectedFormat: 'row-per-order', filename },
       }
     }
 
     return { byOrder: new Map(), lagergebuehr: 0, parsed: false,
-      debug: { headers, rowCount: rows.length, detectedFormat: 'unknown' } }
+      debug: { headers, rowCount: rows.length, detectedFormat: 'unknown', filename } }
 
   } catch (e) {
     return empty('unknown', String(e))

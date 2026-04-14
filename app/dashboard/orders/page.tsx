@@ -179,7 +179,7 @@ export default function OrdersPage() {
   const [xlsxInfo, setXlsxInfo] = useState<{
     parsed: boolean
     matched: number
-    debug: { headers: string[]; rowCount: number; detectedFormat: string; error?: string }
+    debug: { headers: string[]; rowCount: number; detectedFormat: string; filename?: string; error?: string }
   } | null>(null)
 
   useEffect(() => {
@@ -339,10 +339,10 @@ export default function OrdersPage() {
               <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
                 {xlsxInfo.parsed
                   ? xlsxInfo.matched > 0
-                    ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched (${xlsxInfo.debug.detectedFormat})`
-                    : `WeShip file found (${xlsxInfo.debug.detectedFormat}, ${xlsxInfo.debug.rowCount} rows) — no order refs matched`
+                    ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched · ${xlsxInfo.debug.filename ?? ''}`
+                    : `WeShip file found (${xlsxInfo.debug.detectedFormat}, ${xlsxInfo.debug.rowCount} rows, ${xlsxInfo.debug.filename}) — no order refs matched`
                   : xlsxInfo.debug.error
-                    ? `WeShip file error: ${xlsxInfo.debug.error}`
+                    ? `WeShip: ${xlsxInfo.debug.error}`
                     : 'WeShip file not found — all costs are estimated'}
               </span>
             </span>
