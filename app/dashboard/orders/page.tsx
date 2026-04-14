@@ -152,7 +152,7 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
 function KpiHero({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div>
-      <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginBottom: 5 }}>{label}</div>
+      <div style={{ fontFamily: G, fontSize: '0.625rem', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9E9D98', marginBottom: 7 }}>{label}</div>
       <div style={{ fontFamily: G, fontSize: '1.875rem', fontWeight: 700, color: color ?? '#111110', lineHeight: 1, letterSpacing: '-0.02em' }}>
         {value}
       </div>
@@ -163,7 +163,7 @@ function KpiHero({ label, value, color }: { label: string; value: string; color?
 function KpiDetail({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '2px 0' }}>
-      <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>{label}</span>
+      <span style={{ fontFamily: G, fontSize: '0.625rem', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9E9D98' }}>{label}</span>
       <span style={{ fontFamily: G, fontSize: '0.75rem', fontWeight: 500, color: color ?? '#6B6A64' }}>{value}</span>
     </div>
   )
@@ -173,14 +173,14 @@ function KpiDetail({ label, value, color }: { label: string; value: string; colo
 
 const thBase: React.CSSProperties = {
   fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
-  letterSpacing: '0.07em', color: '#9E9D98', textTransform: 'uppercase',
-  whiteSpace: 'nowrap', paddingBottom: 8, borderBottom: '1px solid #E3E2DC',
-  textAlign: 'right',
+  letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase',
+  whiteSpace: 'nowrap', paddingTop: 10, paddingBottom: 10,
+  borderBottom: '1px solid #E3E2DC', textAlign: 'right',
 }
 const groupTh: React.CSSProperties = {
-  fontFamily: G, fontSize: '0.5625rem', fontWeight: 500,
-  letterSpacing: '0.08em', color: '#C7C6C0', textTransform: 'uppercase',
-  paddingBottom: 4, borderBottom: 'none', textAlign: 'center',
+  fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+  letterSpacing: '0.12em', color: '#C7C6C0', textTransform: 'uppercase',
+  paddingBottom: 8, borderBottom: 'none', textAlign: 'center',
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -274,8 +274,9 @@ export default function OrdersPage() {
         const totalCosts = totals.prod + totals.ws + totals.ship + totals.pay
 
         const tileLabel: React.CSSProperties = {
-          fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.09em',
-          textTransform: 'uppercase', color: '#9E9D98', display: 'block', marginBottom: 18,
+          fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+          letterSpacing: '0.12em', textTransform: 'uppercase',
+          color: '#9E9D98', display: 'block', marginBottom: 18,
         }
         const divider = <div style={{ height: 1, backgroundColor: '#F0EFE9', margin: '16px 0' }} />
 
@@ -392,11 +393,11 @@ export default function OrdersPage() {
               <thead>
                 {/* Group labels */}
                 <tr>
-                  <th colSpan={2} style={{ ...groupTh, textAlign: 'left', paddingBottom: 2 }} />
-                  <th colSpan={2} style={{ ...groupTh, borderBottom: '1px solid #E8E7E1', paddingBottom: 4 }}>Revenue</th>
+                  <th colSpan={2} style={{ ...groupTh, textAlign: 'left' }} />
+                  <th colSpan={2} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Revenue</th>
                   <th style={{ borderBottom: 'none', padding: 0 }} />
-                  <th colSpan={4} style={{ ...groupTh, borderBottom: '1px solid #E8E7E1', paddingBottom: 4 }}>Costs</th>
-                  <th style={{ ...groupTh, paddingBottom: 2 }} />
+                  <th colSpan={4} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Costs</th>
+                  <th style={{ ...groupTh }} />
                 </tr>
                 {/* Column headers */}
                 <tr>
@@ -421,7 +422,7 @@ export default function OrdersPage() {
                   const db      = o.revenue_net - o.cost_total
                   const isLast  = i === orders.length - 1
                   const td: React.CSSProperties = {
-                    padding: '11px 0', verticalAlign: 'middle',
+                    padding: '22px 0', verticalAlign: 'middle',
                     borderBottom: !isLast ? '1px solid #F0EFE9' : 'none',
                   }
 
@@ -655,31 +656,31 @@ export default function OrdersPage() {
               {totals && (
                 <tfoot>
                   <tr style={{ borderTop: '2px solid #E3E2DC' }}>
-                    <td colSpan={2} style={{ padding: '10px 0', paddingRight: 20 }}>
-                      <span className="label" style={{ color: '#6B6A64', letterSpacing: '0.06em' }}>
+                    <td colSpan={2} style={{ padding: '20px 0', paddingRight: 20 }}>
+                      <span className="label" style={{ color: '#6B6A64' }}>
                         TOTAL — {totals.count} ORDERS
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 16px 10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
                       <span style={{ fontFamily: G, color: '#111110', fontWeight: 700 }}>{fmt(totals.gross)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 0' }}>
                       <span style={{ fontFamily: G, color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.net)}</span>
                     </td>
                     <td style={{ padding: 0 }} />
-                    <td style={{ textAlign: 'right', padding: '10px 16px 10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.prod)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 16px 10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.ws)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 16px 10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.ship)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 24px 10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 24px 20px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.pay)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '10px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '20px 0' }}>
                       {totalMargin !== null && (
                         <span style={{
                           display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
