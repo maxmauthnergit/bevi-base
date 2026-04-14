@@ -1,7 +1,5 @@
 // Debug endpoint — visit /api/weship-xlsx-debug?month=2026-03 to inspect
-// the column headers and a sample row from the WeShip XLSX for that month.
-// Use this to verify the xlsx-parser column-name heuristics are matching
-// your actual file format before relying on the parsed data in Orders.
+// the column headers and sample rows from the WeShip XLSX for that month.
 
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
@@ -12,23 +10,39 @@ export async function GET(req: NextRequest) {
   if (!month) return NextResponse.json({ error: 'Provide ?month=YYYY-MM' }, { status: 400 })
 
   const client = createServerClient()
-  const { data, error } = await client.storage
+  const filename = `${month}-services.xlsx`
+
+  const { data: signed, error: signErr } = await client.storage
     .from('weship-invoices')
-    .download(`${month}-services.xlsx`)
+    .createSignedUrl(filename, 60)
 
-  if (error || !data) return NextResponse.json({ error: 'File not found', detail: error?.message }, { status: 404 })
+  if (signErr || !signed) {
+    return NextResponse.json({ error: 'Could not sign URL', detail: signErr?.message }, { status: 404 })
+  }
 
-  const buffer  = await data.arrayBuffer()
-  const wb      = XLSX.read(buffer, { type: 'buffer' })
+  const fetchRes = await fetch(signed.signedUrl)
+  if (!fetchRes.ok) {
+    return NextResponse.json({ error: `HTTP ${fetchRes.status} fetching file` }, { status: 404 })
+  }
+
+  const buffer    = Buffer.from(await fetchRes.arrayBuffer())
+  const wb        = XLSX.read(buffer, { type: 'buffer' })
   const sheetNames = wb.SheetNames
-  const ws      = wb.Sheets[sheetNames[0]]
-  const rows    = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+  const ws        = wb.Sheets[sheetNames[0]]
+
+  // Raw rows (all rows as arrays, so we can see the metadata header too)
+  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' })
+
+  // Also parse with default settings (first row as headers)
+  const defaultRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
   return NextResponse.json({
     month,
     sheetNames,
-    rowCount:  rows.length,
-    headers:   rows.length ? Object.keys(rows[0]) : [],
-    sampleRows: rows.slice(0, 3),
+    // First 10 raw rows so you can see the full file structure including metadata
+    rawRows: rawRows.slice(0, 10),
+    // Default parse headers (first row treated as header)
+    defaultHeaders: defaultRows.length ? Object.keys(defaultRows[0]) : [],
+    defaultSampleRows: defaultRows.slice(0, 5),
   })
 }
