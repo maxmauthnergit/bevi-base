@@ -114,6 +114,8 @@ export default function SettingsPage() {
   const uploadKey = useRef<string | null>(null)
   const [selProduct, setSelProduct]   = useState('bevi-bag')
   const [products, setProducts]       = useState<Product[]>(PRODUCTS)
+  const [shopifyPrices, setShopifyPrices] = useState<Record<string, number> | null>(null)
+  const [pricesLoading, setPricesLoading] = useState(true)
 
   function saveBankEntry() {
     if (!dialogDate || !dialogAmt) return
@@ -132,6 +134,14 @@ export default function SettingsPage() {
         })))
       })
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/shopify-prices')
+      .then(r => r.json())
+      .then(({ prices }: { prices: Record<string, number> }) => setShopifyPrices(prices))
+      .catch(() => {})
+      .finally(() => setPricesLoading(false))
   }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -195,12 +205,11 @@ export default function SettingsPage() {
     }))
   }
 
-  const prod     = products.find(p => p.id === selProduct)!
-  const totalCogs = prod.material.reduce((s, i) => s + i.amount, 0)
-  const vkNetto   = prod.vkBrutto / 1.20
-  const db        = vkNetto - totalCogs
-  const margin    = (db / vkNetto) * 100
-  const multiple  = vkNetto / totalCogs
+  const prod      = products.find(p => p.id === selProduct)!
+  const totalCogs  = prod.material.reduce((s, i) => s + i.amount, 0)
+  const vkBrutto   = shopifyPrices?.[selProduct] ?? prod.vkBrutto
+  const vkNetto    = vkBrutto / 1.20
+  const multiple   = vkNetto / totalCogs
 
   return (
     <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
@@ -326,7 +335,7 @@ export default function SettingsPage() {
 
       {/* ── 3. PRODUCT COSTS & COGS ────────────────────────────────────────── */}
       <Card>
-        <CardHeader label="Product Costs & COGS" action={<span className="label" style={{ color: '#9E9D98' }}>Edit values inline · 20% MwSt.</span>} />
+        <CardHeader label="Product Costs & COGS" />
 
         {/* Tab selector */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -377,17 +386,35 @@ export default function SettingsPage() {
 
         {/* Summary */}
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E3E2DC', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: '#E3E2DC', borderRadius: 12, overflow: 'hidden' }}>
-          {[
-            { label: 'Selling Price (net)',  value: fmt(vkNetto),             color: '#111110' },
-            { label: 'Selling Price (gross)', value: fmt(prod.vkBrutto),      color: '#111110' },
-            { label: 'Production COGS',      value: fmt(totalCogs),           color: '#6B6A64' },
-            { label: 'Cost multiple',        value: `${multiple.toFixed(2)}×`, color: '#6B6A64' },
-          ].map(s => (
-            <div key={s.label} style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
-              <span className="label" style={{ display: 'block', marginBottom: 6 }}>{s.label}</span>
-              <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: s.color }}>{s.value}</span>
+          {/* Selling Price (gross) — live from Shopify */}
+          <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+              <span className="label">Selling Price (gross)</span>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, backgroundColor: shopifyPrices?.[selProduct] ? '#0D8585' : '#D0CFC8' }} />
             </div>
-          ))}
+            <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#111110' }}>
+              {pricesLoading ? '—' : fmt(vkBrutto)}
+            </span>
+          </div>
+          {/* Selling Price (net) */}
+          <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
+            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Selling Price (net)</span>
+            <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#111110' }}>
+              {pricesLoading ? '—' : fmt(vkNetto)}
+            </span>
+          </div>
+          {/* Production COGS */}
+          <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
+            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Production COGS</span>
+            <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#6B6A64' }}>{fmt(totalCogs)}</span>
+          </div>
+          {/* Cost multiple */}
+          <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
+            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Cost Multiple</span>
+            <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#6B6A64' }}>
+              {pricesLoading ? '—' : `${multiple.toFixed(2)}×`}
+            </span>
+          </div>
         </div>
       </Card>
 
