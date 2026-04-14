@@ -28,7 +28,11 @@ const ORDER_REF_COLS  = ['reference', 'referenz', 'ihre auftragsnummer', 'bestel
 const SERVICE_TYPE_COLS = ['leistung', 'leistungsart', 'service', 'beschreibung', 'position', 'art', 'leistungsbeschreibung']
 const AMOUNT_COLS     = ['gesamt', 'netto', 'betrag', 'total', 'preis', 'kosten', 'summe', 'einzelpreis', 'gesamtpreis', 'amount', 'credit', 'debit']
 
-const SHIPPING_KEYWORDS = ['versand', 'dhl', 'ups', 'dpd', 'hermes', 'post', 'zustellung', 'transport', 'lieferung', 'shipping', 'paketversand']
+// "Versand" is the exact WeShip line-item name for end-customer delivery.
+// Carrier names (DHL, UPS…) are kept as fallback for column-header Format B.
+// Intentionally narrow — "post", "transport", "lieferung" are excluded to
+// avoid misclassifying WeShip internal service lines.
+const SHIPPING_KEYWORDS = ['versand', 'dhl', 'ups', 'dpd', 'hermes', 'shipping']
 const STORAGE_KEYWORDS  = ['lager', 'storage', 'lagergebühr', 'lagerkosten', 'einlagerung', 'auslagerung']
 
 function matchesAny(str: string, keywords: string[]): boolean {
@@ -141,10 +145,11 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
       for (const row of rows) {
         const ref = String(row[orderCol] ?? '').trim()
-        const svc = String(row[serviceCol] ?? '').toLowerCase()
+        const svc = String(row[serviceCol] ?? '').toLowerCase().trim()
         const amt = parseAmount(row[amountCol])
         if (!amt) continue
 
+        // Storage fees are not per-order — accumulate separately
         if (matchesAny(svc, STORAGE_KEYWORDS)) {
           lagergebuehr += amt
           continue
@@ -155,6 +160,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
         if (!byOrder.has(key)) byOrder.set(key, { weship: 0, shipping: 0 })
         const entry = byOrder.get(key)!
 
+        // "Versand" (and carrier names) → shipping; everything else → weship
         if (matchesAny(svc, SHIPPING_KEYWORDS)) entry.shipping += amt
         else entry.weship += amt
       }
