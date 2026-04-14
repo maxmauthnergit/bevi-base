@@ -636,7 +636,7 @@ export default function OrdersPage() {
                           <span style={{
                             display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
                             backgroundColor: marginBg(o.margin),
-                            padding: '4px 8px', borderRadius: 6,
+                            padding: '4px 10px', borderRadius: 6, width: 96,
                           }}>
                             <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: marginColor(o.margin), lineHeight: 1.2 }}>
                               {o.margin.toFixed(1)}%
