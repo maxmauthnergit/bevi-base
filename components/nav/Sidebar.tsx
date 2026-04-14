@@ -27,6 +27,16 @@ const navItems = [
     ),
   },
   {
+    href: '/dashboard/orders',
+    label: 'Orders',
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M4 4.5 H10 M4 7 H10 M4 9.5 H7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/marketing',
     label: 'Marketing',
     icon: (
