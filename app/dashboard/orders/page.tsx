@@ -83,64 +83,60 @@ function TipLabel({ children }: { children: string }) {
   )
 }
 
-function TipSource({ source }: { source: 'actual' | 'estimated' }) {
-  const isActual = source === 'actual'
+function TipSource({ source }: { source: 'actual' | 'estimated' | 'shopify' | 'calculated' }) {
+  const cfg = source === 'actual'
+    ? { color: '#0D8585', label: 'From WeShip invoice' }
+    : source === 'estimated'
+    ? { color: '#B45309', label: 'Estimated (COGS config)' }
+    : source === 'shopify'
+    ? { color: '#4A7C99', label: 'From Shopify' }
+    : { color: '#555550', label: 'Calculated' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-      <span style={{
-        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-        backgroundColor: isActual ? '#0D8585' : '#B45309',
-      }} />
-      <span style={{
-        fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.05em',
-        color: isActual ? '#0D8585' : '#B45309',
-      }}>
-        {isActual ? 'From WeShip invoice' : 'Estimated (COGS config)'}
+      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: cfg.color }} />
+      <span style={{ fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.05em', color: cfg.color }}>
+        {cfg.label}
       </span>
     </div>
   )
 }
 
 function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
-  const [show, setShow] = useState(false)
-  const [above, setAbove] = useState(true)
+  const [rect, setRect] = useState<DOMRect | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   function handleEnter() {
-    if (ref.current) {
-      const rect = ref.current.getBoundingClientRect()
-      setAbove(rect.top > 260)
-    }
-    setShow(true)
+    if (ref.current) setRect(ref.current.getBoundingClientRect())
   }
+  const above = rect ? rect.top > 260 : true
+  // Position fixed so overflow:auto ancestors can't clip the tooltip
+  const tipStyle: React.CSSProperties = rect ? {
+    position: 'fixed',
+    ...(above
+      ? { bottom: window.innerHeight - rect.top + 8 }
+      : { top: rect.bottom + 8 }),
+    right: window.innerWidth - rect.right,
+    backgroundColor: '#1C1C1A',
+    borderRadius: 10,
+    padding: '10px 14px',
+    zIndex: 9999,
+    boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
+    pointerEvents: 'none',
+    minWidth: 180,
+  } : {}
   return (
     <div
       ref={ref}
       style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
       onMouseEnter={handleEnter}
-      onMouseLeave={() => setShow(false)}
+      onMouseLeave={() => setRect(null)}
     >
       <span style={{
-        borderBottom: show ? '1px dashed #9E9D98' : '1px dashed transparent',
+        borderBottom: rect ? '1px dashed #9E9D98' : '1px dashed transparent',
         paddingBottom: 1,
       }}>
         {children}
       </span>
-      {show && (
-        <div style={{
-          position: 'absolute',
-          ...(above ? { bottom: 'calc(100% + 8px)' } : { top: 'calc(100% + 8px)' }),
-          right: 0,
-          backgroundColor: '#1C1C1A',
-          borderRadius: 10,
-          padding: '10px 14px',
-          zIndex: 200,
-          boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
-          pointerEvents: 'none',
-          minWidth: 180,
-        }}>
-          {tip}
-        </div>
-      )}
+      {rect && <div style={tipStyle}>{tip}</div>}
     </div>
   )
 }
@@ -421,6 +417,8 @@ export default function OrdersPage() {
                       ))}
                       <TipDivider />
                       <TipRow label="Total gross" value={fmt(o.revenue_gross)} total />
+                      <TipDivider />
+                      <TipSource source="shopify" />
                     </>
                   )
 
@@ -431,6 +429,8 @@ export default function OrdersPage() {
                       <TipRow label="Tax (MwSt.)" value={`−${fmt(o.revenue_tax)}`} />
                       <TipDivider />
                       <TipRow label="Net" value={fmt(o.revenue_net)} total />
+                      <TipDivider />
+                      <TipSource source="shopify" />
                     </>
                   )
 
@@ -445,6 +445,8 @@ export default function OrdersPage() {
                       ))}
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_production)} total />
+                      <TipDivider />
+                      <TipSource source="estimated" />
                     </>
                   )
 
@@ -509,6 +511,8 @@ export default function OrdersPage() {
                       <TipRow label="Fixed fee per order" value={fmt(0.25)} />
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_payment)} total />
+                      <TipDivider />
+                      <TipSource source="calculated" />
                     </>
                   )
 
@@ -520,6 +524,8 @@ export default function OrdersPage() {
                       <TipDivider />
                       <TipRow label="Profit (DB)" value={fmt(db)} total />
                       <TipRow label="Margin"       value={`${o.margin.toFixed(1)}%`} total />
+                      <TipDivider />
+                      <TipSource source="calculated" />
                     </>
                   )
 
