@@ -176,11 +176,16 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
 
-  const [xlsxInfo, setXlsxInfo] = useState<{ parsed: boolean; matched: number } | null>(null)
+  const [xlsxInfo, setXlsxInfo] = useState<{
+    parsed: boolean
+    matched: number
+    debug: { headers: string[]; rowCount: number; detectedFormat: string }
+  } | null>(null)
 
   useEffect(() => {
     setLoading(true)
     setError(null)
+    setXlsxInfo(null)
     const m = `${year}-${String(month).padStart(2, '0')}`
     fetch(`/api/orders?month=${m}`)
       .then(r => r.json())
@@ -316,7 +321,38 @@ export default function OrdersPage() {
               : undefined
           }
         />
-        <div style={{ height: 12 }} />
+
+        {/* WeShip XLSX status row */}
+        {!loading && xlsxInfo && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+            padding: '6px 0 2px',
+            borderBottom: '1px solid #F0EFE9', marginBottom: 4,
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                backgroundColor: xlsxInfo.parsed
+                  ? xlsxInfo.matched > 0 ? '#0D8585' : '#B45309'
+                  : '#DC2626',
+              }} />
+              <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
+                {xlsxInfo.parsed
+                  ? xlsxInfo.matched > 0
+                    ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched (${xlsxInfo.debug.detectedFormat})`
+                    : `WeShip file found (${xlsxInfo.debug.detectedFormat}, ${xlsxInfo.debug.rowCount} rows) — no order refs matched`
+                  : 'WeShip file not found — all costs are estimated'}
+              </span>
+            </span>
+            {xlsxInfo.parsed && xlsxInfo.matched === 0 && (
+              <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
+                Columns: {xlsxInfo.debug.headers.join(', ')}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div style={{ height: 8 }} />
 
         {loading ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: '#9E9D98', fontFamily: G, fontSize: '0.875rem' }}>
