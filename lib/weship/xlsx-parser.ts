@@ -16,6 +16,7 @@ export interface WeShipMonthData {
     headers:    string[]                       // all column headers found in the sheet
     rowCount:   number
     detectedFormat: 'row-per-service' | 'row-per-order' | 'unknown'
+    error?:     string                         // Supabase / parse error message if any
   }
 }
 
@@ -55,9 +56,9 @@ function normaliseOrderRef(raw: string): string {
 // ─── Main parser ──────────────────────────────────────────────────────────────
 
 export async function getWeShipMonthData(month: string): Promise<WeShipMonthData> {
-  const empty = (detectedFormat: WeShipMonthData['debug']['detectedFormat'] = 'unknown'): WeShipMonthData => ({
+  const empty = (detectedFormat: WeShipMonthData['debug']['detectedFormat'] = 'unknown', error?: string): WeShipMonthData => ({
     byOrder: new Map(), lagergebuehr: 0, parsed: false,
-    debug: { headers: [], rowCount: 0, detectedFormat },
+    debug: { headers: [], rowCount: 0, detectedFormat, error },
   })
 
   try {
@@ -66,7 +67,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
       .from('weship-invoices')
       .download(`${month}-services.xlsx`)
 
-    if (error || !data) return empty()
+    if (error || !data) return empty('unknown', error?.message ?? 'File not found or download failed')
 
     const buffer = await data.arrayBuffer()
     const wb     = XLSX.read(buffer, { type: 'buffer' })
@@ -145,7 +146,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
     return { byOrder: new Map(), lagergebuehr: 0, parsed: false,
       debug: { headers, rowCount: rows.length, detectedFormat: 'unknown' } }
 
-  } catch {
-    return empty()
+  } catch (e) {
+    return empty('unknown', String(e))
   }
 }
