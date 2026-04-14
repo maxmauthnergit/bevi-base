@@ -13,7 +13,7 @@ export type { OrderRow }
 
 interface CostProfile { production: number; weship: number; shipping: number }
 
-// Ordered longest-match first so "bundle l" doesn't match against "bundle"
+// Ordered longest-match first so "bundle l" doesn't match "bundle"
 const COST_MAP: [string, CostProfile][] = [
   ['squad',         { production: 38.70, weship: 4.20, shipping: 5.40 }],
   ['bundle l',      { production: 16.55, weship: 3.89, shipping: 5.40 }],
@@ -34,10 +34,13 @@ function getCosts(title: string): CostProfile {
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
+// Note: billing_address is used for country — same set of proven fields as
+// the rest of the app (queries.ts). shipping_address omitted to avoid API issues.
 
 const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'total_tax',
-  'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at', 'line_items',
+  'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at',
+  'line_items', 'billing_address',
 ].join(',')
 
 export async function GET(req: NextRequest) {
@@ -57,11 +60,11 @@ export async function GET(req: NextRequest) {
   let rawOrders: ShopifyOrder[]
   try {
     const params = new URLSearchParams({
-      status:          'any',
-      created_at_min:  from.toISOString(),
-      created_at_max:  to.toISOString(),
-      limit:           '250',
-      fields:          ORDER_FIELDS,
+      status:         'any',
+      created_at_min: from.toISOString(),
+      created_at_max: to.toISOString(),
+      limit:          '250',
+      fields:         ORDER_FIELDS,
     })
     const data = await shopifyFetch<{ orders: ShopifyOrder[] }>(
       `/orders.json?${params}`,
@@ -99,17 +102,29 @@ export async function GET(req: NextRequest) {
         : 0
 
       return {
-        id:                  o.id,
-        name:                o.name,
-        created_at:          o.created_at,
-        financial_status:    o.financial_status,
-        fulfillment_status:  o.fulfillment_status,
-        items:               o.line_items.map(li => ({ title: li.title, qty: li.quantity })),
-        revenue_gross:    Math.round(gross           * 100) / 100,
-        revenue_net:      Math.round(net             * 100) / 100,
-        cost_production:  Math.round(cost_production * 100) / 100,
-        cost_weship:      Math.round(cost_weship     * 100) / 100,
-        cost_shipping:    Math.round(cost_shipping   * 100) / 100,
+        id:                 o.id,
+        name:               o.name,
+        created_at:         o.created_at,
+        financial_status:   o.financial_status,
+        fulfillment_status: o.fulfillment_status,
+        country_code:       o.billing_address?.country_code ?? null,
+        revenue_tax:        Math.round(tax * 100) / 100,
+        items: o.line_items.map(li => {
+          const p = getCosts(li.title)
+          return {
+            title:           li.title,
+            qty:             li.quantity,
+            unit_price:      Math.round((parseFloat(li.price) || 0) * 100) / 100,
+            cost_production: p.production,
+            cost_weship:     p.weship,
+            cost_shipping:   p.shipping,
+          }
+        }),
+        revenue_gross:   Math.round(gross           * 100) / 100,
+        revenue_net:     Math.round(net             * 100) / 100,
+        cost_production: Math.round(cost_production * 100) / 100,
+        cost_weship:     Math.round(cost_weship     * 100) / 100,
+        cost_shipping:   Math.round(cost_shipping   * 100) / 100,
         cost_payment,
         cost_total,
         margin,

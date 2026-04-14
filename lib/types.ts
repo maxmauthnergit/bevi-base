@@ -54,16 +54,25 @@ export interface OrderRow {
   name:                string        // "#1234"
   created_at:          string
   financial_status:    string
-  fulfillment_status:  string | null // null = unfulfilled
-  items:               { title: string; qty: number }[]
-  revenue_gross:       number
-  revenue_net:         number
-  cost_production:     number
-  cost_weship:         number
-  cost_shipping:       number
-  cost_payment:        number
-  cost_total:          number
-  margin:              number        // (netto − total costs) / netto × 100
+  fulfillment_status:  string | null
+  country_code:        string | null  // shipping address ISO country code
+  revenue_tax:         number
+  items: {
+    title:            string
+    qty:              number
+    unit_price:       number   // gross price per unit from Shopify
+    cost_production:  number   // per unit
+    cost_weship:      number   // per unit
+    cost_shipping:    number   // per unit
+  }[]
+  revenue_gross:    number
+  revenue_net:      number
+  cost_production:  number
+  cost_weship:      number
+  cost_shipping:    number
+  cost_payment:     number
+  cost_total:       number
+  margin:           number        // (netto − total costs) / netto × 100
 }
 
 export interface Order {
