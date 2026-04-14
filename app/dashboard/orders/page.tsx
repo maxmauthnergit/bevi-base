@@ -89,7 +89,7 @@ function TipSource({ source }: { source: 'actual' | 'estimated' | 'shopify' | 'c
     : source === 'estimated'
     ? { color: '#B45309', label: 'Estimated (COGS config)' }
     : source === 'shopify'
-    ? { color: '#4A7C99', label: 'From Shopify' }
+    ? { color: '#0D8585', label: 'From Shopify' }
     : { color: '#555550', label: 'Calculated' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
@@ -436,7 +436,7 @@ export default function OrdersPage() {
 
                   const prodTip = (
                     <>
-                      <TipLabel>Material + Shipping ins Lager</TipLabel>
+                      <TipLabel>Production (EXW) and shipping to warehouse Graz</TipLabel>
                       {o.items.map((it, j) => (
                         <TipRow key={j}
                           label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
@@ -479,7 +479,7 @@ export default function OrdersPage() {
 
                   const shipTip = o.shipping_source === 'actual' ? (
                     <>
-                      <TipLabel>Post / DHL to end customer</TipLabel>
+                      <TipLabel>Shipping to customer</TipLabel>
                       {o.shipping_items?.map((it, j) => (
                         <TipRow key={j} label={it.product} value={fmt(it.amount)} />
                       ))}
@@ -490,7 +490,7 @@ export default function OrdersPage() {
                     </>
                   ) : (
                     <>
-                      <TipLabel>Post / DHL to end customer</TipLabel>
+                      <TipLabel>Shipping to customer</TipLabel>
                       {o.items.map((it, j) => (
                         <TipRow key={j}
                           label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
