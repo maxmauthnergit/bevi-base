@@ -41,6 +41,12 @@ const ORDER_FIELDS = [
   'line_items', 'shipping_address', 'billing_address',
 ].join(',')
 
+function offsetMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export async function GET(req: NextRequest) {
   const monthParam = req.nextUrl.searchParams.get('month') // YYYY-MM
 
@@ -57,8 +63,9 @@ export async function GET(req: NextRequest) {
     month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }
 
-  // Load both Shopify orders and WeShip XLSX in parallel
-  const [shopifyResult, xlsxData] = await Promise.all([
+  // Load Shopify orders + current, previous, and next month XLSX in parallel.
+  // Orders near month boundaries sometimes appear in adjacent month's invoice.
+  const [shopifyResult, xlsxCurr, xlsxPrev, xlsxNext] = await Promise.all([
     shopifyFetch<{ orders: ShopifyOrder[] }>(
       `/orders.json?${new URLSearchParams({
         status:         'any',
@@ -70,11 +77,21 @@ export async function GET(req: NextRequest) {
       { next: { revalidate: 300 } }
     ).catch((err: unknown) => ({ error: String(err) })),
     getWeShipMonthData(month),
+    getWeShipMonthData(offsetMonth(month, -1)),
+    getWeShipMonthData(offsetMonth(month, +1)),
   ])
 
   if ('error' in shopifyResult) {
     return NextResponse.json({ error: shopifyResult.error }, { status: 500 })
   }
+
+  // Merge maps: current month takes priority over adjacent months
+  const anyParsed = xlsxCurr.parsed || xlsxPrev.parsed || xlsxNext.parsed
+  const mergedByOrder = new Map([
+    ...xlsxNext.byOrder,
+    ...xlsxPrev.byOrder,
+    ...xlsxCurr.byOrder,
+  ])
 
   const rawOrders = shopifyResult.orders
 
@@ -97,9 +114,9 @@ export async function GET(req: NextRequest) {
         est_shipping   += p.shipping   * li.quantity
       }
 
-      // Actual costs from XLSX (when available)
-      const xlsxEntry    = xlsxData.byOrder.get(o.name)
-      const hasXlsx      = xlsxData.parsed && xlsxEntry !== undefined
+      // Actual costs from XLSX (when available, any adjacent month)
+      const xlsxEntry    = mergedByOrder.get(o.name)
+      const hasXlsx      = anyParsed && xlsxEntry !== undefined
       const cost_weship  = hasXlsx ? Math.round(xlsxEntry!.weship   * 100) / 100 : Math.round(est_weship   * 100) / 100
       const cost_shipping = hasXlsx ? Math.round(xlsxEntry!.shipping * 100) / 100 : Math.round(est_shipping * 100) / 100
 
@@ -146,9 +163,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     orders: rows,
     xlsx: {
-      parsed:  xlsxData.parsed,
+      parsed:  anyParsed,
       matched: rows.filter(r => r.weship_source === 'actual').length,
-      debug:   xlsxData.debug,
+      debug:   xlsxCurr.debug,
     },
   })
 }

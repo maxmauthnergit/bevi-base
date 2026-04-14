@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import React from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import type { OrderRow } from '@/lib/types'
 
@@ -102,10 +103,20 @@ function TipSource({ source }: { source: 'actual' | 'estimated' }) {
 
 function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
   const [show, setShow] = useState(false)
+  const [above, setAbove] = useState(true)
+  const ref = useRef<HTMLDivElement>(null)
+  function handleEnter() {
+    if (ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      setAbove(rect.top > 260)
+    }
+    setShow(true)
+  }
   return (
     <div
+      ref={ref}
       style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
-      onMouseEnter={() => setShow(true)}
+      onMouseEnter={handleEnter}
       onMouseLeave={() => setShow(false)}
     >
       <span style={{
@@ -117,7 +128,7 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
       {show && (
         <div style={{
           position: 'absolute',
-          bottom: 'calc(100% + 8px)',
+          ...(above ? { bottom: 'calc(100% + 8px)' } : { top: 'calc(100% + 8px)' }),
           right: 0,
           backgroundColor: '#1C1C1A',
           borderRadius: 10,
@@ -316,45 +327,27 @@ export default function OrdersPage() {
         <CardHeader
           label="Order List"
           action={
-            orders && !loading
-              ? <span className="label" style={{ color: '#9E9D98' }}>{orders.length} order{orders.length !== 1 ? 's' : ''}</span>
-              : undefined
+            !loading && xlsxInfo ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{
+                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+                  backgroundColor: xlsxInfo.parsed
+                    ? xlsxInfo.matched > 0 ? '#0D8585' : '#B45309'
+                    : '#9E9D98',
+                }} />
+                <span className="label" style={{ color: '#9E9D98' }}>
+                  {xlsxInfo.parsed
+                    ? `${xlsxInfo.matched} / ${orders?.length ?? 0} from WeShip file`
+                    : xlsxInfo.debug.error
+                      ? 'WeShip file error'
+                      : 'No WeShip file'}
+                </span>
+              </span>
+            ) : undefined
           }
         />
 
-        {/* WeShip XLSX status row */}
-        {!loading && xlsxInfo && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-            padding: '6px 0 2px',
-            borderBottom: '1px solid #F0EFE9', marginBottom: 4,
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{
-                width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                backgroundColor: xlsxInfo.parsed
-                  ? xlsxInfo.matched > 0 ? '#0D8585' : '#B45309'
-                  : '#DC2626',
-              }} />
-              <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
-                {xlsxInfo.parsed
-                  ? `WeShip file: ${xlsxInfo.matched} of ${orders?.length ?? 0} orders matched · ${xlsxInfo.debug.filename ?? ''}`
-                  : xlsxInfo.debug.error
-                    ? `WeShip: ${xlsxInfo.debug.error}`
-                    : xlsxInfo.debug.rowCount > 0
-                      ? `WeShip file read (${xlsxInfo.debug.rowCount} rows, ${xlsxInfo.debug.detectedFormat}) — no orders matched · ${xlsxInfo.debug.filename ?? ''}`
-                      : 'WeShip file not found for this month — costs are estimated'}
-              </span>
-            </span>
-            {xlsxInfo.parsed && xlsxInfo.matched === 0 && (
-              <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
-                Columns: {xlsxInfo.debug.headers.join(', ')}
-              </span>
-            )}
-          </div>
-        )}
-
-        <div style={{ height: 8 }} />
+        <div style={{ height: 12 }} />
 
         {loading ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: '#9E9D98', fontFamily: G, fontSize: '0.875rem' }}>
