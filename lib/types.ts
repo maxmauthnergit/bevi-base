@@ -61,9 +61,9 @@ export interface OrderRow {
     title:            string
     qty:              number
     unit_price:       number   // gross price per unit from Shopify
-    cost_production:  number   // per unit
-    cost_weship:      number   // per unit
-    cost_shipping:    number   // per unit
+    cost_production:  number   // per unit (estimated from COGS config)
+    cost_weship:      number   // per unit (estimated from COGS config)
+    cost_shipping:    number   // per unit (estimated from COGS config)
   }[]
   revenue_gross:    number
   revenue_net:      number
@@ -73,6 +73,8 @@ export interface OrderRow {
   cost_payment:     number
   cost_total:       number
   margin:           number        // (netto − total costs) / netto × 100
+  weship_source:    'actual' | 'estimated'
+  shipping_source:  'actual' | 'estimated'
 }
 
 export interface Order {

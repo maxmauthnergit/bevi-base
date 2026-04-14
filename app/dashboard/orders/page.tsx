@@ -82,6 +82,24 @@ function TipLabel({ children }: { children: string }) {
   )
 }
 
+function TipSource({ source }: { source: 'actual' | 'estimated' }) {
+  const isActual = source === 'actual'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+        backgroundColor: isActual ? '#0D8585' : '#B45309',
+      }} />
+      <span style={{
+        fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.05em',
+        color: isActual ? '#0D8585' : '#B45309',
+      }}>
+        {isActual ? 'From WeShip invoice' : 'Estimated (COGS config)'}
+      </span>
+    </div>
+  )
+}
+
 function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
   const [show, setShow] = useState(false)
   return (
@@ -158,6 +176,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
 
+  const [xlsxInfo, setXlsxInfo] = useState<{ parsed: boolean; matched: number } | null>(null)
+
   useEffect(() => {
     setLoading(true)
     setError(null)
@@ -166,7 +186,7 @@ export default function OrdersPage() {
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error)
-        else setOrders(d.orders)
+        else { setOrders(d.orders); setXlsxInfo(d.xlsx ?? null) }
       })
       .catch(() => setError('Failed to load orders'))
       .finally(() => setLoading(false))
@@ -397,7 +417,14 @@ export default function OrdersPage() {
                     </>
                   )
 
-                  const weshipTip = (
+                  const weshipTip = o.weship_source === 'actual' ? (
+                    <>
+                      <TipLabel>Auftragsabw. · Komm. · Verpackung · Lager</TipLabel>
+                      <TipRow label="Total" value={fmt(o.cost_weship)} total />
+                      <TipDivider />
+                      <TipSource source="actual" />
+                    </>
+                  ) : (
                     <>
                       <TipLabel>Auftragsabw. · Komm. · Verpackung · Lager</TipLabel>
                       {o.items.map((it, j) => (
@@ -408,10 +435,19 @@ export default function OrdersPage() {
                       ))}
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_weship)} total />
+                      <TipDivider />
+                      <TipSource source="estimated" />
                     </>
                   )
 
-                  const shipTip = (
+                  const shipTip = o.shipping_source === 'actual' ? (
+                    <>
+                      <TipLabel>Post / DHL to end customer</TipLabel>
+                      <TipRow label="Total" value={fmt(o.cost_shipping)} total />
+                      <TipDivider />
+                      <TipSource source="actual" />
+                    </>
+                  ) : (
                     <>
                       <TipLabel>Post / DHL to end customer</TipLabel>
                       {o.items.map((it, j) => (
@@ -422,6 +458,8 @@ export default function OrdersPage() {
                       ))}
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_shipping)} total />
+                      <TipDivider />
+                      <TipSource source="estimated" />
                     </>
                   )
 
