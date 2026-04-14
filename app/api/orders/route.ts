@@ -37,7 +37,7 @@ function getCosts(title: string): CostProfile {
 
 const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'total_tax',
-  'financial_status', 'cancel_reason', 'cancelled_at', 'line_items',
+  'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at', 'line_items',
 ].join(',')
 
 export async function GET(req: NextRequest) {
@@ -99,11 +99,12 @@ export async function GET(req: NextRequest) {
         : 0
 
       return {
-        id:               o.id,
-        name:             o.name,
-        created_at:       o.created_at,
-        financial_status: o.financial_status,
-        items:            o.line_items.map(li => ({ title: li.title, qty: li.quantity })),
+        id:                  o.id,
+        name:                o.name,
+        created_at:          o.created_at,
+        financial_status:    o.financial_status,
+        fulfillment_status:  o.fulfillment_status,
+        items:               o.line_items.map(li => ({ title: li.title, qty: li.quantity })),
         revenue_gross:    Math.round(gross           * 100) / 100,
         revenue_net:      Math.round(net             * 100) / 100,
         cost_production:  Math.round(cost_production * 100) / 100,

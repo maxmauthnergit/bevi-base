@@ -50,19 +50,20 @@ export interface DailySnapshot {
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export interface OrderRow {
-  id:               number
-  name:             string        // "#1234"
-  created_at:       string
-  financial_status: string
-  items:            { title: string; qty: number }[]
-  revenue_gross:    number
-  revenue_net:      number
-  cost_production:  number
-  cost_weship:      number
-  cost_shipping:    number
-  cost_payment:     number
-  cost_total:       number
-  margin:           number        // (netto − total costs) / netto × 100
+  id:                  number
+  name:                string        // "#1234"
+  created_at:          string
+  financial_status:    string
+  fulfillment_status:  string | null // null = unfulfilled
+  items:               { title: string; qty: number }[]
+  revenue_gross:       number
+  revenue_net:         number
+  cost_production:     number
+  cost_weship:         number
+  cost_shipping:       number
+  cost_payment:        number
+  cost_total:          number
+  margin:              number        // (netto − total costs) / netto × 100
 }
 
 export interface Order {
