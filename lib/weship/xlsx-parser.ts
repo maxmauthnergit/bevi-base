@@ -69,9 +69,13 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
     // Users may upload files directly to Supabase with arbitrary names.
     // We look for any .xlsx whose name contains the month string (e.g. "2026-03").
     let filename = `${month}-services.xlsx`
-    let downloadResult = await client.storage.from('weship-invoices').download(filename)
 
-    if (downloadResult.error || !downloadResult.data) {
+    // Check if canonical name exists by trying to sign it; fall back to scanning
+    const { data: signedCheck, error: signedCheckErr } = await client.storage
+      .from('weship-invoices')
+      .createSignedUrl(filename, 60)
+
+    if (signedCheckErr || !signedCheck) {
       // Scan bucket for any xlsx mentioning this month
       const { data: listed } = await client.storage.from('weship-invoices').list()
       const candidate = listed?.find(f =>
@@ -79,16 +83,22 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
       )
       if (!candidate) {
         const allNames = listed?.map(f => f.name).join(', ') || 'bucket empty or inaccessible'
-        return empty('unknown', `No XLSX for ${month} found. Files in bucket: ${allNames}`)
+        return empty('unknown', `No XLSX for ${month} found. Files: ${allNames}`)
       }
       filename = candidate.name
-      downloadResult = await client.storage.from('weship-invoices').download(filename)
     }
 
-    const { data, error } = downloadResult
-    if (error || !data) return empty('unknown', error?.message ?? `Download failed for ${filename}`)
+    // Download via signed URL (same approach as the working Settings download endpoint)
+    const { data: signed, error: signErr } = await client.storage
+      .from('weship-invoices')
+      .createSignedUrl(filename, 60)
 
-    const buffer = await data.arrayBuffer()
+    if (signErr || !signed) return empty('unknown', signErr?.message ?? `Could not sign URL for ${filename}`)
+
+    const fetchRes = await fetch(signed.signedUrl)
+    if (!fetchRes.ok) return empty('unknown', `HTTP ${fetchRes.status} fetching ${filename}`)
+
+    const buffer = await fetchRes.arrayBuffer()
     const wb     = XLSX.read(buffer, { type: 'buffer' })
     const ws     = wb.Sheets[wb.SheetNames[0]]
     const rows   = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
