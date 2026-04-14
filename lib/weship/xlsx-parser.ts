@@ -24,9 +24,9 @@ export interface WeShipMonthData {
 // ─── Column-name heuristics ───────────────────────────────────────────────────
 // Adjust these lists if your WeShip file uses different column names.
 
-const ORDER_REF_COLS  = ['referenz', 'ihre auftragsnummer', 'bestellnummer', 'auftragsnummer', 'order', 'shopify', 'bestellung', 'ext. referenz', 'externe referenz', 'kundennummer']
+const ORDER_REF_COLS  = ['reference', 'referenz', 'ihre auftragsnummer', 'bestellnummer', 'auftragsnummer', 'order', 'shopify', 'bestellung', 'ext. referenz', 'externe referenz', 'kundennummer']
 const SERVICE_TYPE_COLS = ['leistung', 'leistungsart', 'service', 'beschreibung', 'position', 'art', 'leistungsbeschreibung']
-const AMOUNT_COLS     = ['gesamt', 'netto', 'betrag', 'total', 'preis', 'kosten', 'summe', 'einzelpreis', 'gesamtpreis', 'amount']
+const AMOUNT_COLS     = ['gesamt', 'netto', 'betrag', 'total', 'preis', 'kosten', 'summe', 'einzelpreis', 'gesamtpreis', 'amount', 'credit', 'debit']
 
 const SHIPPING_KEYWORDS = ['versand', 'dhl', 'ups', 'dpd', 'hermes', 'post', 'zustellung', 'transport', 'lieferung', 'shipping', 'paketversand']
 const STORAGE_KEYWORDS  = ['lager', 'storage', 'lagergebühr', 'lagerkosten', 'einlagerung', 'auslagerung']
@@ -100,17 +100,32 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
     // Convert to Node.js Buffer — SheetJS type:'buffer' requires this, not ArrayBuffer
     const buffer = Buffer.from(await fetchRes.arrayBuffer())
-    let wb, rows: Record<string, unknown>[]
+    let wb: XLSX.WorkBook, rows: Record<string, unknown>[]
     try {
-      wb   = XLSX.read(buffer, { type: 'buffer' })
+      wb = XLSX.read(buffer, { type: 'buffer' })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
+
+      // WeShip files often have metadata rows at the top (invoice number, date range, etc.)
+      // Scan all rows as raw arrays to find the row that contains real column headers.
+      const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, defval: '' })
+      const ALL_COL_KEYWORDS = [...ORDER_REF_COLS, ...SERVICE_TYPE_COLS, ...AMOUNT_COLS]
+      let headerRowIdx = 0
+      for (let i = 0; i < Math.min(raw.length, 30); i++) {
+        const cells = (raw[i] as unknown[]).map(c => String(c ?? '').toLowerCase())
+        if (cells.some(c => ALL_COL_KEYWORDS.some(k => c === k || c.includes(k)))) {
+          headerRowIdx = i
+          break
+        }
+      }
+
+      // Re-parse starting from the detected header row
+      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '', range: headerRowIdx })
     } catch (parseErr) {
       return empty('unknown', `XLSX parse error: ${String(parseErr)}`)
     }
 
     if (!rows.length) {
-      return empty('unknown', `File ${filename} was fetched but contains no rows (sheet: ${wb!.SheetNames[0]})`)
+      return empty('unknown', `File ${filename} has no data rows (sheet: ${wb!.SheetNames[0]})`)
     }
 
     const headers    = Object.keys(rows[0])
