@@ -625,7 +625,7 @@ export default function OrdersPage() {
                         <span style={{ fontFamily: G, color: '#111110', display: 'block' }}>
                           {o.name}
                         </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'wrap' as const }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'nowrap' as const }}>
                           <span className="label" style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>{dateStr}</span>
                           {countryFlag(o.country_code)}
                           {fulfillmentBadge(o.fulfillment_status)}
