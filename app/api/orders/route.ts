@@ -282,6 +282,7 @@ export async function GET(req: NextRequest) {
       parsed:     anyParsed,
       matched:    rows.filter(r => r.weship_source === 'actual').length,
       historical: rows.filter(r => r.weship_source === 'historical').length,
+      estimated:  rows.filter(r => r.weship_source === 'estimated').length,
       debug:      xlsxCurr.debug,
     },
   })

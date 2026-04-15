@@ -222,6 +222,7 @@ export default function OrdersPage() {
     parsed: boolean
     matched: number
     historical: number
+    estimated: number
     debug: { headers: string[]; rowCount: number; detectedFormat: string; filename?: string; error?: string }
   } | null>(null)
 
@@ -374,28 +375,34 @@ export default function OrdersPage() {
           action={
             !loading && xlsxInfo ? (() => {
               const total = orders?.length ?? 0
-              const ok    = xlsxInfo.parsed && xlsxInfo.matched > 0
-              const color = ok ? '#0D8585' : '#DC2626'
               if (!xlsxInfo.parsed) {
                 const text = xlsxInfo.debug.error ? 'WeShip invoice error' : 'No WeShip invoice'
                 return (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: color }} />
-                    <span className="label" style={{ color }}>{text}</span>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#DC2626' }} />
+                    <span className="label" style={{ color: '#DC2626' }}>{text}</span>
                   </span>
                 )
               }
+              const invoiceColor = xlsxInfo.matched > 0 ? '#0D8585' : '#DC2626'
               const hist = xlsxInfo.historical ?? 0
+              const est  = xlsxInfo.estimated  ?? 0
               return (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#0D8585' }} />
-                    <span className="label" style={{ color: '#0D8585' }}>{xlsxInfo.matched} / {total} from WeShip invoice</span>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: invoiceColor }} />
+                    <span className="label" style={{ color: invoiceColor }}>{xlsxInfo.matched} / {total} from WeShip invoice</span>
                   </span>
                   {hist > 0 && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#6B6A64' }} />
                       <span className="label" style={{ color: '#6B6A64' }}>{hist} from historic data</span>
+                    </span>
+                  )}
+                  {est > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#B45309' }} />
+                      <span className="label" style={{ color: '#B45309' }}>{est} estimated (COGS)</span>
                     </span>
                   )}
                 </span>
@@ -534,7 +541,14 @@ export default function OrdersPage() {
                   ) : o.weship_source === 'historical' ? (
                     <>
                       <TipLabel>WeShip fulfillment costs</TipLabel>
-                      <TipRow label="Avg. from similar past orders" value={fmt(o.cost_weship)} total />
+                      {o.items.map((it, j) => (
+                        <TipRow key={j}
+                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
+                          value={fmt(it.cost_weship * it.qty)}
+                        />
+                      ))}
+                      <TipDivider />
+                      <TipRow label="Avg. total (historic data)" value={fmt(o.cost_weship)} total />
                       <TipDivider />
                       <TipSource source="historical" />
                     </>
@@ -568,7 +582,14 @@ export default function OrdersPage() {
                   ) : o.shipping_source === 'historical' ? (
                     <>
                       <TipLabel>OB Shipping to customer</TipLabel>
-                      <TipRow label="Avg. from similar past orders" value={fmt(o.cost_shipping)} total />
+                      {o.items.map((it, j) => (
+                        <TipRow key={j}
+                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
+                          value={fmt(it.cost_shipping * it.qty)}
+                        />
+                      ))}
+                      <TipDivider />
+                      <TipRow label="Avg. total (historic data)" value={fmt(o.cost_shipping)} total />
                       <TipDivider />
                       <TipSource source="historical" />
                     </>
@@ -668,8 +689,12 @@ export default function OrdersPage() {
                       {/* WeShip */}
                       <td style={{ ...td, textAlign: 'right', paddingRight: 16 }}>
                         <WithTip tip={weshipTip}>
-                          <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
-                            {fmt(o.cost_weship)}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
+                              {fmt(o.cost_weship)}
+                            </span>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                              backgroundColor: o.weship_source === 'actual' ? '#0D8585' : o.weship_source === 'historical' ? '#6B6A64' : '#B45309' }} />
                           </span>
                         </WithTip>
                       </td>
@@ -677,8 +702,12 @@ export default function OrdersPage() {
                       {/* Shipping */}
                       <td style={{ ...td, textAlign: 'right', paddingRight: 16 }}>
                         <WithTip tip={shipTip}>
-                          <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
-                            {fmt(o.cost_shipping)}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
+                              {fmt(o.cost_shipping)}
+                            </span>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                              backgroundColor: o.shipping_source === 'actual' ? '#0D8585' : o.shipping_source === 'historical' ? '#6B6A64' : '#B45309' }} />
                           </span>
                         </WithTip>
                       </td>
