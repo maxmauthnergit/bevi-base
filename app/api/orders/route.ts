@@ -6,23 +6,29 @@ import { getWeShipMonthData } from '@/lib/weship/xlsx-parser'
 export type { OrderRow }
 
 // ─── Per-product cost profiles (fallback estimates) ───────────────────────────
-// production = material + shipping ins Lager (Quanzhou Pengxin + Shenzen Amanda etc.)
-// weship     = WeShip variable: Auftragsabwicklung + Kommissionierung +
-//              Verpackung & Versand + Paketbeilager + Verpackungsmaterial + Warenannahme
-// shipping   = Post/DHL delivery to end customer
-// payment    = computed per order: 2% × gross + 0.25 €
+// manufacturing = Quanzhou Pengxin / direct manufacturer
+// ib_shipping   = Shenzhen Amanda / IB freight to warehouse Graz
+// weship        = WeShip variable: Auftragsabwicklung + Kommissionierung +
+//                 Verpackung & Versand + Paketbeilager + Verpackungsmaterial + Warenannahme
+// shipping      = Post/DHL delivery to end customer (OB)
+// payment       = computed per order: 2% × gross + 0.25 €
 
-interface CostProfile { production: number; weship: number; shipping: number }
+interface CostProfile {
+  manufacturing: number   // Quanzhou Pengxin
+  ib_shipping:   number   // Shenzhen Amanda
+  weship:        number
+  shipping:      number
+}
 
 const COST_MAP: [string, CostProfile][] = [
-  ['squad',         { production: 38.70, weship: 4.20, shipping: 5.40 }],
-  ['bundle l',      { production: 16.55, weship: 3.89, shipping: 5.40 }],
-  ['bundle m',      { production: 14.65, weship: 3.50, shipping: 5.40 }],
-  ['bundle s',      { production: 13.34, weship: 3.50, shipping: 5.40 }],
-  ['full set',      { production: 12.90, weship: 3.04, shipping: 5.40 }],
-  ['water bladder', { production:  2.93, weship: 3.05, shipping: 2.50 }],
-  ['cleaning kit',  { production:  3.21, weship: 3.05, shipping: 5.40 }],
-  ['phone strap',   { production:  0.44, weship: 3.04, shipping: 2.50 }],
+  ['squad',         { manufacturing: 27.03, ib_shipping: 11.67, weship: 4.20, shipping: 5.40 }],
+  ['bundle l',      { manufacturing: 11.20, ib_shipping:  5.35, weship: 3.89, shipping: 5.40 }],
+  ['bundle m',      { manufacturing: 10.76, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
+  ['bundle s',      { manufacturing:  9.45, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
+  ['full set',      { manufacturing:  9.01, ib_shipping:  3.89, weship: 3.04, shipping: 5.40 }],
+  ['water bladder', { manufacturing:  2.53, ib_shipping:  0.40, weship: 3.05, shipping: 2.50 }],
+  ['cleaning kit',  { manufacturing:  1.75, ib_shipping:  1.46, weship: 3.05, shipping: 5.40 }],
+  ['phone strap',   { manufacturing:  0.33, ib_shipping:  0.11, weship: 3.04, shipping: 2.50 }],
 ]
 
 function getCosts(title: string): CostProfile {
@@ -30,13 +36,13 @@ function getCosts(title: string): CostProfile {
   for (const [key, profile] of COST_MAP) {
     if (t.includes(key)) return profile
   }
-  return { production: 0, weship: 0, shipping: 0 }
+  return { manufacturing: 0, ib_shipping: 0, weship: 0, shipping: 0 }
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 const ORDER_FIELDS = [
-  'id', 'name', 'created_at', 'total_price', 'total_tax',
+  'id', 'name', 'created_at', 'total_price', 'total_tax', 'total_discounts',
   'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at',
   'line_items', 'shipping_address', 'billing_address',
 ].join(',')
@@ -64,7 +70,6 @@ export async function GET(req: NextRequest) {
   }
 
   // Load Shopify orders + current, previous, and next month XLSX in parallel.
-  // Orders near month boundaries sometimes appear in adjacent month's invoice.
   const [shopifyResult, xlsxCurr, xlsxPrev, xlsxNext] = await Promise.all([
     shopifyFetch<{ orders: ShopifyOrder[] }>(
       `/orders.json?${new URLSearchParams({
@@ -98,26 +103,31 @@ export async function GET(req: NextRequest) {
   const rows: OrderRow[] = rawOrders
     .filter(o => !o.cancelled_at && o.financial_status !== 'voided')
     .map(o => {
-      const gross = parseFloat(o.total_price) || 0
-      const tax   = parseFloat(o.total_tax)   || 0
-      const net   = gross - tax
+      const gross    = parseFloat(o.total_price)     || 0
+      const tax      = parseFloat(o.total_tax)       || 0
+      const net      = gross - tax
+      const discount = parseFloat(o.total_discounts) || 0
 
       // Estimated costs from COGS config (always computed as fallback)
-      let est_production = 0
-      let est_weship     = 0
-      let est_shipping   = 0
+      let est_manufacturing = 0
+      let est_ib_shipping   = 0
+      let est_weship        = 0
+      let est_shipping      = 0
 
       for (const li of o.line_items) {
         const p = getCosts(li.title)
-        est_production += p.production * li.quantity
-        est_weship     += p.weship     * li.quantity
-        est_shipping   += p.shipping   * li.quantity
+        est_manufacturing += p.manufacturing * li.quantity
+        est_ib_shipping   += p.ib_shipping   * li.quantity
+        est_weship        += p.weship        * li.quantity
+        est_shipping      += p.shipping      * li.quantity
       }
 
+      const est_production = est_manufacturing + est_ib_shipping
+
       // Actual costs from XLSX (when available, any adjacent month)
-      const xlsxEntry    = mergedByOrder.get(o.name)
-      const hasXlsx      = anyParsed && xlsxEntry !== undefined
-      const cost_weship  = hasXlsx ? Math.round(xlsxEntry!.weship   * 100) / 100 : Math.round(est_weship   * 100) / 100
+      const xlsxEntry     = mergedByOrder.get(o.name)
+      const hasXlsx       = anyParsed && xlsxEntry !== undefined
+      const cost_weship   = hasXlsx ? Math.round(xlsxEntry!.weship   * 100) / 100 : Math.round(est_weship   * 100) / 100
       const cost_shipping = hasXlsx ? Math.round(xlsxEntry!.shipping * 100) / 100 : Math.round(est_shipping * 100) / 100
 
       const cost_production = Math.round(est_production * 100) / 100
@@ -132,20 +142,23 @@ export async function GET(req: NextRequest) {
         financial_status:   o.financial_status,
         fulfillment_status: o.fulfillment_status,
         country_code:       o.shipping_address?.country_code ?? o.billing_address?.country_code ?? null,
-        revenue_tax:        Math.round(tax * 100) / 100,
+        revenue_gross:      Math.round(gross    * 100) / 100,
+        revenue_tax:        Math.round(tax      * 100) / 100,
+        revenue_net:        Math.round(net      * 100) / 100,
+        discount:           Math.round(discount * 100) / 100,
         items: o.line_items.map(li => {
           const p = getCosts(li.title)
           return {
-            title:           li.title,
-            qty:             li.quantity,
-            unit_price:      Math.round((parseFloat(li.price) || 0) * 100) / 100,
-            cost_production: p.production,
-            cost_weship:     p.weship,
-            cost_shipping:   p.shipping,
+            title:              li.title,
+            qty:                li.quantity,
+            unit_price:         Math.round((parseFloat(li.price) || 0) * 100) / 100,
+            cost_manufacturing: p.manufacturing,
+            cost_ib_shipping:   p.ib_shipping,
+            cost_production:    Math.round((p.manufacturing + p.ib_shipping) * 100) / 100,
+            cost_weship:        p.weship,
+            cost_shipping:      p.shipping,
           }
         }),
-        revenue_gross:    Math.round(gross * 100) / 100,
-        revenue_net:      Math.round(net   * 100) / 100,
         cost_production,
         cost_weship,
         cost_shipping,

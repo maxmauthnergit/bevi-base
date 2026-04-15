@@ -56,17 +56,20 @@ export interface OrderRow {
   financial_status:    string
   fulfillment_status:  string | null
   country_code:        string | null  // shipping address ISO country code
+  revenue_gross:       number
   revenue_tax:         number
+  revenue_net:         number
+  discount:            number        // total discount applied (from Shopify)
   items: {
-    title:            string
-    qty:              number
-    unit_price:       number   // gross price per unit from Shopify
-    cost_production:  number   // per unit (estimated from COGS config)
-    cost_weship:      number   // per unit (estimated from COGS config)
-    cost_shipping:    number   // per unit (estimated from COGS config)
+    title:              string
+    qty:                number
+    unit_price:         number   // gross price per unit from Shopify
+    cost_manufacturing: number   // per unit — manufacturer (e.g. Quanzhou Pengxin)
+    cost_ib_shipping:   number   // per unit — IB freight (e.g. Shenzhen Amanda)
+    cost_production:    number   // manufacturing + ib_shipping combined
+    cost_weship:        number   // per unit (estimated from COGS config)
+    cost_shipping:      number   // per unit (estimated from COGS config)
   }[]
-  revenue_gross:    number
-  revenue_net:      number
   cost_production:  number
   cost_weship:      number
   cost_shipping:    number
