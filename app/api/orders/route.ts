@@ -141,12 +141,29 @@ export async function GET(req: NextRequest) {
   ])
 
   // ── Build historical reference maps ──────────────────────────────────────────
-  // weshipRef:       compositionKey               → { sum, count }
-  // shippingRef:     compositionKey@countryCode   → { sum, count }  (preferred)
-  // shippingRefAny:  compositionKey               → { sum, count }  (country-agnostic fallback)
-  const weshipRef      = new Map<string, { sum: number; count: number }>()
-  const shippingRef    = new Map<string, { sum: number; count: number }>()
-  const shippingRefAny = new Map<string, { sum: number; count: number }>()
+  // Tracks total cost + per-position sums so we can show averaged line items.
+  // weshipRef:       compositionKey               → ref  (position-agnostic match)
+  // shippingRef:     compositionKey@countryCode   → ref  (preferred)
+  // shippingRefAny:  compositionKey               → ref  (country-agnostic fallback)
+  interface HistRef { sum: number; count: number; positions: Map<string, number> }
+  function addRef(map: Map<string, HistRef>, key: string, total: number, items: { product: string; amount: number }[]) {
+    const ref = map.get(key) ?? { sum: 0, count: 0, positions: new Map<string, number>() }
+    ref.sum   += total
+    ref.count += 1
+    for (const { product, amount } of items) {
+      ref.positions.set(product, (ref.positions.get(product) ?? 0) + amount)
+    }
+    map.set(key, ref)
+  }
+  function refToItems(ref: HistRef): { product: string; amount: number }[] {
+    return Array.from(ref.positions.entries())
+      .map(([product, sum]) => ({ product, amount: Math.round(sum / ref.count * 100) / 100 }))
+      .filter(it => it.amount > 0)
+  }
+
+  const weshipRef      = new Map<string, HistRef>()
+  const shippingRef    = new Map<string, HistRef>()
+  const shippingRefAny = new Map<string, HistRef>()
 
   for (let i = 0; i < LOOKBACK; i++) {
     const histXlsx = lookbackXlsx[i]
@@ -160,15 +177,9 @@ export async function GET(req: NextRequest) {
       const ck = compositionKey(o.line_items)
       const cc = o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
 
-      const wv = weshipRef.get(ck) ?? { sum: 0, count: 0 }
-      weshipRef.set(ck, { sum: wv.sum + entry.weship, count: wv.count + 1 })
-
-      const sk = `${ck}@${cc}`
-      const sv = shippingRef.get(sk) ?? { sum: 0, count: 0 }
-      shippingRef.set(sk, { sum: sv.sum + entry.shipping, count: sv.count + 1 })
-
-      const sav = shippingRefAny.get(ck) ?? { sum: 0, count: 0 }
-      shippingRefAny.set(ck, { sum: sav.sum + entry.shipping, count: sav.count + 1 })
+      addRef(weshipRef,      ck,            entry.weship,   entry.weshipItems)
+      addRef(shippingRef,    `${ck}@${cc}`, entry.shipping, entry.shippingItems)
+      addRef(shippingRefAny, ck,            entry.shipping, entry.shippingItems)
     }
   }
   // ─────────────────────────────────────────────────────────────────────────────
@@ -183,30 +194,28 @@ export async function GET(req: NextRequest) {
       const net      = gross - tax
       const discount = parseFloat(o.total_discounts) || 0
 
-      // COGS fallback values (last resort only)
+      // Production COGS (always computed from config)
       let est_manufacturing = 0
       let est_ib_shipping   = 0
-      let est_weship        = 0
-      let est_shipping      = 0
       for (const li of o.line_items) {
         const p = getCosts(li.title)
         est_manufacturing += p.manufacturing * li.quantity
         est_ib_shipping   += p.ib_shipping   * li.quantity
-        est_weship        += p.weship        * li.quantity
-        est_shipping      += p.shipping      * li.quantity
       }
 
-      // Priority: 1) actual XLSX  2) historical average  3) COGS estimate
+      // Priority: 1) actual XLSX  2) historical average  3) no data (0)
       const xlsxEntry = mergedByOrder.get(o.name)
       const hasXlsx   = anyParsed && xlsxEntry !== undefined
 
       const ck = compositionKey(o.line_items)
       const cc = o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
 
-      let cost_weship:   number
-      let cost_shipping: number
-      let weship_source:   OrderRow['weship_source']
-      let shipping_source: OrderRow['shipping_source']
+      let cost_weship:        number
+      let cost_shipping:      number
+      let weship_source:      OrderRow['weship_source']
+      let shipping_source:    OrderRow['shipping_source']
+      let hist_weship_items:  { product: string; amount: number }[] | undefined
+      let hist_shipping_items: { product: string; amount: number }[] | undefined
 
       if (hasXlsx) {
         cost_weship     = Math.round(xlsxEntry!.weship   * 100) / 100
@@ -216,19 +225,21 @@ export async function GET(req: NextRequest) {
       } else {
         const wRef = weshipRef.get(ck)
         if (wRef && wRef.count > 0) {
-          cost_weship   = Math.round((wRef.sum / wRef.count) * 100) / 100
-          weship_source = 'historical'
+          cost_weship       = Math.round(wRef.sum / wRef.count * 100) / 100
+          weship_source     = 'historical'
+          hist_weship_items = refToItems(wRef)
         } else {
-          cost_weship   = Math.round(est_weship * 100) / 100
+          cost_weship   = 0
           weship_source = 'estimated'
         }
 
         const sRef = shippingRef.get(`${ck}@${cc}`) ?? shippingRefAny.get(ck)
         if (sRef && sRef.count > 0) {
-          cost_shipping   = Math.round((sRef.sum / sRef.count) * 100) / 100
-          shipping_source = 'historical'
+          cost_shipping        = Math.round(sRef.sum / sRef.count * 100) / 100
+          shipping_source      = 'historical'
+          hist_shipping_items  = refToItems(sRef)
         } else {
-          cost_shipping   = Math.round(est_shipping * 100) / 100
+          cost_shipping   = 0
           shipping_source = 'estimated'
         }
       }
@@ -270,8 +281,8 @@ export async function GET(req: NextRequest) {
         margin,
         weship_source,
         shipping_source,
-        weship_items:   hasXlsx ? xlsxEntry!.weshipItems   : undefined,
-        shipping_items: hasXlsx ? xlsxEntry!.shippingItems : undefined,
+        weship_items:   hasXlsx ? xlsxEntry!.weshipItems   : hist_weship_items,
+        shipping_items: hasXlsx ? xlsxEntry!.shippingItems : hist_shipping_items,
       }
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())

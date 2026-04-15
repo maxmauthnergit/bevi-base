@@ -95,7 +95,7 @@ function TipSource({ source }: { source: 'actual' | 'historical' | 'estimated' |
     : source === 'historical'
     ? { color: '#6B6A64', label: 'Based on historic data' }
     : source === 'estimated'
-    ? { color: '#B45309', label: 'Estimated (COGS config)' }
+    ? { color: '#9E9D98', label: 'No data available' }
     : source === 'shopify'
     ? { color: '#0D8585', label: 'From Shopify' }
     : { color: '#555550', label: 'Calculated' }
@@ -401,8 +401,8 @@ export default function OrdersPage() {
                   )}
                   {est > 0 && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#B45309' }} />
-                      <span className="label" style={{ color: '#B45309' }}>{est} estimated (COGS)</span>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1.5px solid #9E9D98', backgroundColor: 'transparent' }} />
+                      <span className="label" style={{ color: '#9E9D98' }}>{est} no data</span>
                     </span>
                   )}
                 </span>
@@ -541,28 +541,18 @@ export default function OrdersPage() {
                   ) : o.weship_source === 'historical' ? (
                     <>
                       <TipLabel>WeShip fulfillment costs</TipLabel>
-                      {o.items.map((it, j) => (
-                        <TipRow key={j}
-                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
-                          value={fmt(it.cost_weship * it.qty)}
-                        />
+                      {o.weship_items?.map((it, j) => (
+                        <TipRow key={j} label={it.product} value={fmt(it.amount)} />
                       ))}
                       <TipDivider />
-                      <TipRow label="Avg. total (historic data)" value={fmt(o.cost_weship)} total />
+                      <TipRow label="Avg. total" value={fmt(o.cost_weship)} total />
                       <TipDivider />
                       <TipSource source="historical" />
                     </>
                   ) : (
                     <>
                       <TipLabel>WeShip fulfillment costs</TipLabel>
-                      {o.items.map((it, j) => (
-                        <TipRow key={j}
-                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
-                          value={fmt(it.cost_weship * it.qty)}
-                        />
-                      ))}
-                      <TipDivider />
-                      <TipRow label="Total" value={fmt(o.cost_weship)} total />
+                      <TipRow label="No data available" value="—" />
                       <TipDivider />
                       <TipSource source="estimated" />
                     </>
@@ -582,28 +572,18 @@ export default function OrdersPage() {
                   ) : o.shipping_source === 'historical' ? (
                     <>
                       <TipLabel>OB Shipping to customer</TipLabel>
-                      {o.items.map((it, j) => (
-                        <TipRow key={j}
-                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
-                          value={fmt(it.cost_shipping * it.qty)}
-                        />
+                      {o.shipping_items?.map((it, j) => (
+                        <TipRow key={j} label={it.product} value={fmt(it.amount)} />
                       ))}
                       <TipDivider />
-                      <TipRow label="Avg. total (historic data)" value={fmt(o.cost_shipping)} total />
+                      <TipRow label="Avg. total" value={fmt(o.cost_shipping)} total />
                       <TipDivider />
                       <TipSource source="historical" />
                     </>
                   ) : (
                     <>
                       <TipLabel>OB Shipping to customer</TipLabel>
-                      {o.items.map((it, j) => (
-                        <TipRow key={j}
-                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
-                          value={fmt(it.cost_shipping * it.qty)}
-                        />
-                      ))}
-                      <TipDivider />
-                      <TipRow label="Total" value={fmt(o.cost_shipping)} total />
+                      <TipRow label="No data available" value="—" />
                       <TipDivider />
                       <TipSource source="estimated" />
                     </>
@@ -693,8 +673,10 @@ export default function OrdersPage() {
                             <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
                               {fmt(o.cost_weship)}
                             </span>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                              backgroundColor: o.weship_source === 'actual' ? '#0D8585' : o.weship_source === 'historical' ? '#6B6A64' : '#B45309' }} />
+                            {o.weship_source === 'estimated'
+                              ? <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, border: '1.5px solid #9E9D98', backgroundColor: 'transparent' }} />
+                              : <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, backgroundColor: o.weship_source === 'actual' ? '#0D8585' : '#6B6A64' }} />
+                            }
                           </span>
                         </WithTip>
                       </td>
@@ -706,8 +688,10 @@ export default function OrdersPage() {
                             <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
                               {fmt(o.cost_shipping)}
                             </span>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                              backgroundColor: o.shipping_source === 'actual' ? '#0D8585' : o.shipping_source === 'historical' ? '#6B6A64' : '#B45309' }} />
+                            {o.shipping_source === 'estimated'
+                              ? <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, border: '1.5px solid #9E9D98', backgroundColor: 'transparent' }} />
+                              : <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, backgroundColor: o.shipping_source === 'actual' ? '#0D8585' : '#6B6A64' }} />
+                            }
                           </span>
                         </WithTip>
                       </td>
