@@ -56,36 +56,36 @@ function buildMonths(): WeshipMonth[] {
 
 // ─── COGS data ────────────────────────────────────────────────────────────────
 
-type Item = { id: string; label: string; amount: number }
+type Item = { id: string; position: string; supplier: string; amount: number }
 type Product = { id: string; name: string; subtitle: string; vkBrutto: number; material: Item[] }
 
 const PRODUCTS: Product[] = [
   {
     id: 'bevi-bag', name: 'Bevi Bag Full Set', subtitle: 'Individual product', vkBrutto: 99.90,
     material: [
-      { id: 'm1', label: 'Production costs (EXW) | Quanzhou Pengxin Bags', amount: 9.01 },
-      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',   amount: 3.89 },
+      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Quanzhou Pengxin Bags', amount: 9.01 },
+      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',       amount: 3.89 },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
     material: [
-      { id: 'm1', label: 'Production costs (EXW) | Quanzhou Pengxin Bags', amount: 2.53 },
-      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',   amount: 0.40 },
+      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Quanzhou Pengxin Bags', amount: 2.53 },
+      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',       amount: 0.40 },
     ],
   },
   {
     id: 'phone-strap', name: 'Bevi Phone Strap', subtitle: 'Individual product', vkBrutto: 14.90,
     material: [
-      { id: 'm1', label: 'Production costs (EXW) | Dongguan Webbing', amount: 0.33 },
-      { id: 'm2', label: 'Packaging (EXW) | Langhai Printing',        amount: 0.11 },
+      { id: 'm1', position: 'Production costs (EXW)', supplier: 'Dongguan Webbing',  amount: 0.33 },
+      { id: 'm2', position: 'Packaging (EXW)',         supplier: 'Langhai Printing',  amount: 0.11 },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
     material: [
-      { id: 'm1', label: 'Production costs (EXW) | Licheng Plastic',      amount: 1.75 },
-      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',  amount: 1.46 },
+      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Licheng Plastic',  amount: 1.75 },
+      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',  amount: 1.46 },
     ],
   },
 ]
@@ -198,12 +198,20 @@ export default function SettingsPage() {
     }
   }
 
-  function updateItem(pid: string, iid: string, val: string) {
-    const n = parseFloat(val)
-    if (isNaN(n)) return
+  function updateItem(pid: string, iid: string, field: 'position' | 'supplier' | 'amount', val: string) {
     setProducts(p => p.map(prod => {
       if (prod.id !== pid) return prod
-      return { ...prod, material: prod.material.map(it => it.id === iid ? { ...it, amount: n } : it) }
+      return {
+        ...prod,
+        material: prod.material.map(it => {
+          if (it.id !== iid) return it
+          if (field === 'amount') {
+            const n = parseFloat(val)
+            return isNaN(n) ? it : { ...it, amount: n }
+          }
+          return { ...it, [field]: val }
+        }),
+      }
     }))
   }
 
@@ -358,29 +366,42 @@ export default function SettingsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
               <tr>
-                {['Position', 'Amount', '% of Total'].map((h, i) => (
-                  <th key={h} className="label" style={{ textAlign: i === 0 ? 'left' : 'right', paddingBottom: 10, borderBottom: '1px solid #E3E2DC', paddingRight: i < 2 ? 16 : 0, fontWeight: 500 }}>{h}</th>
-                ))}
+                <th className="label" style={{ textAlign: 'left',  paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Position</th>
+                <th className="label" style={{ textAlign: 'left',  paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Supplier</th>
+                <th className="label" style={{ textAlign: 'right', paddingBottom: 10,                  borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Amount</th>
               </tr>
             </thead>
             <tbody>
               {prod.material.map((item, i) => (
                 <tr key={item.id} style={{ borderBottom: i < prod.material.length - 1 ? '1px solid #F9F8F5' : 'none' }}>
-                  <td style={{ padding: '8px 16px 8px 12px', color: '#6B6A64', fontFamily: G }}>{item.label}</td>
-                  <td style={{ padding: '8px 16px 8px 0', textAlign: 'right' }}>
+                  <td style={{ padding: '8px 16px 8px 0' }}>
+                    <input
+                      type="text"
+                      value={item.position}
+                      onChange={e => updateItem(prod.id, item.id, 'position', e.target.value)}
+                      style={{ ...inp, width: '100%' }}
+                    />
+                  </td>
+                  <td style={{ padding: '8px 16px 8px 0' }}>
+                    <input
+                      type="text"
+                      value={item.supplier}
+                      onChange={e => updateItem(prod.id, item.id, 'supplier', e.target.value)}
+                      style={{ ...inp, width: '100%' }}
+                    />
+                  </td>
+                  <td style={{ padding: '8px 0', textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
-                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, item.id, e.target.value)}
+                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, item.id, 'amount', e.target.value)}
                         style={{ ...inp, width: 68, textAlign: 'right', padding: '3px 6px' }} />
                     </div>
                   </td>
-                  <td style={{ padding: '8px 0', textAlign: 'right', color: '#9E9D98', fontSize: '0.75rem' }}>{((item.amount / totalCogs) * 100).toFixed(1)}%</td>
                 </tr>
               ))}
               <tr style={{ borderTop: '1px solid #E3E2DC' }}>
-                <td style={{ padding: '10px 16px 10px 12px', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production &amp; IB Shipping Costs (DDP)</td>
-                <td style={{ padding: '10px 16px 10px 0', textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110' }}>{fmt(totalCogs)}</td>
-                <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 700, color: '#6B6A64', fontSize: '0.75rem' }}>100%</td>
+                <td colSpan={2} style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production &amp; IB Shipping Costs (DDP)</td>
+                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110' }}>{fmt(totalCogs)}</td>
               </tr>
             </tbody>
           </table>

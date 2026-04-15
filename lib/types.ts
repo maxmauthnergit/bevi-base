@@ -69,6 +69,10 @@ export interface OrderRow {
     cost_production:    number   // manufacturing + ib_shipping combined
     cost_weship:        number   // per unit (estimated from COGS config)
     cost_shipping:      number   // per unit (estimated from COGS config)
+    mfg_position:       string   // e.g. "Production costs (EXW)"
+    mfg_supplier:       string   // e.g. "Quanzhou Pengxin Bags"
+    ib_position:        string   // e.g. "Shipping & Customs to Graz"
+    ib_supplier:        string   // e.g. "Shenzhen Amanda"
   }[]
   cost_production:  number
   cost_weship:      number

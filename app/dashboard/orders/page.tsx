@@ -511,12 +511,17 @@ export default function OrdersPage() {
                       <TipLabel>Production &amp; IB Shipping</TipLabel>
                       {o.items.map((it, j) => (
                         <React.Fragment key={j}>
+                          {o.items.length > 1 && (
+                            <div style={{ fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.06em', color: '#555550', textTransform: 'uppercase', marginTop: j > 0 ? 6 : 2, marginBottom: 2 }}>
+                              {it.qty > 1 ? `${it.qty}× ` : ''}{it.title}
+                            </div>
+                          )}
                           <TipRow
-                            label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title} — manufacturing`}
+                            label={it.mfg_position}
                             value={fmt(it.cost_manufacturing * it.qty)}
                           />
                           <TipRow
-                            label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title} — IB shipping`}
+                            label={it.ib_position}
                             value={fmt(it.cost_ib_shipping * it.qty)}
                           />
                         </React.Fragment>

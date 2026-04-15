@@ -9,21 +9,30 @@ export type { OrderRow }
 // Used only when no actual XLSX data AND no historical reference exists.
 
 interface CostProfile {
-  manufacturing: number   // Quanzhou Pengxin
-  ib_shipping:   number   // Shenzhen Amanda
+  manufacturing: number
+  ib_shipping:   number
   weship:        number
   shipping:      number
+  mfg_position:  string   // e.g. "Production costs (EXW)"
+  mfg_supplier:  string   // e.g. "Quanzhou Pengxin Bags"
+  ib_position:   string   // e.g. "Shipping & Customs to Graz"
+  ib_supplier:   string   // e.g. "Shenzhen Amanda"
 }
 
+// Shared position/supplier label sets
+const QP_SA = { mfg_position: 'Production costs (EXW)', mfg_supplier: 'Quanzhou Pengxin Bags', ib_position: 'Shipping & Customs to Graz', ib_supplier: 'Shenzhen Amanda' }
+const LC_SA = { mfg_position: 'Production costs (EXW)', mfg_supplier: 'Licheng Plastic',        ib_position: 'Shipping & Customs to Graz', ib_supplier: 'Shenzhen Amanda' }
+const DW_LP = { mfg_position: 'Production costs (EXW)', mfg_supplier: 'Dongguan Webbing',       ib_position: 'Packaging (EXW)',            ib_supplier: 'Langhai Printing' }
+
 const COST_MAP: [string, CostProfile][] = [
-  ['squad',         { manufacturing: 27.03, ib_shipping: 11.67, weship: 4.20, shipping: 5.40 }],
-  ['bundle l',      { manufacturing: 11.20, ib_shipping:  5.35, weship: 3.89, shipping: 5.40 }],
-  ['bundle m',      { manufacturing: 10.76, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
-  ['bundle s',      { manufacturing:  9.45, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
-  ['full set',      { manufacturing:  9.01, ib_shipping:  3.89, weship: 3.04, shipping: 5.40 }],
-  ['water bladder', { manufacturing:  2.53, ib_shipping:  0.40, weship: 3.05, shipping: 2.50 }],
-  ['cleaning kit',  { manufacturing:  1.75, ib_shipping:  1.46, weship: 3.05, shipping: 5.40 }],
-  ['phone strap',   { manufacturing:  0.33, ib_shipping:  0.11, weship: 3.04, shipping: 2.50 }],
+  ['squad',         { manufacturing: 27.03, ib_shipping: 11.67, weship: 4.20, shipping: 5.40, ...QP_SA }],
+  ['bundle l',      { manufacturing: 11.20, ib_shipping:  5.35, weship: 3.89, shipping: 5.40, ...QP_SA }],
+  ['bundle m',      { manufacturing: 10.76, ib_shipping:  3.89, weship: 3.50, shipping: 5.40, ...QP_SA }],
+  ['bundle s',      { manufacturing:  9.45, ib_shipping:  3.89, weship: 3.50, shipping: 5.40, ...QP_SA }],
+  ['full set',      { manufacturing:  9.01, ib_shipping:  3.89, weship: 3.04, shipping: 5.40, ...QP_SA }],
+  ['water bladder', { manufacturing:  2.53, ib_shipping:  0.40, weship: 3.05, shipping: 2.50, ...QP_SA }],
+  ['cleaning kit',  { manufacturing:  1.75, ib_shipping:  1.46, weship: 3.05, shipping: 5.40, ...LC_SA }],
+  ['phone strap',   { manufacturing:  0.33, ib_shipping:  0.11, weship: 3.04, shipping: 2.50, ...DW_LP }],
 ]
 
 function getCosts(title: string): CostProfile {
@@ -31,7 +40,7 @@ function getCosts(title: string): CostProfile {
   for (const [key, profile] of COST_MAP) {
     if (t.includes(key)) return profile
   }
-  return { manufacturing: 0, ib_shipping: 0, weship: 0, shipping: 0 }
+  return { manufacturing: 0, ib_shipping: 0, weship: 0, shipping: 0, ...QP_SA }
 }
 
 // Canonical product key for composition matching
@@ -271,6 +280,10 @@ export async function GET(req: NextRequest) {
             cost_production:    Math.round((p.manufacturing + p.ib_shipping) * 100) / 100,
             cost_weship:        p.weship,
             cost_shipping:      p.shipping,
+            mfg_position:       p.mfg_position,
+            mfg_supplier:       p.mfg_supplier,
+            ib_position:        p.ib_position,
+            ib_supplier:        p.ib_supplier,
           }
         }),
         cost_production,
