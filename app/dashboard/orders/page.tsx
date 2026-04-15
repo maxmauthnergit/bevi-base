@@ -229,6 +229,7 @@ export default function OrdersPage() {
   const totals = orders?.length ? {
     count: orders.length,
     gross: orders.reduce((s, o) => s + o.revenue_gross,   0),
+    tax:   orders.reduce((s, o) => s + o.revenue_tax,     0),
     net:   orders.reduce((s, o) => s + o.revenue_net,     0),
     prod:  orders.reduce((s, o) => s + o.cost_production, 0),
     ws:    orders.reduce((s, o) => s + o.cost_weship,     0),
@@ -297,6 +298,7 @@ export default function OrdersPage() {
                 <KpiHero label="Net Revenue" value={fmt(totals.net)} />
                 {divider}
                 <KpiDetail label="Gross" value={fmt(totals.gross)} />
+                <KpiDetail label="Taxes" value={fmt(totals.tax)} />
                 <KpiDetail label="Orders" value={String(totals.count)} />
               </div>
 
@@ -305,9 +307,9 @@ export default function OrdersPage() {
                 <span style={tileLabel}>Costs</span>
                 <KpiHero label="Total Costs" value={fmt(totalCosts)} />
                 {divider}
-                <KpiDetail label="Production" value={fmt(totals.prod)} />
+                <KpiDetail label="Production & IB Shipping" value={fmt(totals.prod)} />
                 <KpiDetail label="WeShip" value={fmt(totals.ws)} />
-                <KpiDetail label="Shipping" value={fmt(totals.ship)} />
+                <KpiDetail label="OB Shipping" value={fmt(totals.ship)} />
                 <KpiDetail label="Payment Fee" value={fmt(totals.pay)} />
               </div>
 
@@ -328,7 +330,7 @@ export default function OrdersPage() {
                   />
                 )}
                 <KpiDetail
-                  label="Avg margin / order"
+                  label="Average Margin per Order"
                   value={`${avgMarginPerOrder.toFixed(1)}%`}
                   color={marginColor(avgMarginPerOrder)}
                 />
@@ -344,23 +346,19 @@ export default function OrdersPage() {
         <CardHeader
           label="Order List"
           action={
-            !loading && xlsxInfo ? (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                  backgroundColor: xlsxInfo.parsed
-                    ? xlsxInfo.matched > 0 ? '#0D8585' : '#B45309'
-                    : '#9E9D98',
-                }} />
-                <span className="label" style={{ color: '#9E9D98' }}>
-                  {xlsxInfo.parsed
-                    ? `${xlsxInfo.matched} / ${orders?.length ?? 0} from WeShip file`
-                    : xlsxInfo.debug.error
-                      ? 'WeShip file error'
-                      : 'No WeShip file'}
+            !loading && xlsxInfo ? (() => {
+              const ok    = xlsxInfo.parsed && xlsxInfo.matched > 0
+              const color = ok ? '#0D8585' : '#DC2626'
+              const text  = xlsxInfo.parsed
+                ? `${xlsxInfo.matched} / ${orders?.length ?? 0} from WeShip invoice`
+                : xlsxInfo.debug.error ? 'WeShip invoice error' : 'No WeShip invoice'
+              return (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: color }} />
+                  <span className="label" style={{ color }}>{text}</span>
                 </span>
-              </span>
-            ) : undefined
+              )
+            })() : undefined
           }
         />
 
@@ -407,9 +405,9 @@ export default function OrdersPage() {
                   <th style={{ ...thBase, paddingRight: 0,  minWidth: 80 }}>Net</th>
                   {/* Gap */}
                   <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 88 }}>Prod/Ship</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 96 }}>IB Shipping</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 74 }}>WeShip</th>
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 74 }}>Shipping</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>OB Shipping</th>
                   <th style={{ ...thBase, paddingRight: 24, minWidth: 88 }}>Payment Fee</th>
                   <th style={{ ...thBase, minWidth: 100 }}>Margin</th>
                 </tr>
@@ -594,7 +592,7 @@ export default function OrdersPage() {
                       {/* Gap */}
                       <td style={{ ...td, padding: 0 }} />
 
-                      {/* Prod/Ship */}
+                      {/* IB Shipping */}
                       <td style={{ ...td, textAlign: 'right', paddingRight: 16 }}>
                         <WithTip tip={prodTip}>
                           <span className="metric" style={{ color: '#6B6A64', fontSize: '0.75rem' }}>
