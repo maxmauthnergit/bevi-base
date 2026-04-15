@@ -158,7 +158,8 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
 
 function TipConfigFooter() {
   return (
-    <div style={{ marginTop: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#555550' }} />
       <a
         href="/dashboard/settings"
         style={{ fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.05em', color: '#555550', textDecoration: 'none' }}
@@ -461,7 +462,7 @@ export default function OrdersPage() {
                       ))}
                       {o.discount > 0 && <TipRow label="Discount" value={`−${fmt(o.discount)}`} />}
                       <TipDivider />
-                      <TipRow label="Total gross" value={fmt(o.revenue_gross)} total />
+                      <TipRow label="Total Gross" value={fmt(o.revenue_gross)} total />
                       <TipDivider />
                       <TipSource source="shopify" />
                     </>
@@ -473,7 +474,7 @@ export default function OrdersPage() {
                       <TipRow label="Gross" value={fmt(o.revenue_gross)} />
                       <TipRow label="Tax (MwSt.)" value={`−${fmt(o.revenue_tax)}`} />
                       <TipDivider />
-                      <TipRow label="Net" value={fmt(o.revenue_net)} total />
+                      <TipRow label="Total Net" value={fmt(o.revenue_net)} total />
                       <TipDivider />
                       <TipSource source="shopify" />
                     </>
