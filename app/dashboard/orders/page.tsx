@@ -449,7 +449,7 @@ export default function OrdersPage() {
                 </tr>
                 {/* Column headers */}
                 <tr>
-                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 90 }}>Order</th>
+                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 210 }}>Order</th>
                   <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 120 }}>Products</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>Gross</th>
                   <th style={{ ...thBase, paddingRight: 0,  minWidth: 80 }}>Net</th>
