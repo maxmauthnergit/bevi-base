@@ -63,29 +63,29 @@ const PRODUCTS: Product[] = [
   {
     id: 'bevi-bag', name: 'Bevi Bag Full Set', subtitle: 'Individual product', vkBrutto: 99.90,
     material: [
-      { id: 'm1', label: 'Quanzhou Pengxin — Production costs', amount: 9.01 },
-      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 3.89 },
+      { id: 'm1', label: 'Production costs (EXW) | Quanzhou Pengxin Bags', amount: 9.01 },
+      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',   amount: 3.89 },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
     material: [
-      { id: 'm1', label: 'Quanzhou Pengxin — Production costs', amount: 2.53 },
-      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 0.40 },
+      { id: 'm1', label: 'Production costs (EXW) | Quanzhou Pengxin Bags', amount: 2.53 },
+      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',   amount: 0.40 },
     ],
   },
   {
     id: 'phone-strap', name: 'Bevi Phone Strap', subtitle: 'Individual product', vkBrutto: 14.90,
     material: [
-      { id: 'm1', label: 'Dongguan Webbing — Production costs', amount: 0.33 },
-      { id: 'm2', label: 'Langhai Printing — Packaging', amount: 0.11 },
+      { id: 'm1', label: 'Production costs (EXW) | Dongguan Webbing', amount: 0.33 },
+      { id: 'm2', label: 'Packaging (EXW) | Langhai Printing',        amount: 0.11 },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
     material: [
-      { id: 'm1', label: 'Licheng Plastic — Production costs', amount: 1.75 },
-      { id: 'm2', label: 'Shenzhen Amanda — Shipping to warehouse Graz', amount: 1.46 },
+      { id: 'm1', label: 'Production costs (EXW) | Licheng Plastic',      amount: 1.75 },
+      { id: 'm2', label: 'Shipping & Customs to Graz | Shenzhen Amanda',  amount: 1.46 },
     ],
   },
 ]
@@ -335,9 +335,9 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* ── 3. PRODUCT COSTS & COGS ────────────────────────────────────────── */}
+      {/* ── 3. PRODUCTION & IB SHIPPING COSTS ────────────────────────────── */}
       <Card>
-        <CardHeader label="Product Costs & COGS" />
+        <CardHeader label="Production & IB Shipping Costs (DDP)" />
 
         {/* Tab selector */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                 </tr>
               ))}
               <tr style={{ borderTop: '1px solid #E3E2DC' }}>
-                <td style={{ padding: '10px 16px 10px 12px', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production (EXW) + Shipping to warehouse</td>
+                <td style={{ padding: '10px 16px 10px 12px', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production &amp; IB Shipping Costs (DDP)</td>
                 <td style={{ padding: '10px 16px 10px 0', textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110' }}>{fmt(totalCogs)}</td>
                 <td style={{ padding: '10px 0', textAlign: 'right', fontWeight: 700, color: '#6B6A64', fontSize: '0.75rem' }}>100%</td>
               </tr>
@@ -390,9 +390,8 @@ export default function SettingsPage() {
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E3E2DC', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: '#E3E2DC', borderRadius: 12, overflow: 'hidden' }}>
           {/* Selling Price (gross) — live from Shopify */}
           <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+            <div style={{ marginBottom: 6 }}>
               <span className="label">Selling Price (gross)</span>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, backgroundColor: shopifyPrices?.[selProduct] ? '#0D8585' : '#D0CFC8' }} />
             </div>
             <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#111110' }}>
               {pricesLoading ? '—' : fmt(vkBrutto)}
