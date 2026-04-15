@@ -449,16 +449,16 @@ export default function OrdersPage() {
                 </tr>
                 {/* Column headers */}
                 <tr>
-                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 210 }}>Order</th>
+                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 180 }}>Order</th>
                   <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 120 }}>Products</th>
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>Gross</th>
-                  <th style={{ ...thBase, paddingRight: 0,  minWidth: 80 }}>Net</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 100 }}>Gross</th>
+                  <th style={{ ...thBase, paddingRight: 0,  minWidth: 100 }}>Net</th>
                   {/* Gap: revenue / costs */}
                   <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 110 }}>Prod. & IB Ship.</th>
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 74 }}>WeShip</th>
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>OB Shipping</th>
-                  <th style={{ ...thBase, paddingRight: 24, minWidth: 96 }}>Payment & Shopify</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 95 }}>WeShip</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 100 }}>OB Shipping</th>
+                  <th style={{ ...thBase, paddingRight: 24, minWidth: 110 }}>Payment & Shopify</th>
                   {/* Gap: costs / profit */}
                   <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
                   <th style={{ ...thBase, minWidth: 100 }}>Margin</th>
