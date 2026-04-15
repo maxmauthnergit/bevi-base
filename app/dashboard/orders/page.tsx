@@ -310,27 +310,27 @@ export default function OrdersPage() {
                 <KpiDetail label="Production & IB Shipping" value={fmt(totals.prod)} />
                 <KpiDetail label="WeShip" value={fmt(totals.ws)} />
                 <KpiDetail label="OB Shipping" value={fmt(totals.ship)} />
-                <KpiDetail label="Payment Fee" value={fmt(totals.pay)} />
+                <KpiDetail label="Payment & Shopify" value={fmt(totals.pay)} />
               </div>
 
               {/* Tile 3 — Profit */}
               <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
                 <span style={tileLabel}>Profit</span>
                 <KpiHero
-                  label="Profit (DB)"
+                  label="Net Profit"
                   value={fmt(totalDb)}
                   color={totalDb >= 0 ? '#0D8585' : '#DC2626'}
                 />
                 {divider}
                 {totalMargin !== null && (
                   <KpiDetail
-                    label="Margin"
+                    label="Net Margin"
                     value={`${totalMargin.toFixed(1)}%`}
                     color={marginColor(totalMargin)}
                   />
                 )}
                 <KpiDetail
-                  label="Average Margin per Order"
+                  label="Avg Net Margin / Order"
                   value={`${avgMarginPerOrder.toFixed(1)}%`}
                   color={marginColor(avgMarginPerOrder)}
                 />
@@ -395,20 +395,20 @@ export default function OrdersPage() {
                   <th colSpan={2} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Revenue</th>
                   <th style={{ borderBottom: 'none', padding: 0 }} />
                   <th colSpan={4} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Costs</th>
-                  <th style={{ ...groupTh }} />
+                  <th style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Profit</th>
                 </tr>
                 {/* Column headers */}
                 <tr>
                   <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 90 }}>Order</th>
-                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 160 }}>Products</th>
+                  <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 120 }}>Products</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>Gross</th>
                   <th style={{ ...thBase, paddingRight: 0,  minWidth: 80 }}>Net</th>
                   {/* Gap */}
                   <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 96 }}>IB Shipping</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 120 }}>Production & IB Ship.</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 74 }}>WeShip</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>OB Shipping</th>
-                  <th style={{ ...thBase, paddingRight: 24, minWidth: 88 }}>Payment Fee</th>
+                  <th style={{ ...thBase, paddingRight: 24, minWidth: 96 }}>Payment & Shopify</th>
                   <th style={{ ...thBase, minWidth: 100 }}>Margin</th>
                 </tr>
               </thead>
@@ -541,7 +541,7 @@ export default function OrdersPage() {
                       <TipRow label="Net revenue" value={fmt(o.revenue_net)} />
                       <TipRow label="Total costs"  value={`−${fmt(o.cost_total)}`} />
                       <TipDivider />
-                      <TipRow label="Profit (DB)" value={fmt(db)} total />
+                      <TipRow label="Net Profit" value={fmt(db)} total />
                       <TipRow label="Margin"       value={`${o.margin.toFixed(1)}%`} total />
                       <TipDivider />
                       <TipSource source="calculated" />
@@ -634,7 +634,7 @@ export default function OrdersPage() {
                           <span style={{
                             display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
                             backgroundColor: marginBg(o.margin),
-                            padding: '4px 10px', borderRadius: 6, width: 96,
+                            padding: '4px 8px', borderRadius: 6, width: 82,
                           }}>
                             <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: marginColor(o.margin), lineHeight: 1.2 }}>
                               {o.margin.toFixed(1)}%
