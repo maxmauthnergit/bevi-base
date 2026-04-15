@@ -116,6 +116,8 @@ export default function SettingsPage() {
   const [products, setProducts]       = useState<Product[]>(PRODUCTS)
   const [shopifyPrices, setShopifyPrices] = useState<Record<string, number> | null>(null)
   const [pricesLoading, setPricesLoading] = useState(true)
+  const [payRate, setPayRate]         = useState(2.0)
+  const [payFixed, setPayFixed]       = useState(0.25)
 
   function saveBankEntry() {
     if (!dialogDate || !dialogAmt) return
@@ -415,6 +417,51 @@ export default function SettingsPage() {
               {pricesLoading ? '—' : `${multiple.toFixed(2)}×`}
             </span>
           </div>
+        </div>
+      </Card>
+
+      {/* ── 4. PAYMENT & SHOPIFY FEE ──────────────────────────────────────── */}
+      <Card className="mt-4 mb-4">
+        <CardHeader label="Payment & Shopify Fee" />
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64' }}>
+            Fee per order is calculated as: <strong style={{ color: '#111110' }}>rate% × gross + fixed fee</strong>
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 480 }}>
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: 6 }}>Variable Rate (%)</label>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <input
+                type="number" step="0.1" min="0"
+                value={payRate}
+                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayRate(n) }}
+                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
+              />
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>%</span>
+            </div>
+          </div>
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: 6 }}>Fixed Fee per Order</label>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
+              <input
+                type="number" step="0.01" min="0"
+                value={payFixed}
+                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayFixed(n) }}
+                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
+              />
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: 16, padding: '12px 16px', backgroundColor: '#F5F4F0', borderRadius: 10, maxWidth: 480 }}>
+          <span className="label" style={{ color: '#6B6A64' }}>
+            Example: order with €49.90 gross → {(() => {
+              const ex = 49.90
+              const total = Math.round((payRate / 100 * ex + payFixed) * 100) / 100
+              return `${(payRate).toFixed(1)}% × €${ex.toFixed(2)} + €${payFixed.toFixed(2)} = €${total.toFixed(2)}`
+            })()}
+          </span>
         </div>
       </Card>
 

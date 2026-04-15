@@ -109,12 +109,18 @@ function TipSource({ source }: { source: 'actual' | 'estimated' | 'shopify' | 'c
 
 function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
-  function handleEnter() {
+  const ref  = useRef<HTMLDivElement>(null)
+  const hide = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function show() {
+    if (hide.current) { clearTimeout(hide.current); hide.current = null }
     if (ref.current) setRect(ref.current.getBoundingClientRect())
   }
+  function scheduleHide() {
+    hide.current = setTimeout(() => setRect(null), 120)
+  }
+
   const above = rect ? rect.top > 260 : true
-  // Position fixed so overflow:auto ancestors can't clip the tooltip
   const tipStyle: React.CSSProperties = rect ? {
     position: 'fixed',
     ...(above
@@ -126,15 +132,14 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
     padding: '10px 14px',
     zIndex: 9999,
     boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
-    pointerEvents: 'none',
     minWidth: 180,
   } : {}
   return (
     <div
       ref={ref}
       style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
-      onMouseEnter={handleEnter}
-      onMouseLeave={() => setRect(null)}
+      onMouseEnter={show}
+      onMouseLeave={scheduleHide}
     >
       <span style={{
         borderBottom: rect ? '1px dashed #9E9D98' : '1px dashed transparent',
@@ -142,7 +147,24 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
       }}>
         {children}
       </span>
-      {rect && <div style={tipStyle}>{tip}</div>}
+      {rect && (
+        <div style={tipStyle} onMouseEnter={show} onMouseLeave={scheduleHide}>
+          {tip}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TipConfigFooter() {
+  return (
+    <div style={{ marginTop: 6 }}>
+      <a
+        href="/dashboard/settings"
+        style={{ fontFamily: G, fontSize: '0.5625rem', letterSpacing: '0.05em', color: '#555550', textDecoration: 'none' }}
+      >
+        Calculated based on config · Settings →
+      </a>
     </div>
   )
 }
@@ -430,13 +452,14 @@ export default function OrdersPage() {
                   // Build tooltip content helpers
                   const grossTip = (
                     <>
-                      <TipLabel>Line items</TipLabel>
+                      <TipLabel>Order items</TipLabel>
                       {o.items.map((it, j) => (
                         <TipRow key={j}
                           label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
                           value={fmt(it.unit_price * it.qty)}
                         />
                       ))}
+                      {o.discount > 0 && <TipRow label="Discount" value={`−${fmt(o.discount)}`} />}
                       <TipDivider />
                       <TipRow label="Total gross" value={fmt(o.revenue_gross)} total />
                       <TipDivider />
@@ -458,17 +481,22 @@ export default function OrdersPage() {
 
                   const prodTip = (
                     <>
-                      <TipLabel>Production (EXW) and shipping to warehouse Graz</TipLabel>
+                      <TipLabel>Production &amp; IB Shipping</TipLabel>
                       {o.items.map((it, j) => (
-                        <TipRow key={j}
-                          label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
-                          value={fmt(it.cost_production * it.qty)}
-                        />
+                        <React.Fragment key={j}>
+                          <TipRow
+                            label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title} — manufacturing`}
+                            value={fmt(it.cost_manufacturing * it.qty)}
+                          />
+                          <TipRow
+                            label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title} — IB shipping`}
+                            value={fmt(it.cost_ib_shipping * it.qty)}
+                          />
+                        </React.Fragment>
                       ))}
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_production)} total />
-                      <TipDivider />
-                      <TipSource source="estimated" />
+                      <TipConfigFooter />
                     </>
                   )
 
@@ -485,7 +513,7 @@ export default function OrdersPage() {
                     </>
                   ) : (
                     <>
-                      <TipLabel>Auftragsabw. · Komm. · Verpackung · Lager</TipLabel>
+                      <TipLabel>WeShip fulfillment costs</TipLabel>
                       {o.items.map((it, j) => (
                         <TipRow key={j}
                           label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
@@ -533,8 +561,7 @@ export default function OrdersPage() {
                       <TipRow label="Fixed fee per order" value={fmt(0.25)} />
                       <TipDivider />
                       <TipRow label="Total" value={fmt(o.cost_payment)} total />
-                      <TipDivider />
-                      <TipSource source="calculated" />
+                      <TipConfigFooter />
                     </>
                   )
 
