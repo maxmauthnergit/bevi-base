@@ -382,9 +382,9 @@ export default function OrdersPage() {
               <colgroup>
                 <col /><col />
                 <col /><col />
-                {/* gap */}
-                <col style={{ width: 28 }} />
+                <col style={{ width: 28 }} />{/* gap: revenue / costs */}
                 <col /><col /><col /><col />
+                <col style={{ width: 28 }} />{/* gap: costs / profit */}
                 <col />
               </colgroup>
 
@@ -395,6 +395,7 @@ export default function OrdersPage() {
                   <th colSpan={2} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Revenue</th>
                   <th style={{ borderBottom: 'none', padding: 0 }} />
                   <th colSpan={4} style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Costs</th>
+                  <th style={{ borderBottom: 'none', padding: 0 }} />
                   <th style={{ ...groupTh, borderBottom: '1px solid #E3E2DC' }}>Profit</th>
                 </tr>
                 {/* Column headers */}
@@ -403,12 +404,14 @@ export default function OrdersPage() {
                   <th style={{ ...thBase, textAlign: 'left', paddingRight: 20, minWidth: 120 }}>Products</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>Gross</th>
                   <th style={{ ...thBase, paddingRight: 0,  minWidth: 80 }}>Net</th>
-                  {/* Gap */}
+                  {/* Gap: revenue / costs */}
                   <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
-                  <th style={{ ...thBase, paddingRight: 16, minWidth: 120 }}>Production & IB Ship.</th>
+                  <th style={{ ...thBase, paddingRight: 16, minWidth: 110 }}>Prod. & IB Ship.</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 74 }}>WeShip</th>
                   <th style={{ ...thBase, paddingRight: 16, minWidth: 80 }}>OB Shipping</th>
                   <th style={{ ...thBase, paddingRight: 24, minWidth: 96 }}>Payment & Shopify</th>
+                  {/* Gap: costs / profit */}
+                  <th style={{ borderBottom: '1px solid #E3E2DC', padding: 0 }} />
                   <th style={{ ...thBase, minWidth: 100 }}>Margin</th>
                 </tr>
               </thead>
@@ -420,7 +423,7 @@ export default function OrdersPage() {
                   const db      = o.revenue_net - o.cost_total
                   const isLast  = i === orders.length - 1
                   const td: React.CSSProperties = {
-                    padding: '22px 0', verticalAlign: 'middle',
+                    padding: '15px 0', verticalAlign: 'middle',
                     borderBottom: !isLast ? '1px solid #F0EFE9' : 'none',
                   }
 
@@ -628,6 +631,9 @@ export default function OrdersPage() {
                         </WithTip>
                       </td>
 
+                      {/* Gap: costs / profit */}
+                      <td style={{ ...td, padding: 0 }} />
+
                       {/* Margin */}
                       <td style={{ ...td, textAlign: 'right' }}>
                         <WithTip tip={marginTip}>
@@ -654,31 +660,32 @@ export default function OrdersPage() {
               {totals && (
                 <tfoot>
                   <tr style={{ borderTop: '2px solid #E3E2DC' }}>
-                    <td colSpan={2} style={{ padding: '20px 0', paddingRight: 20 }}>
+                    <td colSpan={2} style={{ padding: '16px 0', paddingRight: 20 }}>
                       <span className="label" style={{ color: '#6B6A64' }}>
                         TOTAL — {totals.count} ORDERS
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 16px 16px 0' }}>
                       <span style={{ fontFamily: G, color: '#111110', fontWeight: 700 }}>{fmt(totals.gross)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 0' }}>
                       <span style={{ fontFamily: G, color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.net)}</span>
                     </td>
                     <td style={{ padding: 0 }} />
-                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 16px 16px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.prod)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 16px 16px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.ws)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 16px 20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 16px 16px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.ship)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 24px 20px 0' }}>
+                    <td style={{ textAlign: 'right', padding: '16px 24px 16px 0' }}>
                       <span className="metric" style={{ color: '#6B6A64', fontWeight: 600 }}>{fmt(totals.pay)}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '20px 0' }}>
+                    <td style={{ padding: 0 }} />
+                    <td style={{ textAlign: 'right', padding: '16px 0' }}>
                       {totalMargin !== null && (
                         <span style={{
                           display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
