@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
+import type { ProductCostConfig } from '@/lib/costs-config'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -63,29 +64,30 @@ const PRODUCTS: Product[] = [
   {
     id: 'bevi-bag', name: 'Bevi Bag Full Set', subtitle: 'Individual product', vkBrutto: 99.90,
     material: [
-      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Quanzhou Pengxin Bags', amount: 9.01 },
-      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',       amount: 3.89 },
+      { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 9.01 },
+      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 3.89 },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
     material: [
-      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Quanzhou Pengxin Bags', amount: 2.53 },
-      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',       amount: 0.40 },
+      { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 2.53 },
+      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 0.40 },
     ],
   },
   {
     id: 'phone-strap', name: 'Bevi Phone Strap', subtitle: 'Individual product', vkBrutto: 14.90,
     material: [
-      { id: 'm1', position: 'Production costs (EXW)', supplier: 'Dongguan Webbing',  amount: 0.33 },
-      { id: 'm2', position: 'Packaging (EXW)',         supplier: 'Langhai Printing',  amount: 0.11 },
+      { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Dongguan Webbing',  amount: 0.33 },
+      { id: 'm2', position: 'Packaging (EXW)',            supplier: 'Langhai Printing',  amount: 0.11 },
+      { id: 'm3', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',   amount: 0.00 },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
     material: [
-      { id: 'm1', position: 'Production costs (EXW)',      supplier: 'Licheng Plastic',  amount: 1.75 },
-      { id: 'm2', position: 'Shipping & Customs to Graz',  supplier: 'Shenzhen Amanda',  amount: 1.46 },
+      { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Licheng Plastic', amount: 1.75 },
+      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda', amount: 1.46 },
     ],
   },
 ]
@@ -118,12 +120,34 @@ export default function SettingsPage() {
   const [pricesLoading, setPricesLoading] = useState(true)
   const [payRate, setPayRate]         = useState(2.0)
   const [payFixed, setPayFixed]       = useState(0.25)
+  const [saving, setSaving]           = useState(false)
+  const [saveStatus, setSaveStatus]   = useState<'saved' | null>(null)
 
   function saveBankEntry() {
     if (!dialogDate || !dialogAmt) return
     setBankHistory(p => [{ date: dialogDate, amount: parseFloat(dialogAmt) }, ...p])
     setDialogDate(''); setDialogAmt(''); setDialogOpen(false)
   }
+
+  // Load persisted cost amounts from Supabase on mount
+  useEffect(() => {
+    fetch('/api/costs-config')
+      .then(r => r.json())
+      .then(({ costs }: { costs: ProductCostConfig[] }) => {
+        setProducts(p => p.map(prod => {
+          const cfg = costs.find(c => c.id === prod.id)
+          if (!cfg) return prod
+          return {
+            ...prod,
+            material: prod.material.map(it => {
+              const ci = cfg.items.find(i => i.id === it.id)
+              return ci ? { ...it, amount: ci.amount } : it
+            }),
+          }
+        }))
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     fetch('/api/weship-invoice/list')
@@ -198,21 +222,40 @@ export default function SettingsPage() {
     }
   }
 
-  function updateItem(pid: string, iid: string, field: 'position' | 'supplier' | 'amount', val: string) {
+  function updateItem(pid: string, iid: string, val: string) {
     setProducts(p => p.map(prod => {
       if (prod.id !== pid) return prod
       return {
         ...prod,
         material: prod.material.map(it => {
           if (it.id !== iid) return it
-          if (field === 'amount') {
-            const n = parseFloat(val)
-            return isNaN(n) ? it : { ...it, amount: n }
-          }
-          return { ...it, [field]: val }
+          const n = parseFloat(val)
+          return isNaN(n) ? it : { ...it, amount: n }
         }),
       }
     }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveStatus(null)
+    const overrides: Record<string, Record<string, number>> = {}
+    for (const p of products) {
+      overrides[p.id] = {}
+      for (const it of p.material) {
+        overrides[p.id][it.id] = it.amount
+      }
+    }
+    try {
+      await fetch('/api/costs-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(overrides),
+      })
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(null), 2500)
+    } catch {}
+    setSaving(false)
   }
 
   const prod      = products.find(p => p.id === selProduct)!
@@ -366,45 +409,53 @@ export default function SettingsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
               <tr>
-                <th className="label" style={{ textAlign: 'left',  paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Position</th>
-                <th className="label" style={{ textAlign: 'left',  paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Supplier</th>
-                <th className="label" style={{ textAlign: 'right', paddingBottom: 10,                  borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Amount</th>
+                <th className="label" style={{ textAlign: 'left', paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Position</th>
+                <th className="label" style={{ textAlign: 'left', paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Supplier</th>
+                <th className="label" style={{ textAlign: 'right', paddingBottom: 10, borderBottom: '1px solid #E3E2DC', fontWeight: 500, width: 120 }}>Amount</th>
               </tr>
             </thead>
             <tbody>
               {prod.material.map((item, i) => (
                 <tr key={item.id} style={{ borderBottom: i < prod.material.length - 1 ? '1px solid #F9F8F5' : 'none' }}>
-                  <td style={{ padding: '8px 16px 8px 0' }}>
-                    <input
-                      type="text"
-                      value={item.position}
-                      onChange={e => updateItem(prod.id, item.id, 'position', e.target.value)}
-                      style={{ ...inp, width: '100%' }}
-                    />
-                  </td>
-                  <td style={{ padding: '8px 16px 8px 0' }}>
-                    <input
-                      type="text"
-                      value={item.supplier}
-                      onChange={e => updateItem(prod.id, item.id, 'supplier', e.target.value)}
-                      style={{ ...inp, width: '100%' }}
-                    />
-                  </td>
-                  <td style={{ padding: '8px 0', textAlign: 'right' }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
-                      <input type="number" step="0.01" value={item.amount} onChange={e => updateItem(prod.id, item.id, 'amount', e.target.value)}
-                        style={{ ...inp, width: 68, textAlign: 'right', padding: '3px 6px' }} />
+                  <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110' }}>{item.position}</td>
+                  <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#6B6A64' }}>{item.supplier}</td>
+                  <td style={{ padding: '6px 0', width: 120 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                      <span style={{ color: '#9E9D98', fontSize: '0.6875rem', width: 14, textAlign: 'center', flexShrink: 0 }}>€</span>
+                      <input type="number" step="0.01" value={item.amount}
+                        onChange={e => updateItem(prod.id, item.id, e.target.value)}
+                        style={{ ...inp, width: 76, textAlign: 'right', padding: '4px 6px' }} />
                     </div>
                   </td>
                 </tr>
               ))}
               <tr style={{ borderTop: '1px solid #E3E2DC' }}>
                 <td colSpan={2} style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production &amp; IB Shipping Costs (DDP)</td>
-                <td style={{ padding: '10px 0', textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110' }}>{fmt(totalCogs)}</td>
+                <td style={{ padding: '10px 0', width: 120 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <span style={{ color: '#9E9D98', fontSize: '0.6875rem', width: 14, textAlign: 'center', flexShrink: 0 }}>€</span>
+                    <span style={{ width: 76, textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110', fontSize: '0.8125rem', padding: '4px 6px', display: 'inline-block' }}>
+                      {totalCogs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        {/* Save button */}
+        <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+          {saveStatus === 'saved' && (
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>Saved</span>
+          )}
+          <button
+            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '6px 18px', cursor: saving ? 'not-allowed' : 'pointer' }}
+            disabled={saving}
+            onClick={handleSave}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
         </div>
 
         {/* Summary */}

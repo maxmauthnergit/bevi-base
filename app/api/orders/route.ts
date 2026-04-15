@@ -3,6 +3,8 @@ import { shopifyFetch } from '@/lib/shopify/client'
 import type { ShopifyOrder } from '@/lib/shopify/client'
 import type { OrderRow } from '@/lib/types'
 import { getWeShipMonthData } from '@/lib/weship/xlsx-parser'
+import { createServerClient } from '@/lib/supabase'
+import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
 export type { OrderRow }
 
 // ─── Per-product cost profiles (last-resort COGS fallback) ────────────────────
@@ -35,10 +37,13 @@ const COST_MAP: [string, CostProfile][] = [
   ['phone strap',   { manufacturing:  0.33, ib_shipping:  0.11, weship: 3.04, shipping: 2.50, ...DW_LP }],
 ]
 
-function getCosts(title: string): CostProfile {
+function getCosts(title: string, amountsMap: Map<string, { manufacturing: number; ib_shipping: number }>): CostProfile {
   const t = title.toLowerCase()
   for (const [key, profile] of COST_MAP) {
-    if (t.includes(key)) return profile
+    if (t.includes(key)) {
+      const ov = amountsMap.get(key)
+      return ov ? { ...profile, manufacturing: ov.manufacturing, ib_shipping: ov.ib_shipping } : profile
+    }
   }
   return { manufacturing: 0, ib_shipping: 0, weship: 0, shipping: 0, ...QP_SA }
 }
@@ -108,6 +113,21 @@ export async function GET(req: NextRequest) {
     from  = new Date(now.getFullYear(), now.getMonth(), 1)
     to    = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
     month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  // Load persisted cost amounts (production + IB shipping) from Supabase config
+  let amountsMap = new Map<string, { manufacturing: number; ib_shipping: number }>()
+  try {
+    const cfgClient = createServerClient()
+    const { data: cfgData } = await cfgClient.storage
+      .from('weship-invoices')
+      .download('config/production-costs.json')
+    if (cfgData) {
+      const overrides = JSON.parse(await cfgData.text()) as Record<string, Record<string, number>>
+      amountsMap = buildAmountsMap(applyOverrides(overrides))
+    }
+  } catch {
+    amountsMap = buildAmountsMap(DEFAULT_PRODUCT_COSTS)
   }
 
   const lookbackKeys = Array.from({ length: LOOKBACK }, (_, i) => offsetMonth(month, -(i + 1)))
@@ -207,7 +227,7 @@ export async function GET(req: NextRequest) {
       let est_manufacturing = 0
       let est_ib_shipping   = 0
       for (const li of o.line_items) {
-        const p = getCosts(li.title)
+        const p = getCosts(li.title, amountsMap)
         est_manufacturing += p.manufacturing * li.quantity
         est_ib_shipping   += p.ib_shipping   * li.quantity
       }
@@ -270,7 +290,7 @@ export async function GET(req: NextRequest) {
         revenue_net:        Math.round(net      * 100) / 100,
         discount:           Math.round(discount * 100) / 100,
         items: o.line_items.map(li => {
-          const p = getCosts(li.title)
+          const p = getCosts(li.title, amountsMap)
           return {
             title:              li.title,
             qty:                li.quantity,
