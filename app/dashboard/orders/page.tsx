@@ -402,7 +402,7 @@ export default function OrdersPage() {
                   {est > 0 && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1.5px solid #9E9D98', backgroundColor: 'transparent' }} />
-                      <span className="label" style={{ color: '#9E9D98' }}>{est} no data</span>
+                      <span className="label" style={{ color: '#9E9D98' }}>{est} with no data</span>
                     </span>
                   )}
                 </span>
