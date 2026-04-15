@@ -65,14 +65,14 @@ const PRODUCTS: Product[] = [
     id: 'bevi-bag', name: 'Bevi Bag Full Set', subtitle: 'Individual product', vkBrutto: 99.90,
     material: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 9.01 },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 3.89 },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',       amount: 3.89 },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', subtitle: 'Individual product', vkBrutto: 19.00,
     material: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 2.53 },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 0.40 },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',       amount: 0.40 },
     ],
   },
   {
@@ -80,14 +80,14 @@ const PRODUCTS: Product[] = [
     material: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Dongguan Webbing',  amount: 0.33 },
       { id: 'm2', position: 'Packaging (EXW)',            supplier: 'Langhai Printing',  amount: 0.11 },
-      { id: 'm3', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',   amount: 0.00 },
+      { id: 'm3', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',   amount: 0.00 },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', subtitle: 'Individual product', vkBrutto: 24.90,
     material: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Licheng Plastic', amount: 1.75 },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda', amount: 1.46 },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda', amount: 1.46 },
     ],
   },
 ]
@@ -409,7 +409,7 @@ export default function SettingsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
               <tr>
-                <th className="label" style={{ textAlign: 'left', paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Position</th>
+                <th className="label" style={{ textAlign: 'left', paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500, width: 260 }}>Position</th>
                 <th className="label" style={{ textAlign: 'left', paddingBottom: 10, paddingRight: 16, borderBottom: '1px solid #E3E2DC', fontWeight: 500 }}>Supplier</th>
                 <th className="label" style={{ textAlign: 'right', paddingBottom: 10, borderBottom: '1px solid #E3E2DC', fontWeight: 500, width: 120 }}>Amount</th>
               </tr>
@@ -430,7 +430,7 @@ export default function SettingsPage() {
                 </tr>
               ))}
               <tr style={{ borderTop: '1px solid #E3E2DC' }}>
-                <td colSpan={2} style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total Production &amp; IB Shipping Costs (DDP)</td>
+                <td colSpan={2} style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total production &amp; IB shipping costs (DDP)</td>
                 <td style={{ padding: '10px 0', width: 120 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                     <span style={{ color: '#9E9D98', fontSize: '0.6875rem', width: 14, textAlign: 'center', flexShrink: 0 }}>€</span>

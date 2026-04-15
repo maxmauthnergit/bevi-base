@@ -22,14 +22,14 @@ export const DEFAULT_PRODUCT_COSTS: ProductCostConfig[] = [
     id: 'bevi-bag', name: 'Bevi Bag Full Set', titleKey: 'full set',
     items: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 9.01, costType: 'manufacturing' },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 3.89, costType: 'ib_shipping'   },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',       amount: 3.89, costType: 'ib_shipping'   },
     ],
   },
   {
     id: 'water-bladder', name: 'Bevi Water Bladder + Tubes', titleKey: 'water bladder',
     items: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Quanzhou Pengxin Bags', amount: 2.53, costType: 'manufacturing' },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',       amount: 0.40, costType: 'ib_shipping'   },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',       amount: 0.40, costType: 'ib_shipping'   },
     ],
   },
   {
@@ -37,14 +37,14 @@ export const DEFAULT_PRODUCT_COSTS: ProductCostConfig[] = [
     items: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Dongguan Webbing',  amount: 0.33, costType: 'manufacturing' },
       { id: 'm2', position: 'Packaging (EXW)',            supplier: 'Langhai Printing',  amount: 0.11, costType: 'ib_shipping'   },
-      { id: 'm3', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda',   amount: 0.00, costType: 'ib_shipping'   },
+      { id: 'm3', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda',   amount: 0.00, costType: 'ib_shipping'   },
     ],
   },
   {
     id: 'cleaning-kit', name: 'Bevi Cleaning Kit', titleKey: 'cleaning kit',
     items: [
       { id: 'm1', position: 'Production costs (EXW)',     supplier: 'Licheng Plastic', amount: 1.75, costType: 'manufacturing' },
-      { id: 'm2', position: 'Shipping & Customs to Graz', supplier: 'Shenzhen Amanda', amount: 1.46, costType: 'ib_shipping'   },
+      { id: 'm2', position: 'Shipping & customs to Graz', supplier: 'Shenzhen Amanda', amount: 1.46, costType: 'ib_shipping'   },
     ],
   },
 ]
