@@ -5,13 +5,8 @@ import type { OrderRow } from '@/lib/types'
 import { getWeShipMonthData } from '@/lib/weship/xlsx-parser'
 export type { OrderRow }
 
-// ─── Per-product cost profiles (fallback estimates) ───────────────────────────
-// manufacturing = Quanzhou Pengxin / direct manufacturer
-// ib_shipping   = Shenzhen Amanda / IB freight to warehouse Graz
-// weship        = WeShip variable: Auftragsabwicklung + Kommissionierung +
-//                 Verpackung & Versand + Paketbeilager + Verpackungsmaterial + Warenannahme
-// shipping      = Post/DHL delivery to end customer (OB)
-// payment       = computed per order: 2% × gross + 0.25 €
+// ─── Per-product cost profiles (last-resort COGS fallback) ────────────────────
+// Used only when no actual XLSX data AND no historical reference exists.
 
 interface CostProfile {
   manufacturing: number   // Quanzhou Pengxin
@@ -39,7 +34,24 @@ function getCosts(title: string): CostProfile {
   return { manufacturing: 0, ib_shipping: 0, weship: 0, shipping: 0 }
 }
 
-// ─── Route handler ────────────────────────────────────────────────────────────
+// Canonical product key for composition matching
+function getProductKey(title: string): string {
+  const t = title.toLowerCase()
+  for (const [key] of COST_MAP) {
+    if (t.includes(key)) return key
+  }
+  return t.replace(/\s+/g, '-').slice(0, 40)
+}
+
+// Stable key representing a basket's product composition (order-insensitive)
+function compositionKey(lineItems: ShopifyOrder['line_items']): string {
+  return lineItems
+    .map(li => `${getProductKey(li.title)}:${li.quantity}`)
+    .sort()
+    .join('|')
+}
+
+// ─── Route helpers ────────────────────────────────────────────────────────────
 
 const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'total_tax', 'total_discounts',
@@ -53,8 +65,28 @@ function offsetMonth(month: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+function fetchMonthOrders(m: string): Promise<{ orders: ShopifyOrder[] }> {
+  const [y, mo] = m.split('-').map(Number)
+  const from = new Date(y, mo - 1, 1)
+  const to   = new Date(y, mo, 0, 23, 59, 59)
+  return shopifyFetch<{ orders: ShopifyOrder[] }>(
+    `/orders.json?${new URLSearchParams({
+      status:         'any',
+      created_at_min: from.toISOString(),
+      created_at_max: to.toISOString(),
+      limit:          '250',
+      fields:         ORDER_FIELDS,
+    })}`,
+    { next: { revalidate: 300 } }
+  ).catch((): { orders: ShopifyOrder[] } => ({ orders: [] }))
+}
+
+// ─── Route handler ────────────────────────────────────────────────────────────
+
+const LOOKBACK = 3   // months of history used to build reference averages
+
 export async function GET(req: NextRequest) {
-  const monthParam = req.nextUrl.searchParams.get('month') // YYYY-MM
+  const monthParam = req.nextUrl.searchParams.get('month')
 
   let from: Date, to: Date, month: string
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
@@ -69,34 +101,77 @@ export async function GET(req: NextRequest) {
     month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }
 
-  // Load Shopify orders + current, previous, and next month XLSX in parallel.
-  const [shopifyResult, xlsxCurr, xlsxPrev, xlsxNext] = await Promise.all([
-    shopifyFetch<{ orders: ShopifyOrder[] }>(
-      `/orders.json?${new URLSearchParams({
-        status:         'any',
-        created_at_min: from.toISOString(),
-        created_at_max: to.toISOString(),
-        limit:          '250',
-        fields:         ORDER_FIELDS,
-      })}`,
-      { next: { revalidate: 300 } }
-    ).catch((err: unknown) => ({ error: String(err) })),
-    getWeShipMonthData(month),
-    getWeShipMonthData(offsetMonth(month, -1)),
-    getWeShipMonthData(offsetMonth(month, +1)),
+  const lookbackKeys = Array.from({ length: LOOKBACK }, (_, i) => offsetMonth(month, -(i + 1)))
+
+  // All fetches in parallel: current month + adjacent XLSX + lookback Shopify + lookback XLSX
+  const [
+    [shopifyResult, xlsxCurr, xlsxPrev, xlsxNext],
+    lookbackShopify,
+    lookbackXlsx,
+  ] = await Promise.all([
+    Promise.all([
+      shopifyFetch<{ orders: ShopifyOrder[] }>(
+        `/orders.json?${new URLSearchParams({
+          status:         'any',
+          created_at_min: from.toISOString(),
+          created_at_max: to.toISOString(),
+          limit:          '250',
+          fields:         ORDER_FIELDS,
+        })}`,
+        { next: { revalidate: 300 } }
+      ).catch((err: unknown) => ({ error: String(err) })),
+      getWeShipMonthData(month),
+      getWeShipMonthData(offsetMonth(month, -1)),
+      getWeShipMonthData(offsetMonth(month, +1)),
+    ] as const),
+    Promise.all(lookbackKeys.map(fetchMonthOrders)),
+    Promise.all(lookbackKeys.map(getWeShipMonthData)),
   ])
 
   if ('error' in shopifyResult) {
     return NextResponse.json({ error: shopifyResult.error }, { status: 500 })
   }
 
-  // Merge maps: current month takes priority over adjacent months
+  // Merge XLSX maps for exact order-name matching (current ± adjacent months)
   const anyParsed = xlsxCurr.parsed || xlsxPrev.parsed || xlsxNext.parsed
   const mergedByOrder = new Map([
     ...xlsxNext.byOrder,
     ...xlsxPrev.byOrder,
     ...xlsxCurr.byOrder,
   ])
+
+  // ── Build historical reference maps ──────────────────────────────────────────
+  // weshipRef:       compositionKey               → { sum, count }
+  // shippingRef:     compositionKey@countryCode   → { sum, count }  (preferred)
+  // shippingRefAny:  compositionKey               → { sum, count }  (country-agnostic fallback)
+  const weshipRef      = new Map<string, { sum: number; count: number }>()
+  const shippingRef    = new Map<string, { sum: number; count: number }>()
+  const shippingRefAny = new Map<string, { sum: number; count: number }>()
+
+  for (let i = 0; i < LOOKBACK; i++) {
+    const histXlsx = lookbackXlsx[i]
+    if (!histXlsx.parsed) continue
+
+    for (const o of lookbackShopify[i].orders) {
+      if (o.cancelled_at || o.financial_status === 'voided') continue
+      const entry = histXlsx.byOrder.get(o.name)
+      if (!entry) continue
+
+      const ck = compositionKey(o.line_items)
+      const cc = o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
+
+      const wv = weshipRef.get(ck) ?? { sum: 0, count: 0 }
+      weshipRef.set(ck, { sum: wv.sum + entry.weship, count: wv.count + 1 })
+
+      const sk = `${ck}@${cc}`
+      const sv = shippingRef.get(sk) ?? { sum: 0, count: 0 }
+      shippingRef.set(sk, { sum: sv.sum + entry.shipping, count: sv.count + 1 })
+
+      const sav = shippingRefAny.get(ck) ?? { sum: 0, count: 0 }
+      shippingRefAny.set(ck, { sum: sav.sum + entry.shipping, count: sav.count + 1 })
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const rawOrders = shopifyResult.orders
 
@@ -108,12 +183,11 @@ export async function GET(req: NextRequest) {
       const net      = gross - tax
       const discount = parseFloat(o.total_discounts) || 0
 
-      // Estimated costs from COGS config (always computed as fallback)
+      // COGS fallback values (last resort only)
       let est_manufacturing = 0
       let est_ib_shipping   = 0
       let est_weship        = 0
       let est_shipping      = 0
-
       for (const li of o.line_items) {
         const p = getCosts(li.title)
         est_manufacturing += p.manufacturing * li.quantity
@@ -122,15 +196,44 @@ export async function GET(req: NextRequest) {
         est_shipping      += p.shipping      * li.quantity
       }
 
-      const est_production = est_manufacturing + est_ib_shipping
+      // Priority: 1) actual XLSX  2) historical average  3) COGS estimate
+      const xlsxEntry = mergedByOrder.get(o.name)
+      const hasXlsx   = anyParsed && xlsxEntry !== undefined
 
-      // Actual costs from XLSX (when available, any adjacent month)
-      const xlsxEntry     = mergedByOrder.get(o.name)
-      const hasXlsx       = anyParsed && xlsxEntry !== undefined
-      const cost_weship   = hasXlsx ? Math.round(xlsxEntry!.weship   * 100) / 100 : Math.round(est_weship   * 100) / 100
-      const cost_shipping = hasXlsx ? Math.round(xlsxEntry!.shipping * 100) / 100 : Math.round(est_shipping * 100) / 100
+      const ck = compositionKey(o.line_items)
+      const cc = o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
 
-      const cost_production = Math.round(est_production * 100) / 100
+      let cost_weship:   number
+      let cost_shipping: number
+      let weship_source:   OrderRow['weship_source']
+      let shipping_source: OrderRow['shipping_source']
+
+      if (hasXlsx) {
+        cost_weship     = Math.round(xlsxEntry!.weship   * 100) / 100
+        cost_shipping   = Math.round(xlsxEntry!.shipping * 100) / 100
+        weship_source   = 'actual'
+        shipping_source = 'actual'
+      } else {
+        const wRef = weshipRef.get(ck)
+        if (wRef && wRef.count > 0) {
+          cost_weship   = Math.round((wRef.sum / wRef.count) * 100) / 100
+          weship_source = 'historical'
+        } else {
+          cost_weship   = Math.round(est_weship * 100) / 100
+          weship_source = 'estimated'
+        }
+
+        const sRef = shippingRef.get(`${ck}@${cc}`) ?? shippingRefAny.get(ck)
+        if (sRef && sRef.count > 0) {
+          cost_shipping   = Math.round((sRef.sum / sRef.count) * 100) / 100
+          shipping_source = 'historical'
+        } else {
+          cost_shipping   = Math.round(est_shipping * 100) / 100
+          shipping_source = 'estimated'
+        }
+      }
+
+      const cost_production = Math.round((est_manufacturing + est_ib_shipping) * 100) / 100
       const cost_payment    = Math.round((0.02 * gross + 0.25) * 100) / 100
       const cost_total      = Math.round((cost_production + cost_weship + cost_shipping + cost_payment) * 100) / 100
       const margin          = net > 0 ? Math.round(((net - cost_total) / net) * 1000) / 10 : 0
@@ -165,8 +268,8 @@ export async function GET(req: NextRequest) {
         cost_payment,
         cost_total,
         margin,
-        weship_source:   (hasXlsx ? 'actual'    : 'estimated') as 'actual' | 'estimated',
-        shipping_source: (hasXlsx ? 'actual'    : 'estimated') as 'actual' | 'estimated',
+        weship_source,
+        shipping_source,
         weship_items:   hasXlsx ? xlsxEntry!.weshipItems   : undefined,
         shipping_items: hasXlsx ? xlsxEntry!.shippingItems : undefined,
       }
@@ -176,9 +279,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     orders: rows,
     xlsx: {
-      parsed:  anyParsed,
-      matched: rows.filter(r => r.weship_source === 'actual').length,
-      debug:   xlsxCurr.debug,
+      parsed:     anyParsed,
+      matched:    rows.filter(r => r.weship_source === 'actual').length,
+      historical: rows.filter(r => r.weship_source === 'historical').length,
+      debug:      xlsxCurr.debug,
     },
   })
 }

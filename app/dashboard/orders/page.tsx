@@ -89,9 +89,11 @@ function TipLabel({ children }: { children: string }) {
   )
 }
 
-function TipSource({ source }: { source: 'actual' | 'estimated' | 'shopify' | 'calculated' }) {
+function TipSource({ source }: { source: 'actual' | 'historical' | 'estimated' | 'shopify' | 'calculated' }) {
   const cfg = source === 'actual'
     ? { color: '#0D8585', label: 'From WeShip invoice' }
+    : source === 'historical'
+    ? { color: '#6B6A64', label: 'Based on historic data' }
     : source === 'estimated'
     ? { color: '#B45309', label: 'Estimated (COGS config)' }
     : source === 'shopify'
@@ -219,6 +221,7 @@ export default function OrdersPage() {
   const [xlsxInfo, setXlsxInfo] = useState<{
     parsed: boolean
     matched: number
+    historical: number
     debug: { headers: string[]; rowCount: number; detectedFormat: string; filename?: string; error?: string }
   } | null>(null)
 
@@ -370,15 +373,31 @@ export default function OrdersPage() {
           label="Order List"
           action={
             !loading && xlsxInfo ? (() => {
+              const total = orders?.length ?? 0
               const ok    = xlsxInfo.parsed && xlsxInfo.matched > 0
               const color = ok ? '#0D8585' : '#DC2626'
-              const text  = xlsxInfo.parsed
-                ? `${xlsxInfo.matched} / ${orders?.length ?? 0} from WeShip invoice`
-                : xlsxInfo.debug.error ? 'WeShip invoice error' : 'No WeShip invoice'
+              if (!xlsxInfo.parsed) {
+                const text = xlsxInfo.debug.error ? 'WeShip invoice error' : 'No WeShip invoice'
+                return (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: color }} />
+                    <span className="label" style={{ color }}>{text}</span>
+                  </span>
+                )
+              }
+              const hist = xlsxInfo.historical ?? 0
               return (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: color }} />
-                  <span className="label" style={{ color }}>{text}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#0D8585' }} />
+                    <span className="label" style={{ color: '#0D8585' }}>{xlsxInfo.matched} / {total} from WeShip invoice</span>
+                  </span>
+                  {hist > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#6B6A64' }} />
+                      <span className="label" style={{ color: '#6B6A64' }}>{hist} from historic data</span>
+                    </span>
+                  )}
                 </span>
               )
             })() : undefined
@@ -512,6 +531,13 @@ export default function OrdersPage() {
                       <TipDivider />
                       <TipSource source="actual" />
                     </>
+                  ) : o.weship_source === 'historical' ? (
+                    <>
+                      <TipLabel>WeShip fulfillment costs</TipLabel>
+                      <TipRow label="Avg. from similar past orders" value={fmt(o.cost_weship)} total />
+                      <TipDivider />
+                      <TipSource source="historical" />
+                    </>
                   ) : (
                     <>
                       <TipLabel>WeShip fulfillment costs</TipLabel>
@@ -530,7 +556,7 @@ export default function OrdersPage() {
 
                   const shipTip = o.shipping_source === 'actual' ? (
                     <>
-                      <TipLabel>Shipping to customer</TipLabel>
+                      <TipLabel>OB Shipping to customer</TipLabel>
                       {o.shipping_items?.map((it, j) => (
                         <TipRow key={j} label={it.product} value={fmt(it.amount)} />
                       ))}
@@ -539,9 +565,16 @@ export default function OrdersPage() {
                       <TipDivider />
                       <TipSource source="actual" />
                     </>
+                  ) : o.shipping_source === 'historical' ? (
+                    <>
+                      <TipLabel>OB Shipping to customer</TipLabel>
+                      <TipRow label="Avg. from similar past orders" value={fmt(o.cost_shipping)} total />
+                      <TipDivider />
+                      <TipSource source="historical" />
+                    </>
                   ) : (
                     <>
-                      <TipLabel>Shipping to customer</TipLabel>
+                      <TipLabel>OB Shipping to customer</TipLabel>
                       {o.items.map((it, j) => (
                         <TipRow key={j}
                           label={`${it.qty > 1 ? `${it.qty}× ` : ''}${it.title}`}
