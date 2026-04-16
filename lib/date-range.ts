@@ -11,8 +11,8 @@ export interface DateRange {
 export const PRESETS = [
   { id: 'today',        label: 'Today'        },
   { id: 'yesterday',    label: 'Yesterday'    },
-  { id: 'last-7',       label: 'Last 7d'      },
-  { id: 'last-30',      label: 'Last 30d'     },
+  { id: 'last-7',       label: 'Last 7 days'  },
+  { id: 'last-30',      label: 'Last 30 days' },
   { id: 'last-month',   label: 'Last month'   },
   { id: 'last-quarter', label: 'Last quarter' },
   { id: 'ytd',          label: 'YTD'          },
