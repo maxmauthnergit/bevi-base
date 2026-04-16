@@ -30,9 +30,9 @@ const inp: React.CSSProperties = { fontFamily: G, fontSize: '0.8125rem', color: 
 // ─── API integrations ─────────────────────────────────────────────────────────
 
 const APIS = [
-  { id: 'shopify', name: 'Shopify',   subtitle: 'Ongoing sync · API', connected: true,  lastSync: 'Today, 14:23', envVars: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_ACCESS_TOKEN'] },
-  { id: 'meta',    name: 'Meta Ads',  subtitle: 'Ongoing sync · API', connected: true,  lastSync: 'Today, 14:23', envVars: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'] },
-  { id: 'weship',  name: 'WeShip',    subtitle: 'Ongoing sync · API', connected: false, lastSync: null,           envVars: ['WESHIP_API_KEY', 'WESHIP_WAREHOUSE_ID'] },
+  { id: 'shopify', name: 'Shopify',   subtitle: 'Ongoing sync · API', connected: true,  envVars: ['SHOPIFY_STORE_DOMAIN', 'SHOPIFY_ACCESS_TOKEN'] },
+  { id: 'meta',    name: 'Meta Ads',  subtitle: 'Ongoing sync · API', connected: true,  envVars: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'] },
+  { id: 'weship',  name: 'WeShip',    subtitle: 'Ongoing sync · API', connected: false, envVars: ['WESHIP_API_KEY', 'WESHIP_WAREHOUSE_ID'] },
 ]
 
 // ─── WeShip invoice months ────────────────────────────────────────────────────
@@ -282,9 +282,6 @@ export default function SettingsPage() {
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
                 </div>
-                <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap' }}>
-                  {api.lastSync ? `Last sync: ${api.lastSync}` : 'Last sync: —'}
-                </span>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, backgroundColor: api.connected ? 'rgba(13,133,133,0.08)' : 'rgba(220,38,38,0.07)', border: `1px solid ${api.connected ? 'rgba(13,133,133,0.2)' : 'rgba(220,38,38,0.18)'}`, whiteSpace: 'nowrap' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: api.connected ? '#0D8585' : '#DC2626', display: 'inline-block' }} />
                   <span className="label" style={{ color: api.connected ? '#0D8585' : '#DC2626' }}>{api.connected ? 'Connected' : 'Not connected'}</span>
