@@ -37,36 +37,12 @@ const MONTH_PAT = Object.keys(MONTHS)
   .map(m => m.replace('.', '\\.'))
   .join('|')
 
+// U+E09E is the Sparkasse PDF font's encoding of the minus sign (U+2212).
+// It appears immediately before the € in debit entries when text is extracted by pdf-parse.
 function parseGermanAmount(s: string): number {
-  const isNeg = /[−\-]/.test(s)
+  const isNeg = /[\uE09E−\-]/.test(s)
   const digits = s.replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.')
   return isNeg ? -parseFloat(digits) : parseFloat(digits)
-}
-
-// Sparkasse PDFs have NO minus signs — all amounts are positive.
-// U+E07E is a private-use char that appears after debit entries in the extracted text.
-function inferSign(counterparty: string, reference: string, descRaw: string): 1 | -1 {
-  // Definite credits: payment processors, interest
-  if (/^(stripe|paypal|alipay|guthabenzinsen|guthaben)/i.test(counterparty)) return 1
-  if (/darlehen|preisgeld/i.test(descRaw)) return 1
-
-  // Card purchases are always debits
-  if (/bezahlung mit karte/i.test(descRaw)) return -1
-  // Outgoing George bank transfers
-  if (/george-überweisung/i.test(descRaw)) return -1
-  // U+E09E (decimal 57502) = Sparkasse "Soll" column marker in extracted PDF text
-  if (/\uE09E/.test(descRaw)) return -1
-  // Bank fees / taxes
-  if (/^(kontoführung|kapitalertragsteuer|sollzinsen|überziehungszinsen)/i.test(counterparty)) return -1
-  // Insurance, tax authorities, professional services
-  if (/versicherung/i.test(counterparty)) return -1
-  if (/^(finanzamt|fa )/i.test(counterparty)) return -1
-  if (/steuerberatung|wirtschaftsprüf/i.test(counterparty)) return -1
-  if (/kreditkartenrechnung/i.test(counterparty)) return -1
-  // Supplier invoices (AR/ = WeShip etc.)
-  if (/^ar\//i.test(reference)) return -1
-
-  return 1 // unknown → assume credit
 }
 
 function makeId(date: string, counterparty: string, amount: number): string {
@@ -144,7 +120,7 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
 
   // NO \b at end — dates run directly into counterparty ("31. MärzStripe…")
   const DATE_RE   = new RegExp(`(\\d{1,2})\\.\\s+(${MONTH_PAT})`, 'g')
-  const AMOUNT_RE = /[−\-]?\s*€\s*[\d.]+,\d{2}(?:\s*[−\-])?/g
+  const AMOUNT_RE = /[\uE09E−\-]?\s*€\s*[\d.]+,\d{2}/g
 
   type AmtToken = { index: number; end: number; raw: string }
   const amounts: AmtToken[] = []
@@ -185,15 +161,13 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
     if (/^(Saldo|Kontostand|Kontoeingänge|Kontoausgänge)/i.test(descRaw)) continue
     if (!descRaw.replace(/\s/g, '')) continue
 
-    const rawAmount = parseGermanAmount(amounts[i].raw)
-    if (isNaN(rawAmount)) continue
+    const amount_eur = parseGermanAmount(amounts[i].raw)
+    if (isNaN(amount_eur)) continue
 
     // Clean non-printable chars, collapse whitespace
     const desc = descRaw.replace(/[^\x20-\x7E\u00C0-\u024F\u00A0-\u00FF]/g, ' ').replace(/\s+/g, ' ').trim()
 
     const [counterparty, reference] = splitDesc(desc)
-    const sign = inferSign(counterparty, reference, descRaw)
-    const amount_eur = Math.abs(rawAmount) * sign
 
     const raw = `${isoDate} ${desc} ${amounts[i].raw}`
     const id  = makeId(isoDate, counterparty || desc, amount_eur)
