@@ -52,6 +52,38 @@ export async function shopifyFetch<T>(
   return res.json() as Promise<T>
 }
 
+function parseLinkNext(header: string | null): string | null {
+  if (!header) return null
+  for (const part of header.split(',')) {
+    const [urlPart, relPart] = part.split(';').map(s => s.trim())
+    if (relPart?.includes('rel="next"')) return urlPart.replace(/^<|>$/g, '')
+  }
+  return null
+}
+
+// Fetches all pages of orders for a date range using cursor pagination.
+export async function shopifyFetchAllOrders(
+  params: URLSearchParams,
+  nextOpts: NextFetchRequestConfig = { revalidate: 300 },
+): Promise<ShopifyOrder[]> {
+  const { token } = getShopifyConfig()
+  let url: string | null = shopifyUrl(`/orders.json?${params}`)
+  const all: ShopifyOrder[] = []
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      next: nextOpts,
+    })
+    if (!res.ok) throw new Error(`Shopify API error ${res.status}: ${await res.text()}`)
+    const { orders } = await res.json() as { orders: ShopifyOrder[] }
+    all.push(...orders)
+    url = parseLinkNext(res.headers.get('link'))
+  }
+
+  return all
+}
+
 // ─── API types ────────────────────────────────────────────────────────────────
 
 export interface ShopifyShop {

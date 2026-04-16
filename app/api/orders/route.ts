@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { shopifyFetch } from '@/lib/shopify/client'
+import { shopifyFetch, shopifyFetchAllOrders } from '@/lib/shopify/client'
 import type { ShopifyOrder } from '@/lib/shopify/client'
 import type { OrderRow } from '@/lib/types'
 import { getWeShipMonthData } from '@/lib/weship/xlsx-parser'
@@ -79,16 +79,15 @@ function fetchMonthOrders(m: string): Promise<{ orders: ShopifyOrder[] }> {
   const [y, mo] = m.split('-').map(Number)
   const from = new Date(y, mo - 1, 1)
   const to   = new Date(y, mo, 0, 23, 59, 59)
-  return shopifyFetch<{ orders: ShopifyOrder[] }>(
-    `/orders.json?${new URLSearchParams({
+  return shopifyFetchAllOrders(
+    new URLSearchParams({
       status:         'any',
       created_at_min: from.toISOString(),
       created_at_max: to.toISOString(),
       limit:          '250',
       fields:         ORDER_FIELDS,
-    })}`,
-    { next: { revalidate: 300 } }
-  ).catch((): { orders: ShopifyOrder[] } => ({ orders: [] }))
+    }),
+  ).then(orders => ({ orders })).catch((): { orders: ShopifyOrder[] } => ({ orders: [] }))
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -142,16 +141,15 @@ export async function GET(req: NextRequest) {
     lookbackXlsx,
   ] = await Promise.all([
     Promise.all([
-      shopifyFetch<{ orders: ShopifyOrder[] }>(
-        `/orders.json?${new URLSearchParams({
+      shopifyFetchAllOrders(
+        new URLSearchParams({
           status:         'any',
           created_at_min: from.toISOString(),
           created_at_max: to.toISOString(),
           limit:          '250',
           fields:         ORDER_FIELDS,
-        })}`,
-        { next: { revalidate: 300 } }
-      ).catch((err: unknown) => ({ error: String(err) })),
+        }),
+      ).then(orders => ({ orders })).catch((err: unknown) => ({ error: String(err) })),
       ...xlsxMonths.map(getWeShipMonthData),
     ] as const),
     Promise.all(lookbackKeys.map(fetchMonthOrders)),
