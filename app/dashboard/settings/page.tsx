@@ -421,10 +421,10 @@ export default function SettingsPage() {
                   <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#6B6A64' }}>{item.supplier}</td>
                   <td style={{ padding: '6px 0', width: 120 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      <span style={{ color: '#9E9D98', fontSize: '0.6875rem', width: 14, textAlign: 'center', flexShrink: 0 }}>€</span>
                       <input type="number" step="0.01" value={item.amount}
                         onChange={e => updateItem(prod.id, item.id, e.target.value)}
                         style={{ ...inp, width: 76, textAlign: 'right', padding: '4px 6px' }} />
+                      <span style={{ color: '#9E9D98', fontSize: '0.6875rem', marginLeft: 6, flexShrink: 0 }}>€</span>
                     </div>
                   </td>
                 </tr>
@@ -433,10 +433,10 @@ export default function SettingsPage() {
                 <td colSpan={2} style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#111110', fontWeight: 700 }}>Total production &amp; IB shipping costs (DDP)</td>
                 <td style={{ padding: '10px 0', width: 120 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                    <span style={{ color: '#9E9D98', fontSize: '0.6875rem', width: 14, textAlign: 'center', flexShrink: 0 }}>€</span>
                     <span style={{ width: 76, textAlign: 'right', fontFamily: G, fontWeight: 700, color: '#111110', fontSize: '0.8125rem', padding: '4px 6px', display: 'inline-block' }}>
                       {totalCogs.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
+                    <span style={{ color: '#9E9D98', fontSize: '0.6875rem', marginLeft: 6, flexShrink: 0 }}>€</span>
                   </div>
                 </td>
               </tr>
@@ -462,9 +462,7 @@ export default function SettingsPage() {
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #E3E2DC', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: '#E3E2DC', borderRadius: 12, overflow: 'hidden' }}>
           {/* Selling Price (gross) — live from Shopify */}
           <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
-            <div style={{ marginBottom: 6 }}>
-              <span className="label">Selling Price (gross)</span>
-            </div>
+            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Selling Price (gross)</span>
             <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#111110' }}>
               {pricesLoading ? '—' : fmt(vkBrutto)}
             </span>
@@ -478,7 +476,7 @@ export default function SettingsPage() {
           </div>
           {/* Production COGS */}
           <div style={{ backgroundColor: '#F5F4F0', padding: '14px 16px' }}>
-            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Production COGS</span>
+            <span className="label" style={{ display: 'block', marginBottom: 6 }}>Prod. &amp; IB Shipping Costs (DDP)</span>
             <span style={{ fontFamily: G, fontSize: '0.9375rem', fontWeight: 600, color: '#6B6A64' }}>{fmt(totalCogs)}</span>
           </div>
           {/* Cost multiple */}
@@ -496,7 +494,7 @@ export default function SettingsPage() {
         <CardHeader label="Payment & Shopify Fee" />
         <div style={{ marginBottom: 16 }}>
           <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64' }}>
-            Fee per order is calculated as: <strong style={{ color: '#111110' }}>rate% × gross + fixed fee</strong>
+            Fee per order is calculated as: <strong style={{ color: '#111110' }}>variable rate (%) × gross + fixed fee per order</strong>
           </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 480 }}>
@@ -514,14 +512,14 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Fixed Fee per Order</label>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               <input
                 type="number" step="0.01" min="0"
                 value={payFixed}
                 onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayFixed(n) }}
                 style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
               />
+              <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
             </div>
           </div>
         </div>
@@ -530,7 +528,7 @@ export default function SettingsPage() {
             Example: order with €49.90 gross → {(() => {
               const ex = 49.90
               const total = Math.round((payRate / 100 * ex + payFixed) * 100) / 100
-              return `${(payRate).toFixed(1)}% × €${ex.toFixed(2)} + €${payFixed.toFixed(2)} = €${total.toFixed(2)}`
+              return `${(payRate).toFixed(1)}% × ${ex.toFixed(2)} € + ${payFixed.toFixed(2)} € = ${total.toFixed(2)} €`
             })()}
           </span>
         </div>
