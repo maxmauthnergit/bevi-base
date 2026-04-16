@@ -450,7 +450,7 @@ export default function SettingsPage() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>Saved</span>
           )}
           <button
-            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '6px 18px', cursor: saving ? 'not-allowed' : 'pointer' }}
+            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '8px 40px', cursor: saving ? 'not-allowed' : 'pointer' }}
             disabled={saving}
             onClick={handleSave}
           >
@@ -497,7 +497,7 @@ export default function SettingsPage() {
             Fee per order is calculated as: <strong style={{ color: '#111110' }}>variable rate (%) × gross + fixed fee per order</strong>
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 480 }}>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Variable Rate (%)</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -523,9 +523,9 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-        <div style={{ marginTop: 16, padding: '12px 16px', backgroundColor: '#F5F4F0', borderRadius: 10, maxWidth: 480 }}>
-          <span className="label" style={{ color: '#6B6A64' }}>
-            Example: order with €49.90 gross → {(() => {
+        <div style={{ marginTop: 16, padding: '12px 16px', backgroundColor: '#F5F4F0', borderRadius: 10, display: 'inline-block' }}>
+          <span className="label" style={{ color: '#6B6A64', whiteSpace: 'nowrap' }}>
+            Example: order with 49.90 € gross → {(() => {
               const ex = 49.90
               const total = Math.round((payRate / 100 * ex + payFixed) * 100) / 100
               return `${(payRate).toFixed(1)}% × ${ex.toFixed(2)} € + ${payFixed.toFixed(2)} € = ${total.toFixed(2)} €`
