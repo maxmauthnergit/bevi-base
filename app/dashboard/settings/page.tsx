@@ -10,9 +10,6 @@ function fmt(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €'
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
-}
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -94,39 +91,60 @@ const PRODUCTS: Product[] = [
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
+type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null }
+
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
   const [bankOpen, setBankOpen]       = useState(false)
   const [weshipOpen, setWeshipOpen]   = useState(false)
-  const [dialogOpen, setDialogOpen]   = useState(false)
-  const [dialogDate, setDialogDate]   = useState('')
-  const [dialogAmt, setDialogAmt]     = useState('')
-  const [bankHistory, setBankHistory] = useState([
-    { date: '2026-04-01', amount: 12450 },
-    { date: '2026-03-03', amount: 18200 },
-    { date: '2026-02-02', amount: 9820 },
-    { date: '2026-01-06', amount: 14300 },
-    { date: '2025-12-02', amount: 11750 },
-  ])
   const [weshipMonths, setWeshipMonths] = useState<WeshipMonth[]>(buildMonths)
   const [uploading, setUploading]     = useState<string | null>(null)
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [fileError, setFileError]     = useState<string | null>(null)
-  const fileRef   = useRef<HTMLInputElement>(null)
-  const uploadKey = useRef<string | null>(null)
-  const [selProduct, setSelProduct]   = useState('bevi-bag')
-  const [products, setProducts]       = useState<Product[]>(PRODUCTS)
-  const [shopifyPrices, setShopifyPrices] = useState<Record<string, number> | null>(null)
-  const [pricesLoading, setPricesLoading] = useState(true)
-  const [payRate, setPayRate]         = useState(2.0)
-  const [payFixed, setPayFixed]       = useState(0.25)
-  const [saving, setSaving]           = useState(false)
-  const [saveStatus, setSaveStatus]   = useState<'saved' | null>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
+  const uploadKey  = useRef<string | null>(null)
+  const bankFileRef = useRef<HTMLInputElement>(null)
+  const [bankUploading, setBankUploading]   = useState(false)
+  const [bankUploadResult, setBankUploadResult] = useState<BankUploadResult | null>(null)
+  const [bankError, setBankError]           = useState<string | null>(null)
+  const [bankTxns, setBankTxns]             = useState<BankTxn[]>([])
+  const [bankBalance, setBankBalance]       = useState<number | null>(null)
+  const [bankBalanceMonth, setBankBalanceMonth] = useState<string | null>(null)
+  const [bankLoading, setBankLoading]       = useState(true)
+  const [selProduct, setSelProduct]         = useState('bevi-bag')
+  const [products, setProducts]             = useState<Product[]>(PRODUCTS)
+  const [shopifyPrices, setShopifyPrices]   = useState<Record<string, number> | null>(null)
+  const [pricesLoading, setPricesLoading]   = useState(true)
+  const [payRate, setPayRate]               = useState(2.0)
+  const [payFixed, setPayFixed]             = useState(0.25)
+  const [saving, setSaving]                 = useState(false)
+  const [saveStatus, setSaveStatus]         = useState<'saved' | null>(null)
 
-  function saveBankEntry() {
-    if (!dialogDate || !dialogAmt) return
-    setBankHistory(p => [{ date: dialogDate, amount: parseFloat(dialogAmt) }, ...p])
-    setDialogDate(''); setDialogAmt(''); setDialogOpen(false)
+  async function handleBankPdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setBankUploading(true)
+    setBankError(null)
+    setBankUploadResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', f)
+      const r = await fetch('/api/bank-transactions/upload', { method: 'POST', body: fd })
+      const json = await r.json()
+      if (!r.ok) { setBankError(json.error ?? 'Upload failed'); return }
+      setBankUploadResult(json)
+      // Refresh transaction list
+      const data = await fetch('/api/bank-transactions').then(x => x.json())
+      setBankTxns(data.transactions ?? [])
+      setBankBalance(data.current_balance_eur)
+      setBankBalanceMonth(data.balance_as_of_month)
+    } catch {
+      setBankError('Upload failed — check your connection')
+    } finally {
+      setBankUploading(false)
+      if (bankFileRef.current) bankFileRef.current.value = ''
+    }
   }
 
   // Load persisted cost amounts from Supabase on mount
@@ -168,6 +186,18 @@ export default function SettingsPage() {
       .then(({ prices }: { prices: Record<string, number> }) => setShopifyPrices(prices))
       .catch(() => {})
       .finally(() => setPricesLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/bank-transactions')
+      .then(r => r.json())
+      .then(data => {
+        setBankTxns(data.transactions ?? [])
+        setBankBalance(data.current_balance_eur ?? null)
+        setBankBalanceMonth(data.balance_as_of_month ?? null)
+      })
+      .catch(() => {})
+      .finally(() => setBankLoading(false))
   }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -309,24 +339,69 @@ export default function SettingsPage() {
       <Card className="mb-4">
         <CardHeader label="Manual Data Entry" />
 
-        {/* Bank Balance */}
+        {/* Bank Account */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 0, paddingBottom: 12, borderBottom: bankOpen ? 'none' : '1px solid #F0EFE9' }}>
             <div style={{ flex: 1 }}>
-              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account Balance</span>
-              <span className="label">Ad hoc · Sparkasse business account</span>
+              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account</span>
+              <span className="label">
+                Monthly PDF · Sparkasse Girokonto
+                {bankBalance !== null && !bankLoading && (
+                  <span style={{ marginLeft: 8, color: '#0D8585' }}>
+                    · {fmt(bankBalance)}
+                    {bankBalanceMonth && <span style={{ color: '#9E9D98' }}> ({bankBalanceMonth})</span>}
+                  </span>
+                )}
+              </span>
             </div>
-            <button style={btn} onClick={() => setDialogOpen(true)}>Enter value</button>
+            {bankUploadResult && (
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
+                +{bankUploadResult.transactions_new} new
+              </span>
+            )}
+            {bankError && (
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#DC2626' }}>{bankError}</span>
+            )}
+            <button
+              style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
+              disabled={bankUploading}
+              onClick={() => { setBankError(null); setBankUploadResult(null); bankFileRef.current?.click() }}
+            >
+              {bankUploading ? 'Parsing…' : 'Upload PDF'}
+            </button>
+            <input ref={bankFileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleBankPdf} />
             <button style={iconBtn} onClick={() => setBankOpen(!bankOpen)}><Chevron open={bankOpen} /></button>
           </div>
           {bankOpen && (
             <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '4px 16px 8px', marginBottom: 12 }}>
-              {bankHistory.map((e, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: i < bankHistory.length - 1 ? '1px solid #EDECEA' : 'none' }}>
-                  <span className="label" style={{ color: '#6B6A64' }}>{fmtDate(e.date)}</span>
-                  <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', fontWeight: 600 }}>{fmt(e.amount)}</span>
+              {bankLoading ? (
+                <div style={{ padding: '12px 0' }}>
+                  <span className="label" style={{ color: '#9E9D98' }}>Loading…</span>
                 </div>
-              ))}
+              ) : bankTxns.length === 0 ? (
+                <div style={{ padding: '12px 0' }}>
+                  <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
+                </div>
+              ) : (
+                bankTxns.slice(0, 50).map((t, i) => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
+                    <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
+                      {new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    </span>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t.counterparty || t.reference}
+                    </span>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap', color: t.amount_eur >= 0 ? '#0D8585' : '#111110' }}>
+                      {t.amount_eur >= 0 ? '+' : ''}{t.amount_eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </span>
+                  </div>
+                ))
+              )}
+              {bankTxns.length > 50 && (
+                <div style={{ padding: '8px 0 4px' }}>
+                  <span className="label" style={{ color: '#9E9D98' }}>Showing 50 of {bankTxns.length} transactions</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -530,26 +605,6 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* ── Bank Balance Dialog ─────────────────────────────────────────────── */}
-      {dialogOpen && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(17,17,16,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setDialogOpen(false)}>
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: 16, padding: 28, width: 360, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontFamily: G, fontSize: '1rem', fontWeight: 600, color: '#111110', margin: '0 0 20px' }}>Enter Bank Balance</h3>
-            <div style={{ marginBottom: 14 }}>
-              <label className="label" style={{ display: 'block', marginBottom: 6 }}>Date</label>
-              <input type="date" value={dialogDate} onChange={e => setDialogDate(e.target.value)} style={inp} />
-            </div>
-            <div style={{ marginBottom: 24 }}>
-              <label className="label" style={{ display: 'block', marginBottom: 6 }}>Amount (EUR)</label>
-              <input type="number" step="1" placeholder="0" value={dialogAmt} onChange={e => setDialogAmt(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveBankEntry()} style={inp} autoFocus />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button style={btn} onClick={() => setDialogOpen(false)}>Cancel</button>
-              <button style={{ ...btn, backgroundColor: '#111110', color: '#FFFFFF', border: 'none', padding: '5px 16px' }} onClick={saveBankEntry}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   )
 }
