@@ -277,7 +277,7 @@ export default function SettingsPage() {
           const open = openApi === api.id
           return (
             <div key={api.id}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 12, paddingBottom: 12, borderBottom: !open && i < APIS.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: i === 0 ? 0 : 12, paddingBottom: 12, borderBottom: !open && i < APIS.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
@@ -315,7 +315,7 @@ export default function SettingsPage() {
 
         {/* Bank Balance */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 12, paddingBottom: 12, borderBottom: bankOpen ? 'none' : '1px solid #F0EFE9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 0, paddingBottom: 12, borderBottom: bankOpen ? 'none' : '1px solid #F0EFE9' }}>
             <div style={{ flex: 1 }}>
               <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account Balance</span>
               <span className="label">Ad hoc · Sparkasse business account</span>
