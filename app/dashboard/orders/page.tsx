@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import React from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
+import { useDateRange } from '@/components/providers/DateRangeProvider'
 import type { OrderRow } from '@/lib/types'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
-const MONTHS = ['January','February','March','April','May','June','July',
-                'August','September','October','November','December']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -211,9 +211,7 @@ const groupTh: React.CSSProperties = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
-  const today = new Date()
-  const [year,  setYear]   = useState(today.getFullYear())
-  const [month, setMonth]  = useState(today.getMonth() + 1)
+  const { range } = useDateRange()
   const [orders, setOrders]   = useState<OrderRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
@@ -230,8 +228,7 @@ export default function OrdersPage() {
     setLoading(true)
     setError(null)
     setXlsxInfo(null)
-    const m = `${year}-${String(month).padStart(2, '0')}`
-    fetch(`/api/orders?month=${m}`)
+    fetch(`/api/orders?from=${range.from.toISOString()}&to=${range.to.toISOString()}`)
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error)
@@ -239,18 +236,7 @@ export default function OrdersPage() {
       })
       .catch(() => setError('Failed to load orders'))
       .finally(() => setLoading(false))
-  }, [year, month])
-
-  function prevMonth() {
-    if (month === 1) { setYear(y => y - 1); setMonth(12) }
-    else setMonth(m => m - 1)
-  }
-  function nextMonth() {
-    if (year === today.getFullYear() && month === today.getMonth() + 1) return
-    if (month === 12) { setYear(y => y + 1); setMonth(1) }
-    else setMonth(m => m + 1)
-  }
-  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth() + 1
+  }, [range.from.getTime(), range.to.getTime()])
 
   // Aggregated totals
   const totals = orders?.length ? {
@@ -268,31 +254,16 @@ export default function OrdersPage() {
   const totalDb     = totals ? totals.net - totals.total : 0
   const totalMargin = totals && totals.net > 0 ? (totalDb / totals.net) * 100 : null
 
-  const navBtn: React.CSSProperties = {
-    background: 'none', border: '1px solid #E3E2DC', borderRadius: 8,
-    padding: '5px 12px', cursor: 'pointer', fontFamily: G,
-    fontSize: '0.875rem', color: '#6B6A64', lineHeight: 1,
-  }
-
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Page header */}
-      <div className="mb-8" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="mb-4">
         <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>
           Orders
         </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={prevMonth} style={navBtn}>‹</button>
-          <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', minWidth: 130, textAlign: 'center' }}>
-            {MONTHS[month - 1]} {year}
-          </span>
-          <button
-            onClick={nextMonth}
-            disabled={isCurrentMonth}
-            style={{ ...navBtn, color: isCurrentMonth ? '#D1D0CA' : '#6B6A64', cursor: isCurrentMonth ? 'default' : 'pointer' }}
-          >›</button>
-        </div>
       </div>
+
+      <DateRangeBar />
 
       {/* ── KPI summary ─────────────────────────────────────────────────────── */}
       {totals && (() => {

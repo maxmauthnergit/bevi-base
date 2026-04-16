@@ -1,5 +1,6 @@
 import { KpiCard } from '@/components/kpi/KpiCard'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { metrics } from '@/lib/metrics-config'
@@ -42,7 +43,7 @@ export default async function DashboardPage() {
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         <h1 style={{
           fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
           Overview
         </h1>
       </div>
+
+      <DateRangeBar />
 
       {/* Low stock alert */}
       {lowStockItems.length > 0 && (

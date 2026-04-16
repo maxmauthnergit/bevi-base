@@ -5,6 +5,7 @@ import type { OrderRow } from '@/lib/types'
 import { getWeShipMonthData } from '@/lib/weship/xlsx-parser'
 import { createServerClient } from '@/lib/supabase'
 import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
+import { allMonthsInRange, offsetYM } from '@/lib/date-range'
 export type { OrderRow }
 
 // ─── Per-product cost profiles (last-resort COGS fallback) ────────────────────
@@ -73,11 +74,6 @@ const ORDER_FIELDS = [
   'line_items', 'shipping_address', 'billing_address',
 ].join(',')
 
-function offsetMonth(month: string, delta: number): string {
-  const [y, m] = month.split('-').map(Number)
-  const d = new Date(y, m - 1 + delta, 1)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
 
 function fetchMonthOrders(m: string): Promise<{ orders: ShopifyOrder[] }> {
   const [y, mo] = m.split('-').map(Number)
@@ -100,19 +96,23 @@ function fetchMonthOrders(m: string): Promise<{ orders: ShopifyOrder[] }> {
 const LOOKBACK = 3   // months of history used to build reference averages
 
 export async function GET(req: NextRequest) {
+  const fromParam  = req.nextUrl.searchParams.get('from')
+  const toParam    = req.nextUrl.searchParams.get('to')
   const monthParam = req.nextUrl.searchParams.get('month')
 
-  let from: Date, to: Date, month: string
-  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+  let from: Date, to: Date
+  if (fromParam && toParam) {
+    from = new Date(fromParam)
+    to   = new Date(toParam)
+  } else if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
     const [y, m] = monthParam.split('-').map(Number)
-    from  = new Date(y, m - 1, 1)
-    to    = new Date(y, m, 0, 23, 59, 59)
-    month = monthParam
+    from = new Date(y, m - 1, 1)
+    to   = new Date(y, m, 0, 23, 59, 59)
   } else {
+    // default: last complete month
     const now = new Date()
-    from  = new Date(now.getFullYear(), now.getMonth(), 1)
-    to    = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-    month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    to   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
   }
 
   // Load persisted cost amounts (production + IB shipping) from Supabase config
@@ -130,11 +130,14 @@ export async function GET(req: NextRequest) {
     amountsMap = buildAmountsMap(DEFAULT_PRODUCT_COSTS)
   }
 
-  const lookbackKeys = Array.from({ length: LOOKBACK }, (_, i) => offsetMonth(month, -(i + 1)))
+  // All months covered by the selected range (for XLSX matching)
+  const rangeMonths  = allMonthsInRange(from, to)
+  const xlsxMonths   = [offsetYM(rangeMonths[0], -1), ...rangeMonths, offsetYM(rangeMonths[rangeMonths.length - 1], +1)]
+  const lookbackKeys = Array.from({ length: LOOKBACK }, (_, i) => offsetYM(rangeMonths[0], -(i + 1)))
 
-  // All fetches in parallel: current month + adjacent XLSX + lookback Shopify + lookback XLSX
+  // All fetches in parallel: Shopify orders + XLSX for range months + lookback
   const [
-    [shopifyResult, xlsxCurr, xlsxPrev, xlsxNext],
+    [shopifyResult, ...xlsxResults],
     lookbackShopify,
     lookbackXlsx,
   ] = await Promise.all([
@@ -149,9 +152,7 @@ export async function GET(req: NextRequest) {
         })}`,
         { next: { revalidate: 300 } }
       ).catch((err: unknown) => ({ error: String(err) })),
-      getWeShipMonthData(month),
-      getWeShipMonthData(offsetMonth(month, -1)),
-      getWeShipMonthData(offsetMonth(month, +1)),
+      ...xlsxMonths.map(getWeShipMonthData),
     ] as const),
     Promise.all(lookbackKeys.map(fetchMonthOrders)),
     Promise.all(lookbackKeys.map(getWeShipMonthData)),
@@ -161,13 +162,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: shopifyResult.error }, { status: 500 })
   }
 
-  // Merge XLSX maps for exact order-name matching (current ± adjacent months)
-  const anyParsed = xlsxCurr.parsed || xlsxPrev.parsed || xlsxNext.parsed
-  const mergedByOrder = new Map([
-    ...xlsxNext.byOrder,
-    ...xlsxPrev.byOrder,
-    ...xlsxCurr.byOrder,
-  ])
+  // Merge XLSX maps for all months in range (+ buffer months)
+  const anyParsed    = xlsxResults.some(r => r.parsed)
+  const mergedByOrder = new Map(xlsxResults.flatMap(r => [...r.byOrder]))
 
   // ── Build historical reference maps ──────────────────────────────────────────
   // Tracks total cost + per-position sums so we can show averaged line items.
@@ -327,7 +324,7 @@ export async function GET(req: NextRequest) {
       matched:    rows.filter(r => r.weship_source === 'actual').length,
       historical: rows.filter(r => r.weship_source === 'historical').length,
       estimated:  rows.filter(r => r.weship_source === 'estimated').length,
-      debug:      xlsxCurr.debug,
+      debug:      (xlsxResults.find(r => r.parsed) ?? xlsxResults[1])?.debug,
     },
   })
 }

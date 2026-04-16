@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/nav/Sidebar'
+import { DateRangeProvider } from '@/components/providers/DateRangeProvider'
 
 export default function DashboardLayout({
   children,
@@ -74,7 +75,9 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        {children}
+        <DateRangeProvider>
+          {children}
+        </DateRangeProvider>
       </div>
     </div>
   )

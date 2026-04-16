@@ -1,4 +1,5 @@
 import { Card, CardHeader } from '@/components/ui/Card'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { mockMonthlyRevenue, mockUnitsBySku, mockRevenueByCountry, mockReturnRate, mockBundleAttachRate } from '@/lib/mock/sales'
 
 function formatEur(value: number) {
@@ -19,7 +20,7 @@ export default function SalesPage() {
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -32,6 +33,8 @@ export default function SalesPage() {
           Sales & Products
         </h1>
       </div>
+
+      <DateRangeBar />
 
       {/* Top stats row */}
       <div
