@@ -387,7 +387,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ── 3. PRODUCTION & IB SHIPPING COSTS ────────────────────────────── */}
-      <Card>
+      <Card className="mb-4">
         <CardHeader label="Production & IB Shipping Costs (DDP)" />
 
         {/* Tab selector */}
@@ -490,7 +490,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* ── 4. PAYMENT & SHOPIFY FEE ──────────────────────────────────────── */}
-      <Card className="mt-4 mb-4">
+      <Card className="mb-4">
         <CardHeader label="Payment & Shopify Fee" />
         <div style={{ marginBottom: 16 }}>
           <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64' }}>
