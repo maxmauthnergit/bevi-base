@@ -523,7 +523,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-        <div style={{ marginTop: 16, padding: '12px 16px', backgroundColor: '#F5F4F0', borderRadius: 10, display: 'inline-block' }}>
+        <div style={{ marginTop: 24, padding: '8px 14px', backgroundColor: '#F5F4F0', borderRadius: 10, display: 'inline-flex', alignItems: 'center' }}>
           <span className="label" style={{ color: '#6B6A64', whiteSpace: 'nowrap' }}>
             Example: order with 49.90 € gross → {(() => {
               const ex = 49.90
