@@ -9,20 +9,44 @@ import {
 import type { PresetId } from '@/lib/date-range'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+const FS = '0.75rem'
 
 function toInputVal(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function ChevLeft() {
+  return (
+    <svg width="5" height="9" viewBox="0 0 5 9" fill="none">
+      <path d="M4.5 0.5L0.5 4.5L4.5 8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function ChevRight() {
+  return (
+    <svg width="5" height="9" viewBox="0 0 5 9" fill="none">
+      <path d="M0.5 0.5L4.5 4.5L0.5 8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function ChevDown() {
+  return (
+    <svg width="9" height="5" viewBox="0 0 9 5" fill="none">
+      <path d="M0.5 0.5L4.5 4.5L8.5 0.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function DateRangeBar() {
   const { range, setRange } = useDateRange()
 
-  const [showCustom,   setShowCustom]   = useState(false)
-  const [customFrom,   setCustomFrom]   = useState('')
-  const [customTo,     setCustomTo]     = useState('')
+  const [showCustom, setShowCustom] = useState(false)
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo,   setCustomTo]   = useState('')
 
-  const displayYM = range.month ?? toYM(range.from)
-  const isCustom  = !range.preset && !range.month
+  const displayYM      = range.month ?? toYM(range.from)
+  const monthNavActive = !!range.month
+  const isCustom       = !range.preset && !range.month
 
   function selectPreset(id: PresetId) {
     setShowCustom(false)
@@ -49,23 +73,24 @@ export function DateRangeBar() {
     setShowCustom(false)
   }
 
-  const arrow: React.CSSProperties = {
-    background: 'none', border: 'none', cursor: 'pointer', lineHeight: 1,
-    padding: '5px 9px', borderRadius: 6, color: '#9E9D98',
-    fontFamily: G, fontSize: '1rem', display: 'flex', alignItems: 'center',
+  const navBtn: React.CSSProperties = {
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: '6px 8px', borderRadius: 6,
+    color: '#9E9D98', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   }
 
   const pill = (active: boolean): React.CSSProperties => ({
-    fontFamily: G, fontSize: '0.6875rem', fontWeight: 500, letterSpacing: '0.02em',
-    padding: '5px 10px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap',
-    border: active ? 'none' : '1px solid transparent',
+    fontFamily: G, fontSize: FS, fontWeight: 500, letterSpacing: '0.02em',
+    padding: '5px 11px', borderRadius: 7, cursor: 'pointer', whiteSpace: 'nowrap',
+    border: 'none',
     backgroundColor: active ? '#111110' : 'transparent',
     color: active ? '#FFFFFF' : '#6B6A64',
     transition: 'all 0.1s',
   })
 
   const dateInp: React.CSSProperties = {
-    fontFamily: G, fontSize: '0.75rem', color: '#111110',
+    fontFamily: G, fontSize: FS, color: '#111110',
     border: '1px solid #E3E2DC', borderRadius: 8, padding: '4px 8px',
     outline: 'none', backgroundColor: '#FFFFFF',
   }
@@ -73,25 +98,27 @@ export function DateRangeBar() {
   return (
     <div style={{
       backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
-      borderRadius: 16, padding: '8px 16px',
+      borderRadius: 16, padding: '6px 14px',
       display: 'flex', alignItems: 'center',
       marginBottom: 24,
     }}>
 
       {/* Month navigator */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 0,
+        display: 'flex', alignItems: 'center',
         paddingRight: 16, marginRight: 16,
         borderRight: '1px solid #F0EFE9', flexShrink: 0,
       }}>
-        <button style={arrow} onClick={() => navMonth(-1)}>‹</button>
+        <button style={navBtn} onClick={() => navMonth(-1)}><ChevLeft /></button>
         <span style={{
-          fontFamily: G, fontSize: '0.8125rem', fontWeight: 500, color: '#111110',
-          minWidth: 84, textAlign: 'center', padding: '0 2px',
+          fontFamily: G, fontSize: FS, fontWeight: 500,
+          color: monthNavActive ? '#111110' : '#C7C6C0',
+          minWidth: 72, textAlign: 'center', padding: '0 4px',
+          transition: 'color 0.1s',
         }}>
           {fmtYM(displayYM)}
         </span>
-        <button style={arrow} onClick={() => navMonth(+1)}>›</button>
+        <button style={navBtn} onClick={() => navMonth(+1)}><ChevRight /></button>
       </div>
 
       {/* Preset pills */}
@@ -111,18 +138,23 @@ export function DateRangeBar() {
         {showCustom ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} style={dateInp} />
-            <span style={{ color: '#9E9D98', fontFamily: G, fontSize: '0.75rem' }}>—</span>
+            <span style={{ color: '#9E9D98', fontFamily: G, fontSize: FS }}>—</span>
             <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} style={dateInp} />
             <button style={{ ...pill(true), padding: '5px 14px' }} onClick={applyCustom}>Apply</button>
-            <button style={{ ...arrow, color: '#C7C6C0', fontSize: '0.75rem', padding: '5px 6px' }} onClick={() => setShowCustom(false)}>✕</button>
+            <button style={{ ...navBtn, color: '#C7C6C0' }} onClick={() => setShowCustom(false)}>✕</button>
           </div>
         ) : (
           <button
-            style={{ ...pill(isCustom), display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px' }}
+            style={{
+              ...pill(isCustom),
+              display: 'flex', alignItems: 'center', gap: 7, padding: '5px 11px',
+            }}
             onClick={openCustom}
           >
             <span>{fmtDateRange(range.from, range.to)}</span>
-            <span style={{ fontSize: '0.5625rem', color: isCustom ? 'rgba(255,255,255,0.6)' : '#C7C6C0' }}>▾</span>
+            <span style={{ color: isCustom ? 'rgba(255,255,255,0.5)' : '#C7C6C0', display: 'flex', alignItems: 'center' }}>
+              <ChevDown />
+            </span>
           </button>
         )}
       </div>
