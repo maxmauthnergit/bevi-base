@@ -10,7 +10,7 @@ export interface BankTransaction {
 }
 
 export interface ParsedStatement {
-  statement_month: string        // "2026-03"
+  statement_month: string        // "2026-03" (most recent month found)
   closing_balance_eur: number | null
   transactions: BankTransaction[]
 }
@@ -20,14 +20,13 @@ const MONTHS_DE: Record<string, number> = {
   Mai: 5, Juni: 6, Juli: 7, August: 8,
   September: 9, Oktober: 10, November: 11, Dezember: 12,
 }
-
 const MONTH_PAT = Object.keys(MONTHS_DE).join('|')
 
-// Handles "€ 1.234,56", "− € 1.234,56", "- € 1.234,56", "+ € 1.234,56"
 function parseGermanAmount(s: string): number {
-  const sign   = /[−\-]/.test(s.split('€')[0]) ? -1 : 1
+  // Handles "€ 1.234,56", "− € 1.234,56", "+ € 1.234,56"
+  const isNeg = /[−\-]/.test(s.split('€')[0])
   const digits = s.replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.')
-  return sign * parseFloat(digits)
+  return isNeg ? -parseFloat(digits) : parseFloat(digits)
 }
 
 function makeId(date: string, counterparty: string, reference: string, amount: number): string {
@@ -35,45 +34,65 @@ function makeId(date: string, counterparty: string, reference: string, amount: n
   return createHash('sha256').update(key).digest('hex').slice(0, 32)
 }
 
-// Skip non-transaction lines that start with a German date pattern
-const SKIP_KEYWORDS = /Saldo|Kontostand|Kontoeingänge|Kontoausgänge|Abschlussbuchung/i
+const SKIP_RE = /^(Saldo|Kontostand|Kontoeingänge|Kontoausgänge|Abschlussbuchung|um\s+\d{3,4})/i
 
 export function parseSparkasseText(rawText: string): ParsedStatement {
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
-  // ── Year + month from header ──────────────────────────────────────────────
-  const headerRe  = new RegExp(`(${MONTH_PAT})\\s+(\\d{4})`)
-  const headerMatch = text.match(headerRe)
-  const year  = headerMatch ? parseInt(headerMatch[2]) : new Date().getFullYear()
-  const month = headerMatch ? MONTHS_DE[headerMatch[1]] : null
-  const statement_month = month ? `${year}-${String(month).padStart(2, '0')}` : ''
+  // ── Build a position→year map from every "Monat YYYY" header ─────────────
+  // e.g. "März 2026", "Oktober 2024" scattered across the multi-year PDF
+  const headerRe  = new RegExp(`(${MONTH_PAT})\\s+(\\d{4})`, 'g')
+  type YearAt = { index: number; year: number; month: number }
+  const yearMarkers: YearAt[] = []
+  let hm: RegExpExecArray | null
+  while ((hm = headerRe.exec(text)) !== null) {
+    yearMarkers.push({ index: hm.index, year: parseInt(hm[2]), month: MONTHS_DE[hm[1]] })
+  }
+  // Sort ascending
+  yearMarkers.sort((a, b) => a.index - b.index)
 
-  // ── Closing balance: "Neuer Saldo", "Schlusssaldo", "Kontostand …" ────────
-  const balRe = /(?:Neuer Saldo|Schlusssaldo|Kontostand[^\n]*?)\s*\+?\s*€?\s*([\d.]+,\d{2})/i
+  function yearAtPos(pos: number): number {
+    // Most recent year marker before this position
+    let best = yearMarkers[0]?.year ?? new Date().getFullYear()
+    for (const m of yearMarkers) {
+      if (m.index <= pos) best = m.year
+      else break
+    }
+    return best
+  }
+
+  // Most recent statement month (last marker)
+  const lastMarker     = yearMarkers[yearMarkers.length - 1]
+  const statement_month = lastMarker
+    ? `${lastMarker.year}-${String(lastMarker.month).padStart(2, '0')}`
+    : ''
+
+  // ── Closing balance ───────────────────────────────────────────────────────
+  const balRe    = /(?:Neuer Saldo|Schlusssaldo|Kontostand[^\n]*?)\s*\+?\s*€?\s*([\d.]+,\d{2})/i
   const balMatch = text.match(balRe)
   const closing_balance_eur = balMatch
     ? parseFloat(balMatch[1].replace(/\./g, '').replace(',', '.'))
     : null
 
   // ── Transaction parsing ───────────────────────────────────────────────────
-  // Strategy: find every occurrence of "DD. Monat" that precedes an amount,
-  // treat the text between date and amount as description.
-  const AMOUNT_STR = `[−\\-\\+]?\\s*€\\s*[\\d.]+,\\d{2}`
-  const DATE_RE    = new RegExp(`(\\d{1,2})\\.\\s+(${MONTH_PAT})\\b`, 'g')
+  // Amount format: "€ 1.234,56" or "− € 1.234,56" (€ BEFORE digits)
+  // We intentionally ignore "+amount €" (push-notification section)
+  const AMOUNT_RE_SRC = `[−\\-]?\\s*€\\s*[\\d.]+,\\d{2}`
+  const DATE_RE       = new RegExp(`(\\d{1,2})\\.\\s+(${MONTH_PAT})\\b`, 'g')
 
-  // Collect all (position, isoDate) date tokens in text
   type DateToken = { index: number; end: number; iso: string }
   const dateTokens: DateToken[] = []
   let dm: RegExpExecArray | null
   while ((dm = DATE_RE.exec(text)) !== null) {
-    const dayN  = parseInt(dm[1])
-    const monN  = MONTHS_DE[dm[2]]
+    const dayN = parseInt(dm[1])
+    const monN = MONTHS_DE[dm[2]]
     if (!monN || dayN < 1 || dayN > 31) continue
-    const iso = `${year}-${String(monN).padStart(2, '0')}-${String(dayN).padStart(2, '0')}`
+    const yr  = yearAtPos(dm.index)
+    const iso = `${yr}-${String(monN).padStart(2, '0')}-${String(dayN).padStart(2, '0')}`
     dateTokens.push({ index: dm.index, end: dm.index + dm[0].length, iso })
   }
 
-  const AMOUNT_RE_G = new RegExp(AMOUNT_STR, 'g')
+  const AMOUNT_RE_G = new RegExp(AMOUNT_RE_SRC, 'g')
   const transactions: BankTransaction[] = []
 
   for (let i = 0; i < dateTokens.length; i++) {
@@ -81,25 +100,36 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
     const segEnd   = dateTokens[i + 1]?.index ?? text.length
     const segment  = text.slice(segStart, segEnd).trim()
 
-    // Skip balance-summary "transactions"
-    if (SKIP_KEYWORDS.test(segment)) continue
+    // Skip push-notification entries: text after date starts with "um HHmm" or "um H:mm"
+    if (SKIP_RE.test(segment)) continue
 
-    // Find all amounts in segment; the transaction amount is the last one
+    // Find all "€-before-amount" occurrences in this segment
     AMOUNT_RE_G.lastIndex = 0
     const amtMatches: RegExpExecArray[] = []
     let am: RegExpExecArray | null
     while ((am = AMOUNT_RE_G.exec(segment)) !== null) amtMatches.push(am)
     if (!amtMatches.length) continue
 
+    // Transaction amount = last match in segment
     const lastAmt    = amtMatches[amtMatches.length - 1]
     const amount_eur = parseGermanAmount(lastAmt[0])
     if (isNaN(amount_eur)) continue
 
-    // Description = everything before the last amount, cleaned up
-    const desc       = segment.slice(0, lastAmt.index).replace(/\s+/g, ' ').trim()
-    const descLines  = desc.split(/\n|  {2,}/).map(l => l.trim()).filter(Boolean)
-    const counterparty = descLines[0] ?? ''
-    const reference    = descLines.slice(1).join(' ')
+    // Everything before the last amount = description
+    const desc      = segment.slice(0, lastAmt.index).replace(/\s+/g, ' ').trim()
+    const descLines = desc.split(/\n|  {2,}/).map(l => l.trim()).filter(Boolean)
+
+    // If description contains further "DD. Monat" patterns the segment spans
+    // multiple real transactions — take only the text before the first internal date
+    const internalDate = new RegExp(`\\d{1,2}\\.\\s+(?:${MONTH_PAT})\\b`)
+    const firstInternal = descLines.findIndex(l => internalDate.test(l))
+    const cleanLines = firstInternal > 0 ? descLines.slice(0, firstInternal) : descLines
+
+    const counterparty = cleanLines[0] ?? ''
+    const reference    = cleanLines.slice(1).join(' ')
+
+    // Skip if counterparty looks like a time ("um 1501") — notification row
+    if (/^um\s+\d{3,4}$/.test(counterparty.trim())) continue
 
     const raw = text.slice(dateTokens[i].index, segEnd).trim()
     const id  = makeId(dateTokens[i].iso, counterparty, reference, amount_eur)
