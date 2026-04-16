@@ -13,11 +13,11 @@ export async function POST(req: NextRequest) {
 
     let rawText: string
     try {
-      const { PDFParse } = await import('pdf-parse')
-      const parser = new PDFParse({ data: buffer })
-      const result = await parser.getText()
-      rawText = result.text
-      await parser.destroy()
+      // Import from lib path to avoid pdf-parse v1's test-file side-effect on module load
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfParse: (buf: Buffer) => Promise<{ text: string }> = require('pdf-parse/lib/pdf-parse.js')
+      const data = await pdfParse(buffer)
+      rawText = data.text
     } catch (e) {
       return NextResponse.json({ error: `PDF parse failed: ${(e as Error).message}` }, { status: 422 })
     }
