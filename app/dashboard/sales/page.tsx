@@ -45,7 +45,7 @@ export default function SalesPage() {
           backgroundColor: '#E3E2DC',
           borderRadius: 16,
           overflow: 'hidden',
-          marginBottom: 24,
+          marginBottom: 16,
         }}
       >
         {[

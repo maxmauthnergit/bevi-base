@@ -63,8 +63,8 @@ export default async function DashboardPage() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 12,
-        marginBottom: 20,
+        gap: 16,
+        marginBottom: 16,
       }}>
         {dashboardMetrics.map((metric) => {
           const data = kpiValues[metric.id]

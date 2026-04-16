@@ -26,7 +26,7 @@ export default function FinancialsPage() {
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         <h1
           style={{
             fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
@@ -49,7 +49,7 @@ export default function FinancialsPage() {
           backgroundColor: '#E3E2DC',
           borderRadius: 16,
           overflow: 'hidden',
-          marginBottom: 24,
+          marginBottom: 16,
         }}
       >
         {[

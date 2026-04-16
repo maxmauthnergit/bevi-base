@@ -382,8 +382,6 @@ export default function OrdersPage() {
           }
         />
 
-        <div style={{ height: 12 }} />
-
         {loading ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: '#9E9D98', fontFamily: G, fontSize: '0.875rem' }}>
             Loading…
