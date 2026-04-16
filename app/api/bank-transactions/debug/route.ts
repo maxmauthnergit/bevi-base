@@ -15,26 +15,31 @@ export async function POST(req: NextRequest) {
 
   const result = parseSparkasseText(text)
 
-  // Find "Kontoführung" or similar known-debit keyword and dump char codes
-  const debitKeywords = ['Kontoführung', 'Kapitalertragsteuer', 'Sollzinsen']
-  let debit_char_probe: Record<string, string> | null = null
-  for (const kw of debitKeywords) {
-    const idx = text.indexOf(kw)
-    if (idx >= 0) {
-      const snippet = text.slice(Math.max(0, idx - 5), idx + kw.length + 80)
-      debit_char_probe = {
-        keyword: kw,
-        raw_snippet: snippet,
-        char_codes: [...snippet].map(c => `${c === '\n' ? '\\n' : c}(${c.charCodeAt(0)})`).join(' '),
-      }
-      break
-    }
+  // Find all U+E09E occurrences and show context (first 40)
+  const SOLL_CHAR = '\uE09E'
+  const soll_occurrences: string[] = []
+  let si = 0
+  while (soll_occurrences.length < 40) {
+    const idx = text.indexOf(SOLL_CHAR, si)
+    if (idx < 0) break
+    const ctx = text.slice(Math.max(0, idx - 40), idx + 20).replace(/\n/g, '↵')
+    soll_occurrences.push(ctx)
+    si = idx + 1
   }
+
+  // Show char codes for a wider window around "Kontoführung"
+  const kwIdx = text.indexOf('Kontoführung')
+  const char_probe_wide = kwIdx >= 0
+    ? [...text.slice(Math.max(0, kwIdx - 5), kwIdx + 150)]
+        .map(c => `${c === '\n' ? '\\n' : c.replace(/\uE09E/, '[E09E]')}(${c.charCodeAt(0)})`).join(' ')
+    : null
 
   return NextResponse.json({
     statement_month:      result.statement_month,
     closing_balance_eur:  result.closing_balance_eur,
     transaction_count:    result.transactions.length,
+    soll_char_count:      soll_occurrences.length,
+    soll_occurrences,
     first_20_transactions: result.transactions.slice(0, 20).map(t => ({
       date:        t.date,
       counterparty: t.counterparty,
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest) {
       amount_eur:  t.amount_eur,
       raw:         t.raw,
     })),
-    debit_char_probe,
+    char_probe_wide,
     raw_text_0_3000:  text.slice(0, 3000),
     raw_text_3000_6000: text.slice(3000, 6000),
   })
