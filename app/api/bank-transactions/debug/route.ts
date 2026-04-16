@@ -15,6 +15,22 @@ export async function POST(req: NextRequest) {
 
   const result = parseSparkasseText(text)
 
+  // Find "Kontoführung" or similar known-debit keyword and dump char codes
+  const debitKeywords = ['Kontoführung', 'Kapitalertragsteuer', 'Sollzinsen']
+  let debit_char_probe: Record<string, string> | null = null
+  for (const kw of debitKeywords) {
+    const idx = text.indexOf(kw)
+    if (idx >= 0) {
+      const snippet = text.slice(Math.max(0, idx - 5), idx + kw.length + 80)
+      debit_char_probe = {
+        keyword: kw,
+        raw_snippet: snippet,
+        char_codes: [...snippet].map(c => `${c === '\n' ? '\\n' : c}(${c.charCodeAt(0)})`).join(' '),
+      }
+      break
+    }
+  }
+
   return NextResponse.json({
     statement_month:      result.statement_month,
     closing_balance_eur:  result.closing_balance_eur,
@@ -24,7 +40,9 @@ export async function POST(req: NextRequest) {
       counterparty: t.counterparty,
       reference:   t.reference,
       amount_eur:  t.amount_eur,
+      raw:         t.raw,
     })),
+    debit_char_probe,
     raw_text_0_3000:  text.slice(0, 3000),
     raw_text_3000_6000: text.slice(3000, 6000),
   })
