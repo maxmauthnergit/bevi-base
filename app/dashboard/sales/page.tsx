@@ -17,7 +17,7 @@ export default function SalesPage() {
   const aov = latestMonth.revenue_gross / latestMonth.orders
 
   return (
-    <main style={{ padding: '32px 40px', maxWidth: 1200 }}>
+    <main style={{ padding: '32px 40px' }}>
       {/* Header */}
       <div className="mb-8">
         <h1

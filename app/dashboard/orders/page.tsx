@@ -275,7 +275,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <main style={{ padding: '32px 40px', maxWidth: 1600 }}>
+    <main style={{ padding: '32px 40px' }}>
       {/* Page header */}
       <div className="mb-8" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>

@@ -265,7 +265,7 @@ export default function SettingsPage() {
   const multiple   = vkNetto / totalCogs
 
   return (
-    <main style={{ padding: '32px 40px', maxWidth: 1280 }}>
+    <main style={{ padding: '32px 40px' }}>
       <div className="mb-8">
         <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>Settings</h1>
       </div>
