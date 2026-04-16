@@ -394,7 +394,7 @@ export default function OrdersPage() {
           </div>
         ) : !orders?.length ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: '#9E9D98', fontFamily: G, fontSize: '0.875rem' }}>
-            No orders in {MONTHS[month - 1]} {year}.
+            No orders in {range.label}.
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
