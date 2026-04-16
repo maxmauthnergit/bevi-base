@@ -38,7 +38,7 @@ const MONTH_PAT = Object.keys(MONTHS)
   .join('|')
 
 function parseGermanAmount(s: string): number {
-  const isNeg = /[−\-]/.test(s.split('€')[0])
+  const isNeg = /[−\-]/.test(s)
   const digits = s.replace(/[^0-9,]/g, '').replace(/\./g, '').replace(',', '.')
   return isNeg ? -parseFloat(digits) : parseFloat(digits)
 }
@@ -118,7 +118,7 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
 
   // NO \b at end — dates run directly into counterparty ("31. MärzStripe…")
   const DATE_RE   = new RegExp(`(\\d{1,2})\\.\\s+(${MONTH_PAT})`, 'g')
-  const AMOUNT_RE = /[−\-]?\s*€\s*[\d.]+,\d{2}/g
+  const AMOUNT_RE = /[−\-]?\s*€\s*[\d.]+,\d{2}(?:\s*[−\-])?/g
 
   type AmtToken = { index: number; end: number; raw: string }
   const amounts: AmtToken[] = []
