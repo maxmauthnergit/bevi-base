@@ -48,6 +48,34 @@ function makeId(date: string, counterparty: string, amount: number): string {
   return createHash('sha256').update(key).digest('hex').slice(0, 32)
 }
 
+function splitDesc(raw: string): [string, string] {
+  // Remove card-payment noise: "Bezahlung mit Karte 1 am 17. März um 1141"
+  const desc = raw.replace(/\s*Bezahlung mit Karte\s*\d*\s*am\s+\d{1,2}\.\s+\S+\s+um\s+\d{3,4}/i, '').trim()
+
+  // PAYPAL + digits only (direct transfer, no company name)
+  const paypalDirect = desc.match(/^(PAYPAL)(\d{8,}.*)$/i)
+  if (paypalDirect) return ['PAYPAL', paypalDirect[2]]
+
+  // Shopify reference code
+  const shopifyIdx = desc.indexOf('Shopify ')
+  if (shopifyIdx > 0) return [desc.slice(0, shopifyIdx).trim(), desc.slice(shopifyIdx).trim()]
+
+  // WeShip AR/ invoice reference
+  const arIdx = desc.search(/AR\/\d{4}\//)
+  if (arIdx > 0) return [desc.slice(0, arIdx).trim(), desc.slice(arIdx).trim()]
+
+  // IBAN mention
+  const ibanIdx = desc.indexOf('IBAN')
+  if (ibanIdx > 0) return [desc.slice(0, ibanIdx).trim(), desc.slice(ibanIdx).trim()]
+
+  // Long digit run (6+ consecutive digits = reference number)
+  const digitMatch = desc.match(/\d{6,}/)
+  if (digitMatch && digitMatch.index! > 0)
+    return [desc.slice(0, digitMatch.index).trim(), desc.slice(digitMatch.index!).trim()]
+
+  return [desc, '']
+}
+
 export function parseSparkasseText(rawText: string): ParsedStatement {
   const text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
@@ -137,11 +165,7 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
     // Clean non-printable chars, collapse whitespace
     const desc = descRaw.replace(/[^\x20-\x7E\u00C0-\u024F\u00A0-\u00FF]/g, ' ').replace(/\s+/g, ' ').trim()
 
-    // Split counterparty / reference
-    // Sparkasse references: Shopify codes, /PAYPAL suffixes, AR/YYYY/… invoice refs
-    const refMatch = desc.match(/\s+((?:Shopify|AR\/|PAYPAL)[^\s]*)|(\/PAYPAL\S*)|(\b[A-Z0-9]{6,}\b)/)
-    const counterparty = refMatch ? desc.slice(0, refMatch.index).trim() : desc
-    const reference    = refMatch ? desc.slice(refMatch.index!).trim() : ''
+    const [counterparty, reference] = splitDesc(desc)
 
     const raw = `${isoDate} ${desc} ${amounts[i].raw}`
     const id  = makeId(isoDate, counterparty || desc, amount_eur)
