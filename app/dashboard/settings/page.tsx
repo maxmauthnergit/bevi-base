@@ -286,7 +286,6 @@ export default function SettingsPage() {
                   <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: api.connected ? '#0D8585' : '#DC2626', display: 'inline-block' }} />
                   <span className="label" style={{ color: api.connected ? '#0D8585' : '#DC2626' }}>{api.connected ? 'Connected' : 'Not connected'}</span>
                 </div>
-                <button style={{ ...btn, color: api.connected ? '#6B6A64' : '#9E9D98', cursor: api.connected ? 'pointer' : 'not-allowed' }} disabled={!api.connected}>Sync now</button>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
               {open && (
