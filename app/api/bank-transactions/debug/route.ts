@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseSparkasseText } from '@/lib/bank/parser'
 
+export function GET() {
+  const html = `<!DOCTYPE html><html><body style="font-family:monospace;padding:24px">
+<h2>Bank PDF Debug</h2>
+<form method="POST" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".pdf" required>
+  <button type="submit" style="margin-left:12px">Analyse</button>
+</form>
+</body></html>`
+  return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } })
+}
+
 export async function POST(req: NextRequest) {
   const formData = await req.formData()
   const file = formData.get('file') as File | null
