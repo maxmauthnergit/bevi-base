@@ -25,23 +25,68 @@ export async function POST(req: NextRequest) {
   const { text } = await pdfParse(buffer)
 
   const result = parseSparkasseText(text)
+  const txns = result.transactions
 
-  const balanceLines = text.split('\n')
-    .map((l, i) => ({ i, l }))
-    .filter(({ l }) => /saldo|kontostand/i.test(l))
-    .map(({ i, l }) => `[${i}] ${l}`)
+  // ── Per-month breakdown of parsed transactions ────────────────────────────
+  const byMonth: Record<string, { count: number; credits: number; debits: number; net: number }> = {}
+  for (const t of txns) {
+    const mo = t.date.slice(0, 7)
+    if (!byMonth[mo]) byMonth[mo] = { count: 0, credits: 0, debits: 0, net: 0 }
+    byMonth[mo].count++
+    if (t.amount_eur >= 0) byMonth[mo].credits += t.amount_eur
+    else                   byMonth[mo].debits  += t.amount_eur
+    byMonth[mo].net += t.amount_eur
+  }
+
+  // ── PDF-stated totals per month (Kontoeingänge / Kontoausgänge) ───────────
+  const pdfTotals: Array<{ label: string; amount: number }> = []
+  const totRe = /(\d+\s+Konto(?:eingänge|ausgänge)[^\n€]*€[\d.]+,\d{2})/g
+  let tm
+  while ((tm = totRe.exec(text)) !== null)
+    pdfTotals.push({ label: tm[1].replace(/\s+/g, ' ').trim(), amount: 0 })
+
+  // Simpler: just extract the numbers
+  const credLines: number[] = []
+  const debLines:  number[] = []
+  const crRe = /Kontoeingänge[^€]*€([\d.]+,\d{2})/g
+  const drRe = /Kontoausgänge[^€]*€([\d.]+,\d{2})/g
+  let m
+  while ((m = crRe.exec(text)) !== null)
+    credLines.push(parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
+  while ((m = drRe.exec(text)) !== null)
+    debLines.push(parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
+
+  // ── Transaction totals ────────────────────────────────────────────────────
+  const txnSum     = txns.reduce((s, t) => s + t.amount_eur, 0)
+  const txnCredits = txns.filter(t => t.amount_eur > 0).reduce((s, t) => s + t.amount_eur, 0)
+  const txnDebits  = txns.filter(t => t.amount_eur < 0).reduce((s, t) => s + t.amount_eur, 0)
+
+  // ── Large transactions (|amount| ≥ 1 000) ────────────────────────────────
+  const largeTxns = txns
+    .filter(t => Math.abs(t.amount_eur) >= 1000)
+    .sort((a, b) => b.amount_eur - a.amount_eur)
+    .map(t => ({ date: t.date, counterparty: t.counterparty, amount_eur: t.amount_eur }))
 
   return NextResponse.json({
-    statement_month:       result.statement_month,
-    closing_balance_eur:   result.closing_balance_eur,
-    transaction_count:     result.transactions.length,
-    balance_keyword_lines: balanceLines,
-    first_20_transactions: result.transactions.slice(0, 20).map(t => ({
-      date:         t.date,
-      counterparty: t.counterparty,
-      reference:    t.reference,
-      amount_eur:   t.amount_eur,
-    })),
-    raw_text_0_3000: text.slice(0, 3000),
+    transaction_count:  txns.length,
+    txn_sum:            Math.round(txnSum * 100) / 100,
+    txn_credits:        Math.round(txnCredits * 100) / 100,
+    txn_debits:         Math.round(txnDebits * 100) / 100,
+    pdf_credit_totals:  credLines,
+    pdf_debit_totals:   debLines,
+    pdf_net_per_period: Math.round((credLines.reduce((s,x)=>s+x,0) - debLines.reduce((s,x)=>s+x,0)) * 100) / 100,
+    by_month:           Object.fromEntries(
+      Object.entries(byMonth)
+        .sort(([a],[b]) => a.localeCompare(b))
+        .map(([mo, v]) => [mo, {
+          count:   v.count,
+          credits: Math.round(v.credits * 100) / 100,
+          debits:  Math.round(v.debits  * 100) / 100,
+          net:     Math.round(v.net     * 100) / 100,
+        }])
+    ),
+    large_transactions: largeTxns,
+    raw_text_0_2000:    text.slice(0, 2000),
+    raw_text_end_2000:  text.slice(-2000),
   })
 }
