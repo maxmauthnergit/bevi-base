@@ -382,26 +382,41 @@ export default function SettingsPage() {
                 <div style={{ padding: '12px 0' }}>
                   <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
                 </div>
-              ) : (
-                bankTxns.slice(0, 50).map((t, i) => (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
-                    <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
-                      {new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                    </span>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {t.counterparty || t.reference}
-                    </span>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap', color: t.amount_eur >= 0 ? '#0D8585' : '#111110' }}>
-                      {t.amount_eur >= 0 ? '+' : ''}{t.amount_eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </span>
-                  </div>
-                ))
-              )}
-              {bankTxns.length > 50 && (
-                <div style={{ padding: '8px 0 4px' }}>
-                  <span className="label" style={{ color: '#9E9D98' }}>Showing 50 of {bankTxns.length} transactions</span>
-                </div>
-              )}
+              ) : (() => {
+                const calcBalance = bankTxns.reduce((s, t) => s + t.amount_eur, 0)
+                const latestTxn   = bankTxns.reduce((best, t) => t.date > best.date ? t : best, bankTxns[0])
+                const latestLabel = new Date(latestTxn.date).toLocaleDateString('de-AT', { day: 'numeric', month: 'short', year: 'numeric' })
+                return (
+                  <>
+                    <div style={{ padding: '12px 0 10px', borderBottom: '1px solid #E3E2DC', marginBottom: 4 }}>
+                      <span style={{ fontFamily: G, fontSize: '1.125rem', fontWeight: 700, color: calcBalance >= 0 ? '#0D8585' : '#DC2626' }}>
+                        {calcBalance >= 0 ? '+' : ''}{calcBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                      <span className="label" style={{ display: 'block', marginTop: 3, color: '#9E9D98' }}>
+                        Berechneter Kontostand · Stand per {latestLabel} (letzte Transaktion in der Liste)
+                      </span>
+                    </div>
+                    {bankTxns.slice(0, 50).map((t, i) => (
+                      <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
+                        <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
+                          {new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </span>
+                        <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {t.counterparty || t.reference}
+                        </span>
+                        <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap', color: t.amount_eur >= 0 ? '#0D8585' : '#111110' }}>
+                          {t.amount_eur >= 0 ? '+' : ''}{t.amount_eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </span>
+                      </div>
+                    ))}
+                    {bankTxns.length > 50 && (
+                      <div style={{ padding: '8px 0 4px' }}>
+                        <span className="label" style={{ color: '#9E9D98' }}>Showing 50 of {bankTxns.length} transactions</span>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
         </div>
