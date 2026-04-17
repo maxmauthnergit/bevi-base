@@ -383,19 +383,22 @@ export default function SettingsPage() {
                   <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
                 </div>
               ) : (() => {
-                const calcBalance = bankTxns.reduce((s, t) => s + t.amount_eur, 0)
-                const latestTxn   = bankTxns.reduce((best, t) => t.date > best.date ? t : best, bankTxns[0])
-                const latestLabel = new Date(latestTxn.date).toLocaleDateString('de-AT', { day: 'numeric', month: 'short', year: 'numeric' })
+                const displayBalance  = bankBalance
+                const monthLabel = bankBalanceMonth
+                  ? new Date(bankBalanceMonth + '-01').toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })
+                  : null
                 return (
                   <>
+                    {displayBalance !== null && (
                     <div style={{ padding: '12px 0 10px', borderBottom: '1px solid #E3E2DC', marginBottom: 4 }}>
-                      <span style={{ fontFamily: G, fontSize: '1.125rem', fontWeight: 700, color: calcBalance >= 0 ? '#0D8585' : '#DC2626' }}>
-                        {calcBalance >= 0 ? '+' : ''}{calcBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      <span style={{ fontFamily: G, fontSize: '1.125rem', fontWeight: 700, color: displayBalance >= 0 ? '#0D8585' : '#DC2626' }}>
+                        {displayBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </span>
                       <span className="label" style={{ display: 'block', marginTop: 3, color: '#9E9D98' }}>
-                        Berechneter Kontostand · Stand per {latestLabel} (letzte Transaktion in der Liste)
+                        Kontostand{monthLabel ? ` · Stand per ${monthLabel}` : ''}
                       </span>
                     </div>
+                    )}
                     {bankTxns.slice(0, 50).map((t, i) => (
                       <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
                         <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
