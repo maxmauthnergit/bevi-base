@@ -103,12 +103,38 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
   }
 
   // ── Closing balance ───────────────────────────────────────────────────────
-  const balMatch = text.match(
-    /(?:Neuer Saldo|Schlusssaldo|Kontostand[^\n]*?)\s*\+?\s*€?\s*([\d.]+,\d{2})/i,
-  )
-  const closing_balance_eur = balMatch
-    ? parseFloat(balMatch[1].replace(/\./g, '').replace(',', '.'))
-    : null
+  // Sparkasse PDFs use several label variants; amount may be on same or next
+  // line and may have + after the digits (Austrian credit notation).
+  let closing_balance_eur: number | null = null
+
+  const BAL_LABEL = /Neuer Saldo|Schlusssaldo|Buchungssaldo|Endsaldo|Kontostand/i
+
+  // 1. Search line by line so column-aligned text doesn't confuse us
+  const lines = text.split('\n')
+  for (let li = 0; li < lines.length && closing_balance_eur === null; li++) {
+    const line = lines[li]
+    if (!BAL_LABEL.test(line)) continue
+    // Look for amount in this line AND the next two lines
+    for (let lookahead = 0; lookahead <= 2 && li + lookahead < lines.length; lookahead++) {
+      const target = lines[li + lookahead]
+      const numMatch = target.match(/([\d.]+,\d{2})/)
+      if (!numMatch) continue
+      const before = target.slice(0, numMatch.index)
+      const isNeg  = /[\uE09E\u2212\-]/.test(before)
+      closing_balance_eur = isNeg
+        ? -parseFloat(numMatch[1].replace(/\./g, '').replace(',', '.'))
+        : parseFloat(numMatch[1].replace(/\./g, '').replace(',', '.'))
+      break
+    }
+  }
+
+  // 2. Fallback: broad regex across the full text
+  if (closing_balance_eur === null) {
+    const m = text.match(
+      /(?:Neuer Saldo|Schlusssaldo|Buchungssaldo|Endsaldo|Kontostand)[^\n]*\n?[^\n]*?([\d.]+,\d{2})/i,
+    )
+    if (m) closing_balance_eur = parseFloat(m[1].replace(/\./g, '').replace(',', '.'))
+  }
 
   // ── Amount-first parsing ──────────────────────────────────────────────────
   // Each statement transaction ends with "€amount" (€ BEFORE digits).

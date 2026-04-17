@@ -15,16 +15,22 @@ export async function POST(req: NextRequest) {
 
   const result = parseSparkasseText(text)
 
+  const balanceLines = text.split('\n')
+    .map((l, i) => ({ i, l }))
+    .filter(({ l }) => /saldo|kontostand/i.test(l))
+    .map(({ i, l }) => `[${i}] ${l}`)
+
   return NextResponse.json({
-    statement_month:      result.statement_month,
-    closing_balance_eur:  result.closing_balance_eur,
-    transaction_count:    result.transactions.length,
+    statement_month:       result.statement_month,
+    closing_balance_eur:   result.closing_balance_eur,
+    transaction_count:     result.transactions.length,
+    balance_keyword_lines: balanceLines,
     first_20_transactions: result.transactions.slice(0, 20).map(t => ({
-      date:        t.date,
+      date:         t.date,
       counterparty: t.counterparty,
-      reference:   t.reference,
-      amount_eur:  t.amount_eur,
+      reference:    t.reference,
+      amount_eur:   t.amount_eur,
     })),
-    raw_text_0_3000:  text.slice(0, 3000),
+    raw_text_0_3000: text.slice(0, 3000),
   })
 }
