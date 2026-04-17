@@ -345,7 +345,7 @@ export default function SettingsPage() {
             <div style={{ flex: 1 }}>
               <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account</span>
               <span className="label">
-                Monthly PDF · Sparkasse Girokonto
+                Monthly PDF · Sparkasse Checking Account
                 {bankBalance !== null && !bankLoading && (
                   <span style={{ marginLeft: 8, color: '#0D8585' }}>
                     · {fmt(bankBalance)}
@@ -383,22 +383,23 @@ export default function SettingsPage() {
                   <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
                 </div>
               ) : (() => {
-                const displayBalance  = bankBalance
+                const displayBalance = bankBalance ?? bankTxns.reduce((s, t) => s + t.amount_eur, 0)
+                const isSnapshot     = bankBalance !== null
                 const monthLabel = bankBalanceMonth
-                  ? new Date(bankBalanceMonth + '-01').toLocaleDateString('de-AT', { month: 'long', year: 'numeric' })
+                  ? new Date(bankBalanceMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
                   : null
                 return (
                   <>
-                    {displayBalance !== null && (
                     <div style={{ padding: '12px 0 10px', borderBottom: '1px solid #E3E2DC', marginBottom: 4 }}>
                       <span style={{ fontFamily: G, fontSize: '1.125rem', fontWeight: 700, color: displayBalance >= 0 ? '#0D8585' : '#DC2626' }}>
                         {displayBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </span>
                       <span className="label" style={{ display: 'block', marginTop: 3, color: '#9E9D98' }}>
-                        Kontostand{monthLabel ? ` · Stand per ${monthLabel}` : ''}
+                        {isSnapshot
+                          ? `Balance${monthLabel ? ` · as of ${monthLabel}` : ''}`
+                          : 'Estimated balance · re-upload PDF for exact figure'}
                       </span>
                     </div>
-                    )}
                     {bankTxns.slice(0, 50).map((t, i) => (
                       <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
                         <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
