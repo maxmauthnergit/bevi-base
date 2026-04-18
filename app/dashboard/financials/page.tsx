@@ -194,9 +194,14 @@ export default function FinancialsPage() {
     ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
     : '—'
 
+  const [showAllTxns, setShowAllTxns] = useState(false)
+
   const fromStr  = toDateStr(range.from)
   const toStr    = toDateStr(range.to)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setShowAllTxns(false) }, [fromStr, toStr])
   const filtered = txns.filter(t => t.date >= fromStr && t.date <= toStr)
+  const visible  = showAllTxns ? filtered : filtered.slice(0, 10)
 
   const amountStyle: React.CSSProperties = {
     fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626',
@@ -434,8 +439,8 @@ export default function FinancialsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((t, i) => (
-                  <tr key={t.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                {visible.map((t, i) => (
+                  <tr key={t.id} style={{ borderBottom: i < visible.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
                     <td style={{ padding: '12px 20px 12px 0', fontFamily: G, color: '#6B6A64', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' }}>
                       {new Date(t.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
@@ -460,6 +465,20 @@ export default function FinancialsPage() {
                 ))}
               </tbody>
             </table>
+            {filtered.length > 10 && (
+              <div style={{ paddingTop: 14, borderTop: '1px solid #F0EFE9', textAlign: 'center' }}>
+                <button
+                  onClick={() => setShowAllTxns(v => !v)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: G, fontSize: '0.75rem', fontWeight: 500,
+                    color: '#6B6A64', letterSpacing: '0.02em',
+                  }}
+                >
+                  {showAllTxns ? 'Show less' : `Show all ${filtered.length} transactions`}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
