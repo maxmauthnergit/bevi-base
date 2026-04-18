@@ -25,7 +25,7 @@ function TipDivider() {
   return <div style={{ height: 1, backgroundColor: '#2A2A28', margin: '5px 0' }} />
 }
 
-function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
+function WithTip({ tip, children, align = 'right' }: { tip: React.ReactNode; children: React.ReactNode; align?: 'left' | 'right' }) {
   const [rect, setRect] = useState<DOMRect | null>(null)
   const ref  = useRef<HTMLDivElement>(null)
   const hide = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,7 +42,7 @@ function WithTip({ tip, children }: { tip: React.ReactNode; children: React.Reac
   const tipStyle: React.CSSProperties = rect ? {
     position: 'fixed',
     ...(above ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
-    left: rect.left,
+    ...(align === 'right' ? { right: window.innerWidth - rect.right } : { left: rect.left }),
     backgroundColor: '#1C1C1A',
     borderRadius: 10,
     padding: '10px 14px',
@@ -101,19 +101,23 @@ interface BankTx {
 export default function FinancialsPage() {
   const { range } = useDateRange()
 
-  const [txns, setTxns]           = useState<BankTx[]>([])
+  const [txns, setTxns]             = useState<BankTx[]>([])
   const [txnLoading, setTxnLoading] = useState(true)
-  const [txnError, setTxnError]   = useState<string | null>(null)
+  const [txnError, setTxnError]     = useState<string | null>(null)
 
-  const [weshipTotal, setWeshipTotal]     = useState<number | null>(null)
-  const [taxTotal, setTaxTotal]           = useState<number | null>(null)
+  const [weshipTotal, setWeshipTotal]       = useState<number | null>(null)
+  const [weshipFees, setWeshipFees]         = useState<number | null>(null)
+  const [weshipShipping, setWeshipShipping] = useState<number | null>(null)
+  const [weshipOrderCount, setWeshipOrderCount] = useState<number | null>(null)
+  const [taxTotal, setTaxTotal]             = useState<number | null>(null)
+  const [taxOrderCount, setTaxOrderCount]   = useState<number | null>(null)
   const [forecastLoading, setForecastLoading] = useState(true)
-  const [taxQuarter, setTaxQuarter]       = useState<TaxQuarter | null>(null)
+  const [taxQuarter, setTaxQuarter]         = useState<TaxQuarter | null>(null)
 
-  const today         = new Date()
-  const currentMonth  = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
-  const currentMonthLabel = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  const nextMonthLabel    = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+  const today              = new Date()
+  const currentMonth       = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const currentMonthLabel  = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const nextMonthLabel     = new Date(today.getFullYear(), today.getMonth() + 1, 1)
     .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
   useEffect(() => {
@@ -141,14 +145,18 @@ export default function FinancialsPage() {
         const monthOrders: { cost_weship: number; cost_shipping: number }[] = monthData.orders ?? []
         const taxOrders:   { revenue_tax: number }[] = taxData.orders ?? []
         setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship + o.cost_shipping, 0))
+        setWeshipFees(monthOrders.reduce((s, o) => s + o.cost_weship, 0))
+        setWeshipShipping(monthOrders.reduce((s, o) => s + o.cost_shipping, 0))
+        setWeshipOrderCount(monthOrders.length)
         setTaxTotal(taxOrders.reduce((s, o) => s + o.revenue_tax, 0))
+        setTaxOrderCount(taxOrders.length)
         setForecastLoading(false)
       })
       .catch(() => setForecastLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Meta Ads prediction — derived from PayPal Europe bank transactions (last 90 days)
+  // Meta Ads prediction — derived from PayPal Europe bank transactions (last 30 days)
   const thirtyDaysAgoStr = (() => {
     const d = new Date(today); d.setDate(d.getDate() - 30); return toDateStr(d)
   })()
@@ -163,6 +171,7 @@ export default function FinancialsPage() {
 
   let metaNextDate: Date | null = null
   let metaNextAmount: number | null = null
+  let metaAvgInterval = 0
   if (metaPayments.length >= 2) {
     let totalInterval = 0
     for (let i = 1; i < metaPayments.length; i++) {
@@ -170,17 +179,17 @@ export default function FinancialsPage() {
       const d2 = new Date(metaPayments[i].date + 'T00:00:00')
       totalInterval += (d2.getTime() - d1.getTime()) / 86400000
     }
-    const avgInterval = Math.round(totalInterval / (metaPayments.length - 1))
-    const avgAmount   = metaPayments.reduce((s, t) => s + Math.abs(t.amount_eur), 0) / metaPayments.length
-    const last        = new Date(metaPayments[metaPayments.length - 1].date + 'T00:00:00')
-    metaNextDate   = new Date(last.getTime() + avgInterval * 86400000)
+    metaAvgInterval = Math.round(totalInterval / (metaPayments.length - 1))
+    const avgAmount  = metaPayments.reduce((s, t) => s + Math.abs(t.amount_eur), 0) / metaPayments.length
+    const last       = new Date(metaPayments[metaPayments.length - 1].date + 'T00:00:00')
+    metaNextDate   = new Date(last.getTime() + metaAvgInterval * 86400000)
     metaNextAmount = Math.round(avgAmount * 100) / 100
   } else if (metaPayments.length === 1) {
     metaNextAmount = Math.abs(metaPayments[0].amount_eur)
   }
 
-  const balance    = txns.reduce((s, t) => s + t.amount_eur, 0)
-  const latestDate = txns.length > 0 ? txns[0].date : null
+  const balance         = txns.reduce((s, t) => s + t.amount_eur, 0)
+  const latestDate      = txns.length > 0 ? txns[0].date : null
   const latestDateLabel = latestDate
     ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
     : '—'
@@ -188,6 +197,10 @@ export default function FinancialsPage() {
   const fromStr  = toDateStr(range.from)
   const toStr    = toDateStr(range.to)
   const filtered = txns.filter(t => t.date >= fromStr && t.date <= toStr)
+
+  const amountStyle: React.CSSProperties = {
+    fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626',
+  }
 
   return (
     <main style={{ padding: '32px 40px' }}>
@@ -245,15 +258,27 @@ export default function FinancialsPage() {
             <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>Loading…</span>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
               {/* WeShip */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                   <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
                     WeShip · {currentMonthLabel}
                   </span>
-                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
-                    {weshipTotal !== null ? formatEur(weshipTotal) : '—'}
-                  </span>
+                  <WithTip tip={
+                    <div>
+                      <TipRow label="Orders this month" value={weshipOrderCount !== null ? String(weshipOrderCount) : '—'} />
+                      <TipDivider />
+                      <TipRow label="Fulfillment fees" value={weshipFees !== null ? formatEur(weshipFees) : '—'} />
+                      <TipRow label="Shipping costs" value={weshipShipping !== null ? formatEur(weshipShipping) : '—'} />
+                      <TipDivider />
+                      <TipRow label="Total" value={weshipTotal !== null ? formatEur(weshipTotal) : '—'} total />
+                    </div>
+                  }>
+                    <span style={amountStyle}>
+                      {weshipTotal !== null ? formatEur(weshipTotal) : '—'}
+                    </span>
+                  </WithTip>
                 </div>
                 <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                   Due: First week of {nextMonthLabel}
@@ -269,9 +294,18 @@ export default function FinancialsPage() {
                     <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
                       VAT {taxQuarter.label} · {taxQuarter.period} {taxQuarter.year}
                     </span>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
-                      {taxTotal !== null ? formatEur(taxTotal) : '—'}
-                    </span>
+                    <WithTip tip={
+                      <div>
+                        <TipRow label="Period" value={`${taxQuarter.period} ${taxQuarter.year}`} />
+                        <TipRow label="Orders in period" value={taxOrderCount !== null ? String(taxOrderCount) : '—'} />
+                        <TipDivider />
+                        <TipRow label="Revenue tax collected" value={taxTotal !== null ? formatEur(taxTotal) : '—'} total />
+                      </div>
+                    }>
+                      <span style={amountStyle}>
+                        {taxTotal !== null ? formatEur(taxTotal) : '—'}
+                      </span>
+                    </WithTip>
                   </div>
                   <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                     Due: {taxQuarter.due.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -284,45 +318,41 @@ export default function FinancialsPage() {
               {/* Meta Ads — predicted from PayPal Europe bank transactions */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+                    Meta Ads · Ongoing
+                  </span>
                   <WithTip tip={
                     <div>
                       <TipRow label="Window" value="Last 30 days" />
                       <TipRow label="Matched payments" value={String(metaPayments.length)} />
                       {metaPayments.length >= 2 && (
                         <>
-                          <TipRow label="Avg amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} />
                           <TipDivider />
-                          <TipRow label="Avg interval" value={(() => {
-                            let total = 0
-                            for (let i = 1; i < metaPayments.length; i++) {
-                              total += (new Date(metaPayments[i].date + 'T00:00:00').getTime() - new Date(metaPayments[i-1].date + 'T00:00:00').getTime()) / 86400000
-                            }
-                            return `${Math.round(total / (metaPayments.length - 1))} days`
-                          })()} />
+                          <TipRow label="Avg amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} />
+                          <TipRow label="Avg interval" value={`${metaAvgInterval} days`} />
                           <TipRow label="Last payment" value={metaPayments[metaPayments.length - 1].date} />
+                          <TipDivider />
                           <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} total />
                         </>
                       )}
                     </div>
                   }>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                      Meta Ads · Ongoing
+                    <span style={amountStyle}>
+                      {txnLoading ? '—' : metaNextAmount !== null ? formatEur(metaNextAmount) : '—'}
                     </span>
                   </WithTip>
-                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
-                    {txnLoading ? '—' : metaNextAmount !== null ? formatEur(metaNextAmount) : '—'}
-                  </span>
                 </div>
                 <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                   {txnLoading
                     ? 'Loading…'
                     : metaPayments.length >= 2
-                      ? `Due ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} (predicted)`
+                      ? `Due: ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} (predicted)`
                       : metaPayments.length === 1
                         ? 'Only 1 payment found — interval unknown'
                         : 'No Meta payments found in last 30 days'}
                 </span>
               </div>
+
             </div>
           )}
         </div>
@@ -337,7 +367,6 @@ export default function FinancialsPage() {
         borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         padding: '20px 24px',
       }}>
-        {/* Header — TRANSACTIONS label left, entry count right, no dividing line */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <span style={{
             fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
