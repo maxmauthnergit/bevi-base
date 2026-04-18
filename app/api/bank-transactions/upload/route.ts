@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { parseSparkasseText } from '@/lib/bank/parser'
 
+const BUCKET = 'bank-statements'
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
@@ -54,6 +56,15 @@ export async function POST(req: NextRequest) {
     const dates     = transactions.map(t => t.date).sort()
     const date_from = dates[0] ?? null
     const date_to   = dates[dates.length - 1] ?? null
+
+    // Persist the original PDF in Supabase Storage
+    if (statement_month) {
+      const filename = date_from && date_to
+        ? `${statement_month}_${date_from}_${date_to}.pdf`
+        : `${statement_month}.pdf`
+      await db.storage.createBucket(BUCKET, { public: false }).catch(() => {})
+      await db.storage.from(BUCKET).upload(filename, buffer, { contentType: 'application/pdf', upsert: true })
+    }
 
     return NextResponse.json({
       statement_month,

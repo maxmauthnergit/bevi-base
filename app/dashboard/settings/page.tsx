@@ -93,7 +93,7 @@ const PRODUCTS: Product[] = [
 
 type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
 type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
-type PdfUpload = { statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string }
+type PdfUpload = { filename: string; statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string | null }
 
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
@@ -123,6 +123,11 @@ export default function SettingsPage() {
   const [saving, setSaving]                 = useState(false)
   const [saveStatus, setSaveStatus]         = useState<'saved' | null>(null)
 
+  async function loadPdfs() {
+    const data = await fetch('/api/bank-statements').then(r => r.json()).catch(() => ({ pdfs: [] }))
+    setPdfUploads(data.pdfs ?? [])
+  }
+
   async function handleBankPdf(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
@@ -136,22 +141,10 @@ export default function SettingsPage() {
       const json = await r.json()
       if (!r.ok) { setBankError(json.error ?? 'Upload failed'); return }
       setBankUploadResult(json)
-      if (json.statement_month) {
-        const entry: PdfUpload = {
-          statement_month: json.statement_month,
-          date_from:  json.date_from  ?? null,
-          date_to:    json.date_to    ?? null,
-          uploaded_at: new Date().toISOString(),
-        }
-        const existing: PdfUpload[] = JSON.parse(localStorage.getItem('bank_pdf_uploads') ?? '[]')
-        const idx = existing.findIndex(u => u.statement_month === json.statement_month)
-        if (idx >= 0) existing[idx] = entry; else existing.push(entry)
-        existing.sort((a, b) => b.statement_month.localeCompare(a.statement_month))
-        localStorage.setItem('bank_pdf_uploads', JSON.stringify(existing))
-        setPdfUploads(existing)
-      }
-      const data = await fetch('/api/bank-transactions').then(x => x.json())
-      setBankTxns(data.transactions ?? [])
+      await Promise.all([
+        loadPdfs(),
+        fetch('/api/bank-transactions').then(x => x.json()).then(data => setBankTxns(data.transactions ?? [])),
+      ])
     } catch {
       setBankError('Upload failed — check your connection')
     } finally {
@@ -164,20 +157,19 @@ export default function SettingsPage() {
     setDeletingPdf(upload.statement_month)
     setBankDeleteError(null)
     try {
-      const params = new URLSearchParams({ statement_month: upload.statement_month })
+      const params = new URLSearchParams({ statement_month: upload.statement_month, filename: upload.filename })
       if (upload.date_from) params.set('from', upload.date_from)
       if (upload.date_to)   params.set('to',   upload.date_to)
-      const r = await fetch(`/api/bank-transactions?${params}`, { method: 'DELETE' })
+      const r = await fetch(`/api/bank-statements?${params}`, { method: 'DELETE' })
       if (!r.ok) {
         const { error } = await r.json().catch(() => ({ error: 'Delete failed' }))
         setBankDeleteError(error ?? 'Delete failed')
         return
       }
-      const updated = pdfUploads.filter(u => u.statement_month !== upload.statement_month)
-      localStorage.setItem('bank_pdf_uploads', JSON.stringify(updated))
-      setPdfUploads(updated)
-      const data = await fetch('/api/bank-transactions').then(x => x.json())
-      setBankTxns(data.transactions ?? [])
+      await Promise.all([
+        loadPdfs(),
+        fetch('/api/bank-transactions').then(x => x.json()).then(data => setBankTxns(data.transactions ?? [])),
+      ])
     } catch {
       setBankDeleteError('Delete failed — check your connection')
     } finally {
@@ -235,12 +227,7 @@ export default function SettingsPage() {
       .finally(() => setBankLoading(false))
   }, [])
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('bank_pdf_uploads')
-      if (stored) setPdfUploads(JSON.parse(stored))
-    } catch {}
-  }, [])
+  useEffect(() => { loadPdfs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -412,9 +399,9 @@ export default function SettingsPage() {
                 <div style={{ marginBottom: 10 }}>
                   {pdfUploads.map((upload, i) => {
                     const isLast   = i === pdfUploads.length - 1
-                    const fmtMon   = (ds: string | null) =>
-                      ds ? new Date(ds + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '?'
-                    const period   = `${fmtMon(upload.date_from)} – ${fmtMon(upload.date_to)}`
+                    const fmtDay = (ds: string | null) =>
+                      ds ? new Date(ds + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'
+                    const period = `${fmtDay(upload.date_from)} – ${fmtDay(upload.date_to)}`
                     const stmtLabel = new Date(upload.statement_month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
                     const isDel    = deletingPdf === upload.statement_month
                     return (
@@ -501,7 +488,7 @@ export default function SettingsPage() {
                         disabled={uploading === m.key}
                         onClick={() => { setFileError(null); uploadKey.current = m.key; fileRef.current!.accept = '.xlsx'; fileRef.current?.click() }}
                       >
-                        {uploading === m.key ? 'Uploading…' : 'Upload'}
+                        {uploading === m.key ? 'Uploading…' : '+ Upload'}
                       </button>
                     )}
                   </div>
