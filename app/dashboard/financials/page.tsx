@@ -1,299 +1,273 @@
-import { Card, CardHeader } from '@/components/ui/Card'
-import {
-  mockLiquidPosition,
-  mockLiabilities,
-  mockMonthlyPnL,
-  mockCashflowForecast,
-} from '@/lib/mock/financials'
+'use client'
 
-function formatEur(value: number) {
+import { useState, useEffect } from 'react'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
+import { useDateRange } from '@/components/providers/DateRangeProvider'
+
+const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+
+function formatEur(v: number) {
   return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
+    style: 'currency', currency: 'EUR',
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  }).format(v)
 }
 
-function sign(value: number) {
-  return value >= 0 ? '#0D8585' : '#DC2626'
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+interface TaxQuarter {
+  label: string
+  period: string
+  year: number
+  from: string
+  to: string
+  due: Date
+}
+
+function getUpcomingTaxQuarter(today: Date): TaxQuarter {
+  const y = today.getFullYear()
+  const quarters: TaxQuarter[] = [
+    { label: 'Q1', period: 'Jan – Mar', year: y, from: `${y}-01-01`, to: `${y}-03-31`, due: new Date(y, 3, 30) },
+    { label: 'Q2', period: 'Apr – Jun', year: y, from: `${y}-04-01`, to: `${y}-06-30`, due: new Date(y, 6, 31) },
+    { label: 'Q3', period: 'Jul – Sep', year: y, from: `${y}-07-01`, to: `${y}-09-30`, due: new Date(y, 9, 31) },
+    { label: 'Q4', period: 'Oct – Dec', year: y, from: `${y}-10-01`, to: `${y}-12-31`, due: new Date(y + 1, 0, 31) },
+  ]
+  return quarters.find(q => q.due > today) ?? { label: 'Q1', period: 'Jan – Mar', year: y + 1, from: `${y + 1}-01-01`, to: `${y + 1}-03-31`, due: new Date(y + 1, 3, 30) }
+}
+
+interface BankTx {
+  id: string
+  date: string
+  counterparty: string
+  reference: string
+  amount_eur: number
 }
 
 export default function FinancialsPage() {
-  const totalLiabilities = mockLiabilities.reduce((s, l) => s + l.amount, 0)
-  const netPosition = mockLiquidPosition.total - totalLiabilities
+  const { range } = useDateRange()
+
+  const [txns, setTxns]           = useState<BankTx[]>([])
+  const [txnLoading, setTxnLoading] = useState(true)
+  const [txnError, setTxnError]   = useState<string | null>(null)
+
+  const [weshipTotal, setWeshipTotal]     = useState<number | null>(null)
+  const [taxTotal, setTaxTotal]           = useState<number | null>(null)
+  const [forecastLoading, setForecastLoading] = useState(true)
+  const [taxQuarter, setTaxQuarter]       = useState<TaxQuarter | null>(null)
+
+  const today         = new Date()
+  const currentMonth  = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  const currentMonthLabel = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const nextMonthLabel    = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+  useEffect(() => {
+    fetch('/api/bank-transactions')
+      .then(r => r.json())
+      .then(data => {
+        setTxns(data.transactions ?? [])
+        setTxnLoading(false)
+      })
+      .catch((e: Error) => {
+        setTxnError(e.message)
+        setTxnLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    const quarter = getUpcomingTaxQuarter(today)
+    setTaxQuarter(quarter)
+
+    Promise.all([
+      fetch(`/api/orders?month=${currentMonth}`).then(r => r.json()),
+      fetch(`/api/orders?from=${quarter.from}&to=${quarter.to}`).then(r => r.json()),
+    ])
+      .then(([monthData, taxData]) => {
+        const monthOrders: { cost_weship: number }[] = monthData.orders ?? []
+        const taxOrders:   { revenue_tax: number }[] = taxData.orders ?? []
+        setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship, 0))
+        setTaxTotal(taxOrders.reduce((s, o) => s + o.revenue_tax, 0))
+        setForecastLoading(false)
+      })
+      .catch(() => setForecastLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const balance    = txns.reduce((s, t) => s + t.amount_eur, 0)
+  const latestDate = txns.length > 0 ? txns[0].date : null
+  const latestDateLabel = latestDate
+    ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '—'
+
+  const fromStr  = toDateStr(range.from)
+  const toStr    = toDateStr(range.to)
+  const filtered = txns.filter(t => t.date >= fromStr && t.date <= toStr)
 
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div className="mb-4">
-        <h1
-          style={{
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-            fontSize: '1.75rem',
-            fontWeight: 600,
-            color: '#111110',
-            margin: 0,
-          }}
-        >
-          Financials & Cashflow
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>
+          Financials
         </h1>
       </div>
 
-      {/* Balances row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '1px',
-          backgroundColor: '#E3E2DC',
-          borderRadius: 16,
-          overflow: 'hidden',
-          marginBottom: 16,
-        }}
-      >
-        {[
-          { label: 'Bank (Sparkasse)', value: mockLiquidPosition.bank_balance, sub: 'Manual entry', accent: false },
-          { label: 'PayPal Balance', value: mockLiquidPosition.paypal_balance, sub: 'API — pending', accent: false },
-          { label: 'Total Liquid', value: mockLiquidPosition.total, sub: `as of ${mockLiquidPosition.as_of}`, accent: true },
-          { label: 'Net of Liabilities', value: netPosition, sub: `− ${formatEur(totalLiabilities)} liabilities`, accent: false },
-        ].map((item) => (
-          <div key={item.label} style={{ backgroundColor: '#FFFFFF', padding: '20px' }}>
-            <span className="label" style={{ display: 'block', marginBottom: 8 }}>{item.label}</span>
-            <span
-              className="metric"
-              style={{
-                display: 'block',
-                fontSize: '1.5rem',
-                fontWeight: 600,
-                color: item.accent ? '#0D8585' : '#111110',
-                lineHeight: 1,
-                marginBottom: 6,
-              }}
-            >
-              {formatEur(item.value)}
-            </span>
-            <span className="label" style={{ color: '#9E9D98' }}>{item.sub}</span>
-          </div>
-        ))}
-      </div>
+      {/* Top row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
-        {/* Monthly P&L table */}
-        <Card>
-          <CardHeader label="Monthly P&L" />
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-              <thead>
-                <tr>
-                  {['', 'Rev.', 'COGS', 'CAC', 'WeShip', 'Fixed', 'Result'].map((h) => (
-                    <th
-                      key={h}
-                      className="label"
-                      style={{
-                        textAlign: h === '' ? 'left' : 'right',
-                        paddingBottom: 10,
-                        borderBottom: '1px solid #E3E2DC',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {mockMonthlyPnL.map((row, i) => (
-                  <tr
-                    key={row.month}
-                    style={{ borderBottom: i < mockMonthlyPnL.length - 1 ? '1px solid #F0EFE9' : 'none' }}
-                  >
-                    <td className="label" style={{ padding: '9px 0', color: '#6B6A64' }}>{row.month}</td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#0D8585' }}>
-                      {formatEur(row.revenue_gross)}
-                    </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
-                      −{formatEur(row.cogs)}
-                    </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
-                      −{formatEur(row.cac)}
-                    </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#9E9D98' }}>
-                      −{formatEur(row.weship)}
-                    </td>
-                    <td className="metric" style={{ textAlign: 'right', padding: '9px 0', color: '#6B6A64' }}>
-                      −{formatEur(row.fixed)}
-                    </td>
-                    <td
-                      className="metric"
-                      style={{
-                        textAlign: 'right',
-                        padding: '9px 0',
-                        color: sign(row.result),
-                        fontWeight: 600,
-                      }}
-                    >
-                      {row.result >= 0 ? '+' : ''}{formatEur(row.result)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        {/* Bank Account Balance */}
+        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, padding: '24px' }}>
+          <span style={{
+            fontFamily: G, fontSize: '0.625rem', fontWeight: 600,
+            letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
+            display: 'block', marginBottom: 16,
+          }}>
+            Bank Account Balance
+          </span>
 
-        {/* Liabilities */}
-        <Card>
-          <CardHeader label="Outstanding Liabilities" />
-          <div className="flex flex-col gap-3 mb-6">
-            {mockLiabilities.map((l, i) => (
-              <div
-                key={l.id}
-                className="flex flex-col gap-1 pb-3"
-                style={{ borderBottom: i < mockLiabilities.length - 1 ? '1px solid #F0EFE9' : 'none' }}
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    style={{
-                      fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                      fontSize: '0.8125rem',
-                      color: '#111110',
-                    }}
-                  >
-                    {l.name}
+          {txnLoading ? (
+            <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>Loading…</span>
+          ) : txnError ? (
+            <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#DC2626' }}>{txnError}</span>
+          ) : (
+            <>
+              <span style={{
+                fontFamily: G, fontSize: '2rem', fontWeight: 700,
+                color: balance >= 0 ? '#111110' : '#DC2626',
+                display: 'block', lineHeight: 1, marginBottom: 8,
+              }}>
+                {formatEur(balance)}
+              </span>
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
+                as of {latestDateLabel}
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Upcoming Costs */}
+        <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, padding: '24px' }}>
+          <span style={{
+            fontFamily: G, fontSize: '0.625rem', fontWeight: 600,
+            letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
+            display: 'block', marginBottom: 16,
+          }}>
+            Upcoming Costs
+          </span>
+
+          {forecastLoading ? (
+            <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>Loading…</span>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* WeShip */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+                    WeShip · {currentMonthLabel}
                   </span>
-                  <span className="metric" style={{ fontSize: '0.875rem', color: '#DC2626', fontWeight: 600 }}>
-                    {formatEur(l.amount)}
+                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
+                    {weshipTotal !== null ? formatEur(weshipTotal) : '—'}
                   </span>
                 </div>
-                {l.note && (
-                  <span className="label" style={{ color: '#9E9D98' }}>{l.note}</span>
-                )}
+                <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
+                  Due: First week of {nextMonthLabel}
+                </span>
               </div>
-            ))}
-          </div>
 
-          {/* Total */}
-          <div
-            className="flex items-center justify-between pt-3"
-            style={{ borderTop: '1px solid #E3E2DC' }}
-          >
-            <span className="label">Total</span>
-            <span className="metric" style={{ fontSize: '0.875rem', color: '#DC2626', fontWeight: 700 }}>
-              {formatEur(totalLiabilities)}
-            </span>
-          </div>
-        </Card>
+              <div style={{ borderTop: '1px solid #F0EFE9' }} />
+
+              {/* VAT */}
+              {taxQuarter && (
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+                      VAT {taxQuarter.label} · {taxQuarter.period} {taxQuarter.year}
+                    </span>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
+                      {taxTotal !== null ? formatEur(taxTotal) : '—'}
+                    </span>
+                  </div>
+                  <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
+                    Due: {taxQuarter.due.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 3-Month Forecast */}
-      <Card>
-        <CardHeader
-          label="3-Month Rolling Forecast"
-          action={
-            <span className="label" style={{ color: '#9E9D98' }}>
-              Mock projections — edit in Settings
+      {/* Date Range Bar */}
+      <DateRangeBar />
+
+      {/* Transactions */}
+      <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #E3E2DC', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+            Transactions
+          </span>
+          {!txnLoading && (
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
+              {filtered.length} entries
             </span>
-          }
-        />
-        <div style={{ overflowX: 'auto' }}>
+          )}
+        </div>
+
+        {txnLoading ? (
+          <div style={{ padding: '24px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+            Loading…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: '24px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+            No transactions in selected period.
+          </div>
+        ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
             <thead>
-              <tr>
-                {['Month', 'Proj. Revenue', 'Ad Spend', 'COGS', 'WeShip', 'Fixed', 'Proj. Result'].map((h) => (
-                  <th
-                    key={h}
-                    className="label"
-                    style={{
-                      textAlign: h === 'Month' ? 'left' : 'right',
-                      paddingBottom: 10,
-                      borderBottom: '1px solid #E3E2DC',
-                    }}
-                  >
+              <tr style={{ borderBottom: '1px solid #E3E2DC' }}>
+                {['Date', 'Counterparty / Betreff', 'Amount'].map((h, i) => (
+                  <th key={h} style={{
+                    fontFamily: G, fontWeight: 500, fontSize: '0.6875rem',
+                    color: '#9E9D98', letterSpacing: '0.03em',
+                    textAlign: i === 2 ? 'right' : 'left',
+                    padding: i === 0 ? '10px 20px' : i === 2 ? '10px 20px' : '10px 0',
+                  }}>
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {mockCashflowForecast.map((row, i) => (
-                <tr
-                  key={row.month}
-                  style={{ borderBottom: i < mockCashflowForecast.length - 1 ? '1px solid #F0EFE9' : 'none' }}
-                >
+              {filtered.map((t, i) => (
+                <tr key={t.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                  <td style={{ padding: '10px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', whiteSpace: 'nowrap' as const }}>
+                    {new Date(t.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </td>
                   <td style={{ padding: '10px 0' }}>
-                    <span
-                      style={{
-                        fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                        fontSize: '0.8125rem',
-                        color: '#6B6A64',
-                      }}
-                    >
-                      {new Date(row.month + '-01').toLocaleDateString('en-GB', { month: 'long', year: '2-digit' })}
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110', display: 'block' }}>
+                      {t.counterparty || '—'}
                     </span>
-                    <span
-                      className="label"
-                      style={{ marginLeft: 8, color: '#9E9D98' }}
-                    >
-                      Forecast
-                    </span>
+                    {t.reference && (
+                      <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
+                        {t.reference}
+                      </span>
+                    )}
                   </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#0D8585' }}>
-                    {formatEur(row.projected_revenue)}
-                  </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#DC2626' }}>
-                    −{formatEur(row.projected_ad_spend)}
-                  </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#9E9D98' }}>
-                    −{formatEur(row.projected_cogs)}
-                  </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#9E9D98' }}>
-                    −{formatEur(row.projected_weship_cost)}
-                  </td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', color: '#6B6A64' }}>
-                    −{formatEur(row.projected_fixed_costs)}
-                  </td>
-                  <td
-                    className="metric"
-                    style={{
-                      textAlign: 'right',
-                      padding: '10px 0',
-                      color: sign(row.projected_result),
-                      fontWeight: 700,
-                    }}
-                  >
-                    {row.projected_result >= 0 ? '+' : ''}{formatEur(row.projected_result)}
+                  <td style={{
+                    padding: '10px 20px', fontFamily: G, fontSize: '0.8125rem', fontWeight: 600,
+                    textAlign: 'right', whiteSpace: 'nowrap' as const,
+                    color: t.amount_eur >= 0 ? '#0D8585' : '#DC2626',
+                  }}>
+                    {t.amount_eur >= 0 ? '+' : ''}{formatEur(t.amount_eur)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-        {/* Running liquid position */}
-        <div
-          className="flex items-center justify-between mt-5 pt-4"
-          style={{ borderTop: '1px solid #E3E2DC' }}
-        >
-          <div>
-            <span className="label" style={{ display: 'block', marginBottom: 4 }}>
-              Projected Liquid Position after Q2
-            </span>
-            <span className="label" style={{ color: '#9E9D98' }}>
-              Current {formatEur(mockLiquidPosition.total)} + 3× projected results
-            </span>
-          </div>
-          <span
-            className="metric"
-            style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0D8585' }}
-          >
-            {formatEur(
-              mockLiquidPosition.total +
-                mockCashflowForecast.reduce((s, m) => s + m.projected_result, 0)
-            )}
-          </span>
-        </div>
-      </Card>
+        )}
+      </div>
     </main>
   )
 }
