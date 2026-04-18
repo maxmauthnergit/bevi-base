@@ -328,11 +328,11 @@ export default function FinancialsPage() {
                       {metaPayments.length >= 2 && (
                         <>
                           <TipDivider />
-                          <TipRow label="Avg amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} />
                           <TipRow label="Avg interval" value={`${metaAvgInterval} days`} />
                           <TipRow label="Last payment" value={metaPayments[metaPayments.length - 1].date} />
+                          <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
                           <TipDivider />
-                          <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} total />
+                          <TipRow label="Predicted amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} total />
                         </>
                       )}
                     </div>
@@ -346,7 +346,7 @@ export default function FinancialsPage() {
                   {txnLoading
                     ? 'Loading…'
                     : metaPayments.length >= 2
-                      ? `Due: ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} (predicted)`
+                      ? `Due: ${(metaNextDate! < today ? today : metaNextDate!).toLocaleDateString('en-US', { day: 'numeric', month: 'long' })}`
                       : metaPayments.length === 1
                         ? 'Only 1 payment found — interval unknown'
                         : 'No Meta payments found in last 30 days'}
