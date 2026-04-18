@@ -155,6 +155,7 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
     amounts.push({ index: am.index, end: am.index + am[0].length, raw: am[0] })
 
   const transactions: BankTransaction[] = []
+  const seenIds = new Map<string, number>()
 
   for (let i = 0; i < amounts.length; i++) {
     const slotStart = i > 0 ? amounts[i - 1].end : 0
@@ -199,8 +200,11 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
 
     const [counterparty, reference] = splitDesc(desc)
 
-    const raw = `${isoDate} ${desc} ${amounts[i].raw}`
-    const id  = makeId(isoDate, counterparty || desc, amount_eur)
+    const raw     = `${isoDate} ${desc} ${amounts[i].raw}`
+    const baseId  = makeId(isoDate, counterparty || desc, amount_eur)
+    const count   = (seenIds.get(baseId) ?? 0) + 1
+    seenIds.set(baseId, count)
+    const id = count > 1 ? `${baseId}${count}` : baseId
 
     transactions.push({ id, date: isoDate, counterparty, reference, amount_eur, raw })
   }
