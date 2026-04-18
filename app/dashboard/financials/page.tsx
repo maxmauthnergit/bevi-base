@@ -51,7 +51,6 @@ export default function FinancialsPage() {
 
   const [weshipTotal, setWeshipTotal]     = useState<number | null>(null)
   const [taxTotal, setTaxTotal]           = useState<number | null>(null)
-  const [metaSpend, setMetaSpend]         = useState<number | null>(null)
   const [forecastLoading, setForecastLoading] = useState(true)
   const [taxQuarter, setTaxQuarter]       = useState<TaxQuarter | null>(null)
 
@@ -81,19 +80,48 @@ export default function FinancialsPage() {
     Promise.all([
       fetch(`/api/orders?month=${currentMonth}`).then(r => r.json()),
       fetch(`/api/orders?from=${quarter.from}&to=${quarter.to}`).then(r => r.json()),
-      fetch('/api/meta/spend').then(r => r.json()),
     ])
-      .then(([monthData, taxData, metaData]) => {
+      .then(([monthData, taxData]) => {
         const monthOrders: { cost_weship: number; cost_shipping: number }[] = monthData.orders ?? []
         const taxOrders:   { revenue_tax: number }[] = taxData.orders ?? []
         setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship + o.cost_shipping, 0))
         setTaxTotal(taxOrders.reduce((s, o) => s + o.revenue_tax, 0))
-        setMetaSpend(metaData.spend_mtd ?? null)
         setForecastLoading(false)
       })
       .catch(() => setForecastLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Meta Ads prediction — derived from PayPal Europe bank transactions (last 90 days)
+  const ninetyDaysAgoStr = (() => {
+    const d = new Date(today); d.setDate(d.getDate() - 90); return toDateStr(d)
+  })()
+  const metaPayments = txns
+    .filter(t =>
+      t.amount_eur < 0 &&
+      t.date >= ninetyDaysAgoStr &&
+      (t.counterparty.toLowerCase().includes('paypal europe') ||
+       t.reference.includes('1048781098469'))
+    )
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  let metaNextDate: Date | null = null
+  let metaNextAmount: number | null = null
+  if (metaPayments.length >= 2) {
+    let totalInterval = 0
+    for (let i = 1; i < metaPayments.length; i++) {
+      const d1 = new Date(metaPayments[i - 1].date + 'T00:00:00')
+      const d2 = new Date(metaPayments[i].date + 'T00:00:00')
+      totalInterval += (d2.getTime() - d1.getTime()) / 86400000
+    }
+    const avgInterval = Math.round(totalInterval / (metaPayments.length - 1))
+    const avgAmount   = metaPayments.reduce((s, t) => s + Math.abs(t.amount_eur), 0) / metaPayments.length
+    const last        = new Date(metaPayments[metaPayments.length - 1].date + 'T00:00:00')
+    metaNextDate   = new Date(last.getTime() + avgInterval * 86400000)
+    metaNextAmount = Math.round(avgAmount * 100) / 100
+  } else if (metaPayments.length === 1) {
+    metaNextAmount = Math.abs(metaPayments[0].amount_eur)
+  }
 
   const balance    = txns.reduce((s, t) => s + t.amount_eur, 0)
   const latestDate = txns.length > 0 ? txns[0].date : null
@@ -197,18 +225,24 @@ export default function FinancialsPage() {
 
               <div style={{ borderTop: '1px solid #F0EFE9' }} />
 
-              {/* Meta Ads */}
+              {/* Meta Ads — predicted from PayPal Europe bank transactions */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                   <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                    Meta Ads · {currentMonthLabel}
+                    Meta Ads (via PayPal)
                   </span>
                   <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
-                    {metaSpend !== null ? formatEur(metaSpend) : '—'}
+                    {txnLoading ? '—' : metaNextAmount !== null ? `~${formatEur(metaNextAmount)}` : '—'}
                   </span>
                 </div>
                 <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
-                  MTD spend · billed continuously via payment method
+                  {txnLoading
+                    ? 'Loading…'
+                    : metaPayments.length >= 2
+                      ? `Predicted: ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} · avg of ${metaPayments.length} payments`
+                      : metaPayments.length === 1
+                        ? 'Only 1 payment found — interval unknown'
+                        : 'No Meta payments found in last 90 days'}
                 </span>
               </div>
             </div>
