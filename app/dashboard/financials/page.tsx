@@ -51,6 +51,7 @@ export default function FinancialsPage() {
 
   const [weshipTotal, setWeshipTotal]     = useState<number | null>(null)
   const [taxTotal, setTaxTotal]           = useState<number | null>(null)
+  const [metaSpend, setMetaSpend]         = useState<number | null>(null)
   const [forecastLoading, setForecastLoading] = useState(true)
   const [taxQuarter, setTaxQuarter]       = useState<TaxQuarter | null>(null)
 
@@ -80,12 +81,14 @@ export default function FinancialsPage() {
     Promise.all([
       fetch(`/api/orders?month=${currentMonth}`).then(r => r.json()),
       fetch(`/api/orders?from=${quarter.from}&to=${quarter.to}`).then(r => r.json()),
+      fetch('/api/meta/spend').then(r => r.json()),
     ])
-      .then(([monthData, taxData]) => {
+      .then(([monthData, taxData, metaData]) => {
         const monthOrders: { cost_weship: number; cost_shipping: number }[] = monthData.orders ?? []
         const taxOrders:   { revenue_tax: number }[] = taxData.orders ?? []
         setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship + o.cost_shipping, 0))
         setTaxTotal(taxOrders.reduce((s, o) => s + o.revenue_tax, 0))
+        setMetaSpend(metaData.spend_mtd ?? null)
         setForecastLoading(false)
       })
       .catch(() => setForecastLoading(false))
@@ -191,6 +194,23 @@ export default function FinancialsPage() {
                   </span>
                 </div>
               )}
+
+              <div style={{ borderTop: '1px solid #F0EFE9' }} />
+
+              {/* Meta Ads */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+                    Meta Ads · {currentMonthLabel}
+                  </span>
+                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
+                    {metaSpend !== null ? formatEur(metaSpend) : '—'}
+                  </span>
+                </div>
+                <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
+                  MTD spend · billed continuously via payment method
+                </span>
+              </div>
             </div>
           )}
         </div>
