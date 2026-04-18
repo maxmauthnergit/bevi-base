@@ -230,13 +230,27 @@ export default function FinancialsPage() {
             <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#DC2626' }}>{txnError}</span>
           ) : (
             <>
-              <span style={{
-                fontFamily: G, fontSize: '2rem', fontWeight: 700,
-                color: balance >= 0 ? '#111110' : '#DC2626',
-                display: 'block', lineHeight: 1, marginBottom: 8,
-              }}>
-                {formatEur(balance)}
-              </span>
+              <WithTip align="left" tip={
+                <div>
+                  <TipRow label="Source" value="Uploaded bank statements" />
+                  <TipRow label="Transactions" value={String(txns.length)} />
+                  <TipRow label="Latest entry" value={latestDateLabel} />
+                  <TipDivider />
+                  <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#555550', marginTop: 2 }}>
+                    <a href="/dashboard/settings" style={{ color: '#7A7974', textDecoration: 'none' }}>
+                      Upload statements in Settings →
+                    </a>
+                  </div>
+                </div>
+              }>
+                <span style={{
+                  fontFamily: G, fontSize: '2rem', fontWeight: 700,
+                  color: balance >= 0 ? '#111110' : '#DC2626',
+                  display: 'block', lineHeight: 1, marginBottom: 8,
+                }}>
+                  {formatEur(balance)}
+                </span>
+              </WithTip>
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                 as of {latestDateLabel}
               </span>
@@ -346,7 +360,7 @@ export default function FinancialsPage() {
                   {txnLoading
                     ? 'Loading…'
                     : metaPayments.length >= 2
-                      ? `Due: ${(metaNextDate! < today ? today : metaNextDate!).toLocaleDateString('en-US', { day: 'numeric', month: 'long' })}`
+                      ? `Due: ${(metaNextDate! < today ? today : metaNextDate!).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`
                       : metaPayments.length === 1
                         ? 'Only 1 payment found — interval unknown'
                         : 'No Meta payments found in last 30 days'}
