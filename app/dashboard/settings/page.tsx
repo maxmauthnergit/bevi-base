@@ -92,11 +92,12 @@ const PRODUCTS: Product[] = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
-type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null }
+type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
+type PdfUpload = { statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string }
 
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
-  const [bankOpen, setBankOpen]       = useState(false)
+  const [bankOpen, setBankOpen]       = useState(true)
   const [weshipOpen, setWeshipOpen]   = useState(false)
   const [weshipMonths, setWeshipMonths] = useState<WeshipMonth[]>(buildMonths)
   const [uploading, setUploading]     = useState<string | null>(null)
@@ -109,6 +110,9 @@ export default function SettingsPage() {
   const [bankUploadResult, setBankUploadResult] = useState<BankUploadResult | null>(null)
   const [bankError, setBankError]           = useState<string | null>(null)
   const [bankTxns, setBankTxns]             = useState<BankTxn[]>([])
+  const [pdfUploads, setPdfUploads]         = useState<PdfUpload[]>([])
+  const [deletingPdf, setDeletingPdf]       = useState<string | null>(null)
+  const [bankDeleteError, setBankDeleteError] = useState<string | null>(null)
   const [bankLoading, setBankLoading]       = useState(true)
   const [selProduct, setSelProduct]         = useState('bevi-bag')
   const [products, setProducts]             = useState<Product[]>(PRODUCTS)
@@ -132,6 +136,20 @@ export default function SettingsPage() {
       const json = await r.json()
       if (!r.ok) { setBankError(json.error ?? 'Upload failed'); return }
       setBankUploadResult(json)
+      if (json.statement_month) {
+        const entry: PdfUpload = {
+          statement_month: json.statement_month,
+          date_from:  json.date_from  ?? null,
+          date_to:    json.date_to    ?? null,
+          uploaded_at: new Date().toISOString(),
+        }
+        const existing: PdfUpload[] = JSON.parse(localStorage.getItem('bank_pdf_uploads') ?? '[]')
+        const idx = existing.findIndex(u => u.statement_month === json.statement_month)
+        if (idx >= 0) existing[idx] = entry; else existing.push(entry)
+        existing.sort((a, b) => b.statement_month.localeCompare(a.statement_month))
+        localStorage.setItem('bank_pdf_uploads', JSON.stringify(existing))
+        setPdfUploads(existing)
+      }
       const data = await fetch('/api/bank-transactions').then(x => x.json())
       setBankTxns(data.transactions ?? [])
     } catch {
@@ -139,6 +157,31 @@ export default function SettingsPage() {
     } finally {
       setBankUploading(false)
       if (bankFileRef.current) bankFileRef.current.value = ''
+    }
+  }
+
+  async function deletePdf(upload: PdfUpload) {
+    setDeletingPdf(upload.statement_month)
+    setBankDeleteError(null)
+    try {
+      const params = new URLSearchParams({ statement_month: upload.statement_month })
+      if (upload.date_from) params.set('from', upload.date_from)
+      if (upload.date_to)   params.set('to',   upload.date_to)
+      const r = await fetch(`/api/bank-transactions?${params}`, { method: 'DELETE' })
+      if (!r.ok) {
+        const { error } = await r.json().catch(() => ({ error: 'Delete failed' }))
+        setBankDeleteError(error ?? 'Delete failed')
+        return
+      }
+      const updated = pdfUploads.filter(u => u.statement_month !== upload.statement_month)
+      localStorage.setItem('bank_pdf_uploads', JSON.stringify(updated))
+      setPdfUploads(updated)
+      const data = await fetch('/api/bank-transactions').then(x => x.json())
+      setBankTxns(data.transactions ?? [])
+    } catch {
+      setBankDeleteError('Delete failed — check your connection')
+    } finally {
+      setDeletingPdf(null)
     }
   }
 
@@ -187,11 +230,16 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/bank-transactions')
       .then(r => r.json())
-      .then(data => {
-        setBankTxns(data.transactions ?? [])
-      })
+      .then(data => { setBankTxns(data.transactions ?? []) })
       .catch(() => {})
       .finally(() => setBankLoading(false))
+  }, [])
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('bank_pdf_uploads')
+      if (stored) setPdfUploads(JSON.parse(stored))
+    } catch {}
   }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -338,75 +386,78 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 0, paddingBottom: 12, borderBottom: bankOpen ? 'none' : '1px solid #F0EFE9' }}>
             <div style={{ flex: 1 }}>
               <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account Transactions</span>
-              <span className="label">
-                Ongoing · Transaction PDFs from Sparkasse Account
-              </span>
+              <span className="label">Ongoing · Transaction PDFs from Sparkasse Account</span>
             </div>
-            {bankUploadResult && (
-              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
-                +{bankUploadResult.transactions_new} new
-              </span>
-            )}
-            {bankError && (
-              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#DC2626' }}>{bankError}</span>
-            )}
-            <button
-              style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
-              disabled={bankUploading}
-              onClick={() => { setBankError(null); setBankUploadResult(null); bankFileRef.current?.click() }}
-            >
-              {bankUploading ? 'Parsing…' : 'Upload PDF'}
-            </button>
-            <input ref={bankFileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleBankPdf} />
             <button style={iconBtn} onClick={() => setBankOpen(!bankOpen)}><Chevron open={bankOpen} /></button>
           </div>
+
           {bankOpen && (
-            <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '4px 16px 8px', marginBottom: 12 }}>
-              {bankLoading ? (
-                <div style={{ padding: '12px 0' }}>
-                  <span className="label" style={{ color: '#9E9D98' }}>Loading…</span>
+            <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '12px 16px', marginBottom: 12 }}>
+              {/* Transaction count */}
+              <div style={{ paddingBottom: 10, marginBottom: 10, borderBottom: '1px solid #EDECEA' }}>
+                <span className="label">
+                  {bankLoading ? 'Loading…' : `${bankTxns.length.toLocaleString()} transactions in system`}
+                </span>
+              </div>
+
+              {/* Error messages */}
+              {(bankError || bankDeleteError) && (
+                <div style={{ marginBottom: 8, fontFamily: G, fontSize: '0.75rem', color: '#DC2626' }}>
+                  {bankError || bankDeleteError}
                 </div>
-              ) : bankTxns.length === 0 ? (
-                <div style={{ padding: '12px 0' }}>
+              )}
+
+              {/* PDF list */}
+              {pdfUploads.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {pdfUploads.map((upload, i) => {
+                    const isLast   = i === pdfUploads.length - 1
+                    const fmtMon   = (ds: string | null) =>
+                      ds ? new Date(ds + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '?'
+                    const period   = `${fmtMon(upload.date_from)} – ${fmtMon(upload.date_to)}`
+                    const stmtLabel = new Date(upload.statement_month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                    const isDel    = deletingPdf === upload.statement_month
+                    return (
+                      <div key={upload.statement_month} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: !isLast ? '1px solid #EDECEA' : 'none' }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>Statement {stmtLabel}</span>
+                          <span className="label" style={{ display: 'block', marginTop: 2, color: '#9E9D98' }}>{period}</span>
+                        </div>
+                        <button
+                          style={{ ...btn, color: isDel ? '#9E9D98' : '#DC2626', borderColor: isDel ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: isDel ? 'not-allowed' : 'pointer' }}
+                          disabled={isDel}
+                          onClick={() => deletePdf(upload)}
+                        >
+                          {isDel ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {pdfUploads.length === 0 && !bankLoading && bankTxns.length === 0 && (
+                <div style={{ marginBottom: 10 }}>
                   <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
                 </div>
-              ) : (() => {
-                const displayBalance = bankTxns.reduce((s, t) => s + t.amount_eur, 0)
-                const latestDate = bankTxns[0]?.date
-                const monthLabel = latestDate
-                  ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
-                  : null
-                return (
-                  <>
-                    <div style={{ padding: '12px 0 10px', borderBottom: '1px solid #E3E2DC', marginBottom: 4 }}>
-                      <span style={{ fontFamily: G, fontSize: '1.125rem', fontWeight: 700, color: displayBalance >= 0 ? '#0D8585' : '#DC2626' }}>
-                        {displayBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                      </span>
-                      <span className="label" style={{ display: 'block', marginTop: 3, color: '#9E9D98' }}>
-                        Balance{monthLabel ? ` · as of ${monthLabel}` : ''}
-                      </span>
-                    </div>
-                    {bankTxns.slice(0, 50).map((t, i) => (
-                      <div key={t.id} style={{ display: 'flex', alignItems: 'baseline', gap: 12, padding: '8px 0', borderBottom: i < Math.min(bankTxns.length, 50) - 1 ? '1px solid #EDECEA' : 'none' }}>
-                        <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap', width: 72, flexShrink: 0 }}>
-                          {new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        </span>
-                        <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {t.counterparty || t.reference}
-                        </span>
-                        <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, whiteSpace: 'nowrap', color: t.amount_eur >= 0 ? '#0D8585' : '#111110' }}>
-                          {t.amount_eur >= 0 ? '+' : ''}{t.amount_eur.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                        </span>
-                      </div>
-                    ))}
-                    {bankTxns.length > 50 && (
-                      <div style={{ padding: '8px 0 4px' }}>
-                        <span className="label" style={{ color: '#9E9D98' }}>Showing 50 of {bankTxns.length} transactions</span>
-                      </div>
-                    )}
-                  </>
-                )
-              })()}
+              )}
+
+              {/* Upload button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: pdfUploads.length > 0 ? 10 : 0, borderTop: pdfUploads.length > 0 ? '1px solid #EDECEA' : 'none' }}>
+                <button
+                  style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
+                  disabled={bankUploading}
+                  onClick={() => { setBankError(null); setBankUploadResult(null); setBankDeleteError(null); bankFileRef.current?.click() }}
+                >
+                  {bankUploading ? 'Parsing…' : '+ Upload PDF'}
+                </button>
+                {bankUploadResult && (
+                  <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
+                    {bankUploadResult.transactions_parsed} transactions imported
+                  </span>
+                )}
+              </div>
+              <input ref={bankFileRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleBankPdf} />
             </div>
           )}
         </div>

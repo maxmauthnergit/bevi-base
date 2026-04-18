@@ -51,11 +51,17 @@ export async function POST(req: NextRequest) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const dates     = transactions.map(t => t.date).sort()
+    const date_from = dates[0] ?? null
+    const date_to   = dates[dates.length - 1] ?? null
+
     return NextResponse.json({
       statement_month,
       closing_balance_eur,
       transactions_parsed: transactions.length,
       transactions_new: transactions.length,
+      date_from,
+      date_to,
     })
   } catch (e) {
     return NextResponse.json({ error: `Unexpected error: ${(e as Error).message}` }, { status: 500 })
