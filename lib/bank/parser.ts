@@ -161,11 +161,15 @@ export function parseSparkasseText(rawText: string): ParsedStatement {
     const slotEnd   = amounts[i].index
     const slot      = text.slice(slotStart, slotEnd)
 
-    // Find the LAST date in this slot
+    // Find the LAST date in this slot, ignoring dates that are part of
+    // "Bezahlung mit Karte am DD. Monat um HHmm" inline descriptions.
     DATE_RE.lastIndex = 0
     const dateMatches: RegExpExecArray[] = []
     let dm: RegExpExecArray | null
-    while ((dm = DATE_RE.exec(slot)) !== null) dateMatches.push(dm)
+    while ((dm = DATE_RE.exec(slot)) !== null) {
+      if (/^\s*um\b/i.test(slot.slice(dm.index + dm[0].length))) continue
+      dateMatches.push(dm)
+    }
     if (!dateMatches.length) continue
 
     const lastDate = dateMatches[dateMatches.length - 1]

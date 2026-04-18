@@ -430,10 +430,10 @@ export default function SettingsPage() {
                   <span className="label" style={{ color: '#9E9D98' }}>No transactions yet — upload a Sparkasse PDF to get started.</span>
                 </div>
               ) : (() => {
-                const displayBalance = bankBalance ?? bankTxns.reduce((s, t) => s + t.amount_eur, 0)
-                const isSnapshot     = bankBalance !== null
-                const monthLabel = bankBalanceMonth
-                  ? new Date(bankBalanceMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                const displayBalance = bankTxns.reduce((s, t) => s + t.amount_eur, 0)
+                const latestMonth = bankTxns[0]?.date.slice(0, 7)
+                const monthLabel = latestMonth
+                  ? new Date(latestMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
                   : null
                 return (
                   <>
@@ -442,9 +442,7 @@ export default function SettingsPage() {
                         {displayBalance.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                       </span>
                       <span className="label" style={{ display: 'block', marginTop: 3, color: '#9E9D98' }}>
-                        {isSnapshot
-                          ? `Balance${monthLabel ? ` · as of ${monthLabel}` : ''}`
-                          : 'Estimated balance · re-upload PDF for exact figure'}
+                        Balance{monthLabel ? ` · as of ${monthLabel}` : ''}
                       </span>
                     </div>
                     {bankTxns.slice(0, 50).map((t, i) => (
