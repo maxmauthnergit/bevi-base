@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
     const db = createServerClient()
 
     if (transactions.length) {
+      // Delete all existing transactions and replace with the fresh parse.
+      // The PDF contains complete history from account opening, so a full
+      // replace is correct and avoids stale rows from previous parser versions.
+      const { error: delErr } = await db.from('bank_transactions').delete().neq('id', '')
+      if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
+
       const rows = transactions.map(t => ({
         id:           t.id,
         date:         t.date,
@@ -35,9 +41,7 @@ export async function POST(req: NextRequest) {
         amount_eur:   t.amount_eur,
         raw:          t.raw,
       }))
-      const { error } = await db
-        .from('bank_transactions')
-        .upsert(rows, { onConflict: 'id', ignoreDuplicates: true })
+      const { error } = await db.from('bank_transactions').insert(rows)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
 

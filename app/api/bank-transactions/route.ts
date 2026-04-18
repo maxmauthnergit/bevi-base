@@ -8,7 +8,7 @@ export async function GET() {
     db.from('bank_transactions')
       .select('id, date, counterparty, reference, amount_eur')
       .order('date', { ascending: false })
-      .limit(500),
+      .limit(2000),
     db.from('bank_balance_snapshots')
       .select('statement_month, closing_balance_eur')
       .order('statement_month', { ascending: false })
