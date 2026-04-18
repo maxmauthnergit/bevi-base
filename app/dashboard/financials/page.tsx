@@ -217,9 +217,9 @@ export default function FinancialsPage() {
         {/* Bank Account Balance */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, padding: '24px' }}>
           <span style={{
-            fontFamily: G, fontSize: '0.625rem', fontWeight: 600,
-            letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
-            display: 'block', marginBottom: 16,
+            fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+            letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+            display: 'block', marginBottom: 32,
           }}>
             Bank Account Balance
           </span>
@@ -230,27 +230,29 @@ export default function FinancialsPage() {
             <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#DC2626' }}>{txnError}</span>
           ) : (
             <>
-              <WithTip align="left" tip={
-                <div>
-                  <TipRow label="Source" value="Uploaded bank statements" />
-                  <TipRow label="Transactions" value={String(txns.length)} />
-                  <TipRow label="Latest entry" value={latestDateLabel} />
-                  <TipDivider />
-                  <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#555550', marginTop: 2 }}>
-                    <a href="/dashboard/settings" style={{ color: '#7A7974', textDecoration: 'none' }}>
-                      Upload statements in Settings →
-                    </a>
+              <div style={{ display: 'block', marginBottom: 8 }}>
+                <WithTip align="left" tip={
+                  <div>
+                    <TipRow label="Source" value="Uploaded bank statements" />
+                    <TipRow label="Transactions" value={String(txns.length)} />
+                    <TipRow label="Latest entry" value={latestDateLabel} />
+                    <TipDivider />
+                    <div style={{ fontFamily: G, fontSize: '0.6875rem', marginTop: 2 }}>
+                      <a href="/dashboard/settings" style={{ color: '#7A7974', textDecoration: 'none' }}>
+                        Upload statements in Settings →
+                      </a>
+                    </div>
                   </div>
-                </div>
-              }>
-                <span style={{
-                  fontFamily: G, fontSize: '2rem', fontWeight: 700,
-                  color: balance >= 0 ? '#111110' : '#DC2626',
-                  display: 'block', lineHeight: 1, marginBottom: 8,
-                }}>
-                  {formatEur(balance)}
-                </span>
-              </WithTip>
+                }>
+                  <span style={{
+                    fontFamily: G, fontSize: '2rem', fontWeight: 700,
+                    color: balance >= 0 ? '#111110' : '#DC2626',
+                    lineHeight: 1,
+                  }}>
+                    {formatEur(balance)}
+                  </span>
+                </WithTip>
+              </div>
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                 as of {latestDateLabel}
               </span>
@@ -261,9 +263,9 @@ export default function FinancialsPage() {
         {/* Upcoming Costs Prediction */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, padding: '24px' }}>
           <span style={{
-            fontFamily: G, fontSize: '0.625rem', fontWeight: 600,
-            letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
-            display: 'block', marginBottom: 16,
+            fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+            letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+            display: 'block', marginBottom: 32,
           }}>
             Upcoming Costs Prediction
           </span>
