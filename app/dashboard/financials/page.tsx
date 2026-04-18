@@ -93,13 +93,13 @@ export default function FinancialsPage() {
   }, [])
 
   // Meta Ads prediction — derived from PayPal Europe bank transactions (last 90 days)
-  const ninetyDaysAgoStr = (() => {
-    const d = new Date(today); d.setDate(d.getDate() - 90); return toDateStr(d)
+  const thirtyDaysAgoStr = (() => {
+    const d = new Date(today); d.setDate(d.getDate() - 30); return toDateStr(d)
   })()
   const metaPayments = txns
     .filter(t =>
       t.amount_eur < 0 &&
-      t.date >= ninetyDaysAgoStr &&
+      t.date >= thirtyDaysAgoStr &&
       t.counterparty.toLowerCase().includes('paypal europe') &&
       /^\d+\/PAYPAL$/.test(t.reference.trim())
     )
@@ -242,7 +242,7 @@ export default function FinancialsPage() {
                       ? `Predicted: ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} · avg of ${metaPayments.length} payments`
                       : metaPayments.length === 1
                         ? 'Only 1 payment found — interval unknown'
-                        : 'No Meta payments found in last 90 days'}
+                        : 'No Meta payments found in last 30 days'}
                 </span>
               </div>
             </div>
