@@ -337,9 +337,9 @@ export default function SettingsPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 0, paddingBottom: 12, borderBottom: bankOpen ? 'none' : '1px solid #F0EFE9' }}>
             <div style={{ flex: 1 }}>
-              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account</span>
+              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account Transactions</span>
               <span className="label">
-                Monthly PDF · Sparkasse Checking Account
+                Ongoing · Transaction PDFs from Sparkasse Account
               </span>
             </div>
             {bankUploadResult && (
@@ -415,8 +415,8 @@ export default function SettingsPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 12, paddingBottom: 12 }}>
             <div style={{ flex: 1 }}>
-              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>WeShip Monthly Files</span>
-              <span className="label">Monthly · XLSX service list from WeShip EU/AT</span>
+              <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>WeShip Costs</span>
+              <span className="label">Monthly · XLSX service list from WeShip</span>
             </div>
             <button style={iconBtn} onClick={() => setWeshipOpen(!weshipOpen)}><Chevron open={weshipOpen} /></button>
           </div>
