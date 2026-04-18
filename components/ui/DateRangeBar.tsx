@@ -300,7 +300,7 @@ export function DateRangeBar() {
         borderRadius: 16, padding: '10px 14px',
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         display: 'flex', alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 16,
         position: 'relative',
       }}
     >

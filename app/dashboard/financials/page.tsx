@@ -108,7 +108,7 @@ export default function FinancialsPage() {
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
+      <div className="mb-4">
         <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>
           Financials
         </h1>
