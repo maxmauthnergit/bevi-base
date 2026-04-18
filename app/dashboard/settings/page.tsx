@@ -109,12 +109,7 @@ export default function SettingsPage() {
   const [bankUploadResult, setBankUploadResult] = useState<BankUploadResult | null>(null)
   const [bankError, setBankError]           = useState<string | null>(null)
   const [bankTxns, setBankTxns]             = useState<BankTxn[]>([])
-  const [bankBalance, setBankBalance]       = useState<number | null>(null)
-  const [bankBalanceMonth, setBankBalanceMonth] = useState<string | null>(null)
   const [bankLoading, setBankLoading]       = useState(true)
-  const [editingBalance, setEditingBalance] = useState(false)
-  const [balanceInput, setBalanceInput]     = useState('')
-  const [balanceSaving, setBalanceSaving]   = useState(false)
   const [selProduct, setSelProduct]         = useState('bevi-bag')
   const [products, setProducts]             = useState<Product[]>(PRODUCTS)
   const [shopifyPrices, setShopifyPrices]   = useState<Record<string, number> | null>(null)
@@ -137,11 +132,8 @@ export default function SettingsPage() {
       const json = await r.json()
       if (!r.ok) { setBankError(json.error ?? 'Upload failed'); return }
       setBankUploadResult(json)
-      // Refresh transaction list
       const data = await fetch('/api/bank-transactions').then(x => x.json())
       setBankTxns(data.transactions ?? [])
-      setBankBalance(data.current_balance_eur)
-      setBankBalanceMonth(data.balance_as_of_month)
     } catch {
       setBankError('Upload failed — check your connection')
     } finally {
@@ -150,24 +142,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function saveBalance() {
-    const val = parseFloat(balanceInput.replace(',', '.'))
-    if (isNaN(val)) return
-    const month = bankTxns[0]?.date.slice(0, 7) ?? new Date().toISOString().slice(0, 7)
-    setBalanceSaving(true)
-    try {
-      await fetch('/api/bank-balance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance_eur: val, statement_month: month }),
-      })
-      setBankBalance(val)
-      setBankBalanceMonth(month)
-      setEditingBalance(false)
-    } finally {
-      setBalanceSaving(false)
-    }
-  }
 
   // Load persisted cost amounts from Supabase on mount
   useEffect(() => {
@@ -215,8 +189,6 @@ export default function SettingsPage() {
       .then(r => r.json())
       .then(data => {
         setBankTxns(data.transactions ?? [])
-        setBankBalance(data.current_balance_eur ?? null)
-        setBankBalanceMonth(data.balance_as_of_month ?? null)
       })
       .catch(() => {})
       .finally(() => setBankLoading(false))
@@ -368,37 +340,6 @@ export default function SettingsPage() {
               <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>Bank Account</span>
               <span className="label">
                 Monthly PDF · Sparkasse Checking Account
-                {!bankLoading && (
-                  editingBalance ? (
-                    <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <input
-                        autoFocus
-                        type="text"
-                        inputMode="decimal"
-                        value={balanceInput}
-                        onChange={e => setBalanceInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveBalance(); if (e.key === 'Escape') setEditingBalance(false) }}
-                        style={{ fontFamily: G, fontSize: '0.75rem', width: 90, padding: '1px 4px', border: '1px solid #C9C8C2', borderRadius: 4 }}
-                      />
-                      <button onClick={saveBalance} disabled={balanceSaving} style={{ fontFamily: G, fontSize: '0.7rem', color: '#0D8585', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                        {balanceSaving ? '…' : 'Save'}
-                      </button>
-                      <button onClick={() => setEditingBalance(false)} style={{ fontFamily: G, fontSize: '0.7rem', color: '#9E9D98', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
-                    <span style={{ marginLeft: 8 }}>
-                      {bankBalance !== null && <span style={{ color: '#0D8585' }}>· {fmt(bankBalance)} </span>}
-                      <button
-                        onClick={() => { setBalanceInput(bankBalance?.toFixed(2) ?? ''); setEditingBalance(true) }}
-                        style={{ fontFamily: G, fontSize: '0.7rem', color: '#9E9D98', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-                      >
-                        {bankBalance !== null ? 'edit' : 'set balance'}
-                      </button>
-                    </span>
-                  )
-                )}
               </span>
             </div>
             {bankUploadResult && (
