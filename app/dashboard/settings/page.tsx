@@ -372,9 +372,9 @@ export default function SettingsPage() {
                 </div>
               ) : (() => {
                 const displayBalance = bankTxns.reduce((s, t) => s + t.amount_eur, 0)
-                const latestMonth = bankTxns[0]?.date.slice(0, 7)
-                const monthLabel = latestMonth
-                  ? new Date(latestMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                const latestDate = bankTxns[0]?.date
+                const monthLabel = latestDate
+                  ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
                   : null
                 return (
                   <>
