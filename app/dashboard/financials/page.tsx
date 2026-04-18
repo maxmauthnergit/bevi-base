@@ -203,69 +203,90 @@ export default function FinancialsPage() {
       <DateRangeBar />
 
       {/* Transactions */}
-      <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #E3E2DC', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+      <div style={{
+        backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
+        borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+        padding: '20px 24px',
+      }}>
+        {/* Header — TRANSACTIONS label left, entry count right, no dividing line */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <span style={{
+            fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+            letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+          }}>
             Transactions
           </span>
           {!txnLoading && (
-            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
-              {filtered.length} entries
+            <span style={{
+              fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+              letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
+            }}>
+              {filtered.length} Entries
             </span>
           )}
         </div>
 
         {txnLoading ? (
-          <div style={{ padding: '24px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+          <div style={{ padding: '24px 0', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
             Loading…
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ padding: '24px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+          <div style={{ padding: '24px 0', fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
             No transactions in selected period.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #E3E2DC' }}>
-                {['Date', 'Counterparty / Betreff', 'Amount'].map((h, i) => (
-                  <th key={h} style={{
-                    fontFamily: G, fontWeight: 500, fontSize: '0.6875rem',
-                    color: '#9E9D98', letterSpacing: '0.03em',
-                    textAlign: i === 2 ? 'right' : 'left',
-                    padding: i === 0 ? '10px 20px' : i === 2 ? '10px 20px' : '10px 0',
-                  }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t, i) => (
-                <tr key={t.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
-                  <td style={{ padding: '10px 20px', fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', whiteSpace: 'nowrap' as const }}>
-                    {new Date(t.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </td>
-                  <td style={{ padding: '10px 0' }}>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110', display: 'block' }}>
-                      {t.counterparty || '—'}
-                    </span>
-                    {t.reference && (
-                      <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
-                        {t.reference}
-                      </span>
-                    )}
-                  </td>
-                  <td style={{
-                    padding: '10px 20px', fontFamily: G, fontSize: '0.8125rem', fontWeight: 600,
-                    textAlign: 'right', whiteSpace: 'nowrap' as const,
-                    color: t.amount_eur >= 0 ? '#0D8585' : '#DC2626',
-                  }}>
-                    {t.amount_eur >= 0 ? '+' : ''}{formatEur(t.amount_eur)}
-                  </td>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+              <thead>
+                <tr>
+                  <th style={{
+                    fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+                    letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+                    textAlign: 'left', paddingTop: 0, paddingBottom: 10, paddingLeft: 0, paddingRight: 20,
+                    borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' as const,
+                  }}>Date</th>
+                  <th style={{
+                    fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+                    letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+                    textAlign: 'left', paddingTop: 0, paddingBottom: 10, paddingLeft: 0, paddingRight: 20,
+                    borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' as const,
+                  }}>Counterparty / Betreff</th>
+                  <th style={{
+                    fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
+                    letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
+                    textAlign: 'right', paddingTop: 0, paddingBottom: 10, paddingLeft: 0, paddingRight: 0,
+                    borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' as const,
+                  }}>Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((t, i) => (
+                  <tr key={t.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                    <td style={{ padding: '12px 20px 12px 0', fontFamily: G, color: '#6B6A64', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' }}>
+                      {new Date(t.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </td>
+                    <td style={{ padding: '12px 20px 12px 0', verticalAlign: 'middle' }}>
+                      <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110', display: 'block' }}>
+                        {t.counterparty || '—'}
+                      </span>
+                      {t.reference && (
+                        <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
+                          {t.reference}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{
+                      padding: '12px 0', fontFamily: G, fontSize: '0.8125rem', fontWeight: 600,
+                      textAlign: 'right', whiteSpace: 'nowrap' as const, verticalAlign: 'middle',
+                      color: t.amount_eur >= 0 ? '#0D8585' : '#DC2626',
+                    }}>
+                      {t.amount_eur >= 0 ? '+' : ''}{formatEur(t.amount_eur)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </main>
