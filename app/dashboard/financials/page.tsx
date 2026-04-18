@@ -415,7 +415,12 @@ export default function FinancialsPage() {
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: 110 }} />
+                <col />
+                <col style={{ width: 130 }} />
+              </colgroup>
               <thead>
                 <tr>
                   <th style={{
@@ -429,7 +434,7 @@ export default function FinancialsPage() {
                     letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
                     textAlign: 'left', paddingTop: 0, paddingBottom: 10, paddingLeft: 0, paddingRight: 20,
                     borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' as const,
-                  }}>Counterparty / Betreff</th>
+                  }}>Reference</th>
                   <th style={{
                     fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
                     letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
@@ -444,12 +449,12 @@ export default function FinancialsPage() {
                     <td style={{ padding: '12px 20px 12px 0', fontFamily: G, color: '#6B6A64', whiteSpace: 'nowrap' as const, verticalAlign: 'middle' }}>
                       {new Date(t.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td style={{ padding: '12px 20px 12px 0', verticalAlign: 'middle' }}>
-                      <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110', display: 'block' }}>
+                    <td style={{ padding: '12px 20px 12px 0', verticalAlign: 'middle', overflow: 'hidden' }}>
+                      <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {t.counterparty || '—'}
                       </span>
                       {t.reference && (
-                        <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98' }}>
+                        <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.reference}
                         </span>
                       )}
