@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 
@@ -8,6 +8,62 @@ const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
 function formatEur(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €'
+}
+
+// ── Tooltip ────────────────────────────────────────────────────────────────────
+
+function TipRow({ label, value, total }: { label: string; value: string; total?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, padding: '1px 0' }}>
+      <span style={{ fontFamily: G, fontSize: '0.6875rem', color: total ? '#C7C6C0' : '#7A7974', whiteSpace: 'nowrap' }}>{label}</span>
+      <span style={{ fontFamily: G, fontSize: '0.6875rem', color: total ? '#F5F4F0' : '#C7C6C0', fontWeight: total ? 600 : 400, whiteSpace: 'nowrap' }}>{value}</span>
+    </div>
+  )
+}
+
+function TipDivider() {
+  return <div style={{ height: 1, backgroundColor: '#2A2A28', margin: '5px 0' }} />
+}
+
+function WithTip({ tip, children }: { tip: React.ReactNode; children: React.ReactNode }) {
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const ref  = useRef<HTMLDivElement>(null)
+  const hide = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function show() {
+    if (hide.current) { clearTimeout(hide.current); hide.current = null }
+    if (ref.current) setRect(ref.current.getBoundingClientRect())
+  }
+  function scheduleHide() {
+    hide.current = setTimeout(() => setRect(null), 120)
+  }
+
+  const above = rect ? rect.top > 260 : true
+  const tipStyle: React.CSSProperties = rect ? {
+    position: 'fixed',
+    ...(above ? { bottom: window.innerHeight - rect.top + 8 } : { top: rect.bottom + 8 }),
+    left: rect.left,
+    backgroundColor: '#1C1C1A',
+    borderRadius: 10,
+    padding: '10px 14px',
+    zIndex: 9999,
+    boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
+    minWidth: 220,
+  } : {}
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block', cursor: 'default' }}
+      onMouseEnter={show} onMouseLeave={scheduleHide}>
+      <span style={{ borderBottom: rect ? '1px dashed #9E9D98' : '1px dashed transparent', paddingBottom: 1 }}>
+        {children}
+      </span>
+      {rect && (
+        <div style={tipStyle} onMouseEnter={show} onMouseLeave={scheduleHide}>
+          {tip}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function toDateStr(d: Date): string {
@@ -228,18 +284,40 @@ export default function FinancialsPage() {
               {/* Meta Ads — predicted from PayPal Europe bank transactions */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                    Meta Ads (via PayPal)
-                  </span>
+                  <WithTip tip={
+                    <div>
+                      <TipRow label="Window" value="Last 30 days" />
+                      <TipRow label="Matched payments" value={String(metaPayments.length)} />
+                      {metaPayments.length >= 2 && (
+                        <>
+                          <TipRow label="Avg amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} />
+                          <TipDivider />
+                          <TipRow label="Avg interval" value={(() => {
+                            let total = 0
+                            for (let i = 1; i < metaPayments.length; i++) {
+                              total += (new Date(metaPayments[i].date + 'T00:00:00').getTime() - new Date(metaPayments[i-1].date + 'T00:00:00').getTime()) / 86400000
+                            }
+                            return `${Math.round(total / (metaPayments.length - 1))} days`
+                          })()} />
+                          <TipRow label="Last payment" value={metaPayments[metaPayments.length - 1].date} />
+                          <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} total />
+                        </>
+                      )}
+                    </div>
+                  }>
+                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
+                      Meta Ads · Ongoing
+                    </span>
+                  </WithTip>
                   <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#DC2626' }}>
-                    {txnLoading ? '—' : metaNextAmount !== null ? `~${formatEur(metaNextAmount)}` : '—'}
+                    {txnLoading ? '—' : metaNextAmount !== null ? formatEur(metaNextAmount) : '—'}
                   </span>
                 </div>
                 <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                   {txnLoading
                     ? 'Loading…'
                     : metaPayments.length >= 2
-                      ? `Predicted: ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} · avg of ${metaPayments.length} payments`
+                      ? `Due ${metaNextDate!.toLocaleDateString('en-US', { day: 'numeric', month: 'long' })} (predicted)`
                       : metaPayments.length === 1
                         ? 'Only 1 payment found — interval unknown'
                         : 'No Meta payments found in last 30 days'}
