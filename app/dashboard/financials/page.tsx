@@ -85,9 +85,9 @@ export default function FinancialsPage() {
       fetch(`/api/orders?from=${quarter.from}&to=${quarter.to}`).then(r => r.json()),
     ])
       .then(([monthData, taxData]) => {
-        const monthOrders: { cost_weship: number }[] = monthData.orders ?? []
+        const monthOrders: { cost_weship: number; cost_shipping: number }[] = monthData.orders ?? []
         const taxOrders:   { revenue_tax: number }[] = taxData.orders ?? []
-        setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship, 0))
+        setWeshipTotal(monthOrders.reduce((s, o) => s + o.cost_weship + o.cost_shipping, 0))
         setTaxTotal(taxOrders.reduce((s, o) => s + o.revenue_tax, 0))
         setForecastLoading(false)
       })
