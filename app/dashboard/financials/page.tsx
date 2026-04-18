@@ -7,10 +7,7 @@ import { useDateRange } from '@/components/providers/DateRangeProvider'
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
 function formatEur(v: number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency', currency: 'EUR',
-    minimumFractionDigits: 2, maximumFractionDigits: 2,
-  }).format(v)
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €'
 }
 
 function toDateStr(d: Date): string {
