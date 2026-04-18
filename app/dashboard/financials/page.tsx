@@ -144,14 +144,14 @@ export default function FinancialsPage() {
           )}
         </div>
 
-        {/* Upcoming Costs */}
+        {/* Upcoming Costs Prediction */}
         <div style={{ backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC', borderRadius: 16, padding: '24px' }}>
           <span style={{
             fontFamily: G, fontSize: '0.625rem', fontWeight: 600,
             letterSpacing: '0.08em', color: '#9E9D98', textTransform: 'uppercase' as const,
             display: 'block', marginBottom: 16,
           }}>
-            Upcoming Costs
+            Upcoming Costs Prediction
           </span>
 
           {forecastLoading ? (
