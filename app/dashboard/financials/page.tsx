@@ -100,8 +100,7 @@ export default function FinancialsPage() {
     .filter(t =>
       t.amount_eur < 0 &&
       t.date >= ninetyDaysAgoStr &&
-      (t.counterparty.toLowerCase().includes('paypal europe') ||
-       t.reference.includes('1048781098469'))
+      t.counterparty.toLowerCase().includes('paypal europe')
     )
     .sort((a, b) => a.date.localeCompare(b.date))
 
