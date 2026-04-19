@@ -1,7 +1,41 @@
 import { shopifyFetch, shopifyFetchAllOrders } from './client'
-import type { ShopifyOrder, ShopifyProduct } from './client'
+import type { ShopifyOrder, ShopifyProduct, ShopifyShop } from './client'
 import type { KpiValue, DailySnapshot, StockLevel } from '@/lib/types'
 import { getMetric } from '@/lib/metrics-config'
+
+// ─── Timezone helpers ─────────────────────────────────────────────────────────
+
+let _cachedTZ: string | null = null
+
+export async function getShopTimezone(): Promise<string> {
+  if (_cachedTZ) return _cachedTZ
+  try {
+    const { shop } = await shopifyFetch<{ shop: ShopifyShop }>(
+      '/shop.json',
+      { next: { revalidate: 3600 } }
+    )
+    _cachedTZ = shop.iana_timezone
+  } catch {
+    _cachedTZ = 'Europe/Berlin'
+  }
+  return _cachedTZ
+}
+
+// Interpret "YYYY-MM-DD" + "HH:MM:SS" as wall-clock time in tz, return UTC Date.
+export function parseInTimezone(dateStr: string, timeStr: string, tz: string): Date {
+  const approx = new Date(`${dateStr}T${timeStr}Z`)
+  const parts  = new Intl.DateTimeFormat('en', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  }).formatToParts(approx)
+  const get = (t: string) => parts.find(p => p.type === t)?.value ?? '00'
+  const wallClock = new Date(
+    `${get('year')}-${get('month')}-${get('day')}T${get('hour').replace('24','00')}:${get('minute')}:${get('second')}Z`
+  )
+  return new Date(approx.getTime() - (wallClock.getTime() - approx.getTime()))
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

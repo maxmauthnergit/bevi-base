@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTrendDataForMonth, getTrendDataForRange } from '@/lib/shopify/queries'
+import { getTrendDataForMonth, getTrendDataForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getDailySpendForRange } from '@/lib/meta/queries'
 
 export const dynamic = 'force-dynamic'
@@ -18,8 +18,9 @@ export async function GET(req: NextRequest) {
 
   // Date-range mode (used by dashboard with DateRangeBar)
   if (from && to) {
-    const fromDate = new Date(from + 'T00:00:00')
-    const toDate   = new Date(to   + 'T23:59:59')
+    const tz       = await getShopTimezone()
+    const fromDate = parseInTimezone(from, '00:00:00', tz)
+    const toDate   = parseInTimezone(to,   '23:59:59', tz)
 
     const [shopifyDays, metaSpend] = await Promise.all([
       getTrendDataForRange(fromDate, toDate).catch(() => null),
