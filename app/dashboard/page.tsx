@@ -5,8 +5,9 @@ import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { metrics } from '@/lib/metrics-config'
 import { mockKpiValues, mockUpcomingCosts } from '@/lib/mock/dashboard'
-import { getDashboardKPIs, getInventoryLevels } from '@/lib/shopify/queries'
+import { getDashboardKPIs, getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getMetaKPIs } from '@/lib/meta/queries'
+import { getWeShipStock } from '@/lib/weship/queries'
 
 function formatEur(value: number) {
   return new Intl.NumberFormat('en-GB', {
@@ -24,15 +25,26 @@ function formatDate(iso: string) {
 export const revalidate = 300
 
 export default async function DashboardPage() {
-  const [shopifyKPIs, stockLevels, metaKPIs] = await Promise.all([
+  const [shopifyKPIs, stockLevels, metaKPIs, weshipStock, avgDailySales] = await Promise.all([
     getDashboardKPIs().catch(() => null),
     getInventoryLevels().catch(() => null),
     getMetaKPIs().catch(() => null),
+    getWeShipStock().catch(() => null),
+    getAvgDailySalesBySku().catch(() => null),
   ])
 
   const liveKpis  = { ...(shopifyKPIs?.kpis ?? {}), ...(metaKPIs?.kpis ?? {}) }
   const kpiValues = { ...mockKpiValues, ...liveKpis }
-  const lowStockItems = stockLevels?.filter((s) => s.is_low) ?? []
+  const lowStockItems = (stockLevels ?? [])
+    .filter((s) => s.is_low)
+    .map((item) => {
+      const ws             = weshipStock?.find((w) => w.sku === item.sku)
+      const effectiveUnits = ws?.on_stock ?? item.units
+      const avgSales       = avgDailySales?.[item.sku] ?? 0
+      const daysLeft       = avgSales > 0 ? Math.floor(effectiveUnits / avgSales) : null
+      const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
+      return { ...item, effectiveUnits, daysLeft, lastUntil }
+    })
 
   const dashboardMetricIds = ['revenue_mtd','units_mtd','orders_mtd','aov_gross','ad_spend_mtd','roas_mtd']
   const dashboardMetrics = dashboardMetricIds
