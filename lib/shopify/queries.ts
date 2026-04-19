@@ -95,11 +95,12 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
   let unit_count = 0
   let refund_count = 0
 
-  const validOrders = orders.filter(
-    (o) => o.financial_status !== 'voided' && !o.cancelled_at
-  )
+  // Shopify analytics counts all non-voided orders (including cancelled)
+  const countableOrders = orders.filter(o => o.financial_status !== 'voided')
+  // Revenue/units only from orders that weren't cancelled
+  const revenueOrders   = countableOrders.filter(o => !o.cancelled_at)
 
-  for (const order of validOrders) {
+  for (const order of revenueOrders) {
     const gross = toFloat(order.total_price)
     const tax   = toFloat(order.total_tax)
     revenue_gross += gross
@@ -111,7 +112,7 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
   return {
     revenue_gross: Math.round(revenue_gross * 100) / 100,
     revenue_net:   Math.round(revenue_net   * 100) / 100,
-    order_count:   validOrders.length,
+    order_count:   countableOrders.length,
     unit_count,
     refund_count,
   }
