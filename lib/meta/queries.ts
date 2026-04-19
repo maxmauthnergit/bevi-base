@@ -129,6 +129,13 @@ export async function getMetaKPIs(): Promise<MetaKPIs> {
   }
 }
 
+// ─── Spend for an arbitrary date range (used by /api/kpis) ───────────────────
+
+export async function getMetaSpendForRange(from: Date, to: Date): Promise<number> {
+  const rows = await getInsights(isoDate(from), isoDate(to))
+  return Math.round(rows.reduce((s, r) => s + toFloat(r.spend), 0) * 100) / 100
+}
+
 // ─── 30-day daily spend trend ─────────────────────────────────────────────────
 
 export interface DailySpend {

@@ -1,12 +1,10 @@
-import { KpiCard } from '@/components/kpi/KpiCard'
+import { KpiSection } from '@/components/kpi/KpiSection'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
-import { metrics } from '@/lib/metrics-config'
-import { mockKpiValues, mockUpcomingCosts } from '@/lib/mock/dashboard'
-import { getDashboardKPIs, getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
-import { getMetaKPIs } from '@/lib/meta/queries'
+import { mockUpcomingCosts } from '@/lib/mock/dashboard'
+import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getWeShipStock } from '@/lib/weship/queries'
 
 function formatEur(value: number) {
@@ -25,16 +23,12 @@ function formatDate(iso: string) {
 export const revalidate = 300
 
 export default async function DashboardPage() {
-  const [shopifyKPIs, stockLevels, metaKPIs, weshipStock, avgDailySales] = await Promise.all([
-    getDashboardKPIs().catch(() => null),
+  const [stockLevels, weshipStock, avgDailySales] = await Promise.all([
     getInventoryLevels().catch(() => null),
-    getMetaKPIs().catch(() => null),
     getWeShipStock().catch(() => null),
     getAvgDailySalesBySku().catch(() => null),
   ])
 
-  const liveKpis  = { ...(shopifyKPIs?.kpis ?? {}), ...(metaKPIs?.kpis ?? {}) }
-  const kpiValues = { ...mockKpiValues, ...liveKpis }
   const lowStockItems = (stockLevels ?? [])
     .filter((s) => s.is_low)
     .map((item) => {
@@ -45,12 +39,6 @@ export default async function DashboardPage() {
       const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
       return { ...item, effectiveUnits, daysLeft, lastUntil }
     })
-
-  const dashboardMetricIds = ['revenue_mtd','units_mtd','orders_mtd','aov_gross','ad_spend_mtd','roas_mtd']
-  const dashboardMetrics = dashboardMetricIds
-    .map((id) => metrics.find((m) => m.id === id))
-    .filter(Boolean) as typeof metrics
-
 
   return (
     <main style={{ padding: '32px 40px' }}>
@@ -71,32 +59,8 @@ export default async function DashboardPage() {
 
       <DateRangeBar />
 
-      {/* KPI grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 16,
-        marginBottom: 16,
-      }}>
-        {dashboardMetrics.map((metric) => {
-          const data = kpiValues[metric.id]
-          if (!data) return null
-          const isLiveMetric = !!liveKpis[metric.id]
-          return (
-            <div key={metric.id} style={{ position: 'relative', borderRadius: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #E3E2DC' }}>
-              <KpiCard metric={metric} data={data} />
-              {!isLiveMetric && (
-                <span className="label" style={{
-                  position: 'absolute', top: 12, right: 12,
-                  color: '#D0CFC8', fontSize: '0.5625rem',
-                }}>
-                  mock
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* KPI grid — client component, reacts to date range */}
+      <KpiSection />
 
       {/* Chart + upcoming costs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16, alignItems: 'start' }}>

@@ -150,7 +150,13 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   }
 }
 
-// ─── COGS per unit (Gesamt Kosten Bestellung beim Kunden) ─────────────────────
+// ─── Date-range KPIs (used by /api/kpis) ─────────────────────────────────────
+
+export async function getOrderKpisForRange(from: Date, to: Date) {
+  const orders = await getOrdersInRange(from, to)
+  return computeMetrics(orders)
+}
+
 // Prices valid from launch; selling price changed 2026-03-27 but COGS unchanged.
 
 const UNIT_COGS: [string, number][] = [
