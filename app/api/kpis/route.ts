@@ -50,25 +50,25 @@ export async function GET(req: NextRequest) {
   const cs = currSpend.status === 'fulfilled' ? currSpend.value : 0
   const ps = prevSpend.status === 'fulfilled' ? prevSpend.value : 0
 
-  const cRevNet  = c?.revenue_net   ?? 0
-  const pRevNet  = p?.revenue_net   ?? 0
-  const cOrders  = c?.order_count   ?? 0
-  const pOrders  = p?.order_count   ?? 0
-  const cUnits   = c?.unit_count    ?? 0
-  const pUnits   = p?.unit_count    ?? 0
-  const cAov     = cOrders > 0 ? cRevNet / cOrders : 0
-  const pAov     = pOrders > 0 ? pRevNet / pOrders : 0
-  const cCpo     = cOrders > 0 ? cs / cOrders : 0
-  const pCpo     = pOrders > 0 ? ps / pOrders : 0
+  const cRevGross = c?.revenue_gross ?? 0
+  const pRevGross = p?.revenue_gross ?? 0
+  const cRevNet   = c?.revenue_net   ?? 0
+  const pRevNet   = p?.revenue_net   ?? 0
+  const cOrders   = c?.order_count   ?? 0
+  const pOrders   = p?.order_count   ?? 0
+  const cUnits    = c?.unit_count    ?? 0
+  const pUnits    = p?.unit_count    ?? 0
+  const cAov      = cOrders > 0 ? cRevNet / cOrders : 0
+  const pAov      = pOrders > 0 ? pRevNet / pOrders : 0
 
   return NextResponse.json({
     kpis: {
-      revenue_net:    mkKpi('revenue_net',    cRevNet, pRevNet, true),
-      orders:         mkKpi('orders',         cOrders, pOrders, true),
-      units_sold:     mkKpi('units_sold',     cUnits,  pUnits,  true),
-      meta_spend:     mkKpi('meta_spend',     cs,      ps,      false),
-      aov:            mkKpi('aov',            cAov,    pAov,    true),
-      cost_per_order: mkKpi('cost_per_order', cCpo,    pCpo,    false),
+      revenue_gross: mkKpi('revenue_gross', cRevGross, pRevGross, true),
+      revenue_net:   mkKpi('revenue_net',   cRevNet,   pRevNet,   true),
+      orders:        mkKpi('orders',        cOrders,   pOrders,   true),
+      units_sold:    mkKpi('units_sold',    cUnits,    pUnits,    true),
+      meta_spend:    mkKpi('meta_spend',    cs,        ps,        false),
+      aov:           mkKpi('aov',           cAov,      pAov,      true),
     },
     period:     { from, to },
     compPeriod: { from: toISO(prevFromDate), to: toISO(prevToDate) },

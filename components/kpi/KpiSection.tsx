@@ -18,12 +18,12 @@ function fmtCompPeriod(from: string, to: string) {
 }
 
 const METRICS: MetricDefinition[] = [
-  { id: 'revenue_net',    label: 'Revenue Net',         source: 'shopify', format: 'currency' },
-  { id: 'orders',         label: 'Orders',              source: 'shopify', format: 'number'   },
-  { id: 'units_sold',     label: 'Units Sold',          source: 'shopify', format: 'number'   },
-  { id: 'meta_spend',     label: 'Meta Ad Spend',       source: 'meta',    format: 'currency' },
-  { id: 'aov',            label: 'Avg Order Value',     source: 'shopify', format: 'currency' },
-  { id: 'cost_per_order', label: 'Cost per Order',      source: 'meta',    format: 'currency' },
+  { id: 'revenue_gross', label: 'Revenue Gross',    source: 'shopify', format: 'currency' },
+  { id: 'revenue_net',   label: 'Revenue Net',      source: 'shopify', format: 'currency' },
+  { id: 'orders',        label: 'Orders',           source: 'shopify', format: 'number'   },
+  { id: 'units_sold',    label: 'Units Sold',       source: 'shopify', format: 'number'   },
+  { id: 'meta_spend',    label: 'Meta Ad Spend',    source: 'meta',    format: 'currency' },
+  { id: 'aov',           label: 'Avg Order Value',  source: 'shopify', format: 'currency' },
 ]
 
 interface KpiResponse {

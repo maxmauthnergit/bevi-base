@@ -2,21 +2,23 @@ import type { KpiValue, MetricDefinition, FormatType } from '@/lib/types'
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
 
+function fmtEur(value: number): string {
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value) + ' €'
+}
+
 function formatValue(value: number, format: FormatType): string {
   switch (format) {
     case 'currency':
     case 'euro':
-      return new Intl.NumberFormat('en-GB', {
-        style: 'currency',
-        currency: 'EUR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value)
+      return fmtEur(value)
     case 'percent':
       return `${value.toFixed(1)}%`
     case 'number':
       if (value % 1 !== 0) return value.toFixed(2)
-      return new Intl.NumberFormat('en-GB').format(value)
+      return new Intl.NumberFormat('de-DE').format(value)
     default:
       return String(value)
   }
@@ -24,18 +26,12 @@ function formatValue(value: number, format: FormatType): string {
 
 function formatDelta(delta: number, format: FormatType): string {
   if (format === 'currency' || format === 'euro') {
-    const abs = Math.abs(delta)
-    return `${delta >= 0 ? '+' : '−'}${new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(abs)}`
+    return `${delta >= 0 ? '+' : '−'}${fmtEur(Math.abs(delta))}`
   }
   if (format === 'percent') return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp`
   if (format === 'number') {
     if (delta % 1 !== 0) return `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`
-    return `${delta >= 0 ? '+' : ''}${new Intl.NumberFormat('en-GB').format(delta)}`
+    return `${delta >= 0 ? '+' : ''}${new Intl.NumberFormat('de-DE').format(delta)}`
   }
   return `${delta >= 0 ? '+' : ''}${delta}`
 }

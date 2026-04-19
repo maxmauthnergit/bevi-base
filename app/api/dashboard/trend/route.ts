@@ -1,11 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTrendDataForMonth } from '@/lib/shopify/queries'
+import { getTrendDataForMonth, getTrendDataForRange } from '@/lib/shopify/queries'
 import { getDailySpendForRange } from '@/lib/meta/queries'
 
 export const dynamic = 'force-dynamic'
 
+function mergeMetaSpend(shopifyDays: Awaited<ReturnType<typeof getTrendDataForRange>>, metaSpend: { date: string; spend: number }[] | null) {
+  return shopifyDays.map((day) => {
+    const m = metaSpend?.find((d) => d.date === day.date)
+    return { ...day, meta_spend: m?.spend ?? 0 }
+  })
+}
+
 export async function GET(req: NextRequest) {
-  const sp    = req.nextUrl.searchParams
+  const sp   = req.nextUrl.searchParams
+  const from = sp.get('from')
+  const to   = sp.get('to')
+
+  // Date-range mode (used by dashboard with DateRangeBar)
+  if (from && to) {
+    const fromDate = new Date(from + 'T00:00:00')
+    const toDate   = new Date(to   + 'T23:59:59')
+
+    const [shopifyDays, metaSpend] = await Promise.all([
+      getTrendDataForRange(fromDate, toDate).catch(() => null),
+      getDailySpendForRange(fromDate, toDate).catch(() => null),
+    ])
+
+    if (!shopifyDays) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })
+
+    return NextResponse.json({ from, to, days: mergeMetaSpend(shopifyDays, metaSpend) })
+  }
+
+  // Legacy month mode (kept for other callers)
   const year  = parseInt(sp.get('year')  ?? String(new Date().getFullYear()))
   const month = parseInt(sp.get('month') ?? String(new Date().getMonth() + 1))
 
@@ -13,22 +39,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid year/month' }, { status: 400 })
   }
 
-  const from = new Date(year, month - 1, 1)
-  const to   = new Date(year, month, 0, 23, 59, 59)
+  const fromDate = new Date(year, month - 1, 1)
+  const toDate   = new Date(year, month, 0, 23, 59, 59)
 
   const [shopifyDays, metaSpend] = await Promise.all([
     getTrendDataForMonth(year, month).catch(() => null),
-    getDailySpendForRange(from, to).catch(() => null),
+    getDailySpendForRange(fromDate, toDate).catch(() => null),
   ])
 
-  if (!shopifyDays) {
-    return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })
-  }
+  if (!shopifyDays) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })
 
-  const days = shopifyDays.map((day) => {
-    const m = metaSpend?.find((d) => d.date === day.date)
-    return { ...day, meta_spend: m?.spend ?? 0 }
-  })
-
-  return NextResponse.json({ year, month, days })
+  return NextResponse.json({ year, month, days: mergeMetaSpend(shopifyDays, metaSpend) })
 }

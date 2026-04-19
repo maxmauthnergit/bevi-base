@@ -1,19 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useDateRange } from '@/components/providers/DateRangeProvider'
 import {
-  ResponsiveContainer,
-  ComposedChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
+  ResponsiveContainer, ComposedChart, Area, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const PRICE_CHANGE_DATE = '2026-03-27'
 
@@ -25,8 +17,6 @@ const TOGGLES = [
 ] as const
 
 type ToggleKey = (typeof TOGGLES)[number]['key']
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface TrendPoint {
   date: string
@@ -42,32 +32,17 @@ interface ChartPoint extends TrendPoint {
   _cm: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function fmtEur(v: number) {
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v) + ' €'
+}
 
-function formatEur(v: number) {
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(v)
+function toDateStr(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function formatDateLabel(dateStr: string) {
-  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-  })
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })
 }
-
-function monthTitle(year: number, month: number) {
-  return new Date(year, month - 1, 1).toLocaleDateString('en-GB', {
-    month: 'long',
-    year: 'numeric',
-  })
-}
-
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
 
 const DATAKEY_LABELS: Record<string, { label: string; color: string }> = {
   revenue_gross: { label: 'Revenue (Gross)', color: '#7DEFEF' },
@@ -80,201 +55,102 @@ const DATAKEY_LABELS: Record<string, { label: string; color: string }> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-
-  // filter out zero or hidden entries
-  const entries = payload.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any) => e.value !== 0 && DATAKEY_LABELS[e.dataKey]
-  )
-
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const entries = payload.filter((e: any) => e.value !== 0 && DATAKEY_LABELS[e.dataKey])
   return (
-    <div
-      style={{
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E3E2DC',
-        borderRadius: 10,
-        padding: '10px 14px',
-        fontSize: '0.75rem',
-        fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-      }}
-    >
-      <p style={{ color: '#9E9D98', marginBottom: 6, fontSize: '0.6875rem' }}>
-        {formatDateLabel(label)}
-      </p>
+    <div style={{
+      backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
+      borderRadius: 10, padding: '10px 14px', fontSize: '0.75rem',
+      fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
+      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+    }}>
+      <p style={{ color: '#9E9D98', marginBottom: 6, fontSize: '0.6875rem' }}>{formatDateLabel(label)}</p>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {entries.map((entry: any, i: number) => {
         const def = DATAKEY_LABELS[entry.dataKey]
-        return (
-          <p key={i} style={{ color: def.color, marginBottom: 2 }}>
-            {def.label}: {formatEur(entry.value)}
-          </p>
-        )
+        return <p key={i} style={{ color: def.color, marginBottom: 2 }}>{def.label}: {fmtEur(entry.value)}</p>
       })}
     </div>
   )
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 export function TrendChart() {
-  const now = new Date()
-  const [year,  setYear]  = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth() + 1)
-  const [data,  setData]  = useState<TrendPoint[]>([])
+  const { range } = useDateRange()
+  const [data,    setData]    = useState<TrendPoint[]>([])
   const [loading, setLoading] = useState(true)
-
   const [visible, setVisible] = useState<Record<ToggleKey, boolean>>({
-    revenue_gross: false,  // gross line off by default — net/CM area tells the story
+    revenue_gross: false,
     revenue_net:   true,
     cogs:          true,
     meta_spend:    true,
   })
 
+  const fromStr = toDateStr(range.from)
+  const toStr   = toDateStr(range.to)
+
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    fetch(`/api/dashboard/trend?year=${year}&month=${month}`)
-      .then((r) => r.json())
-      .then((d) => { setData(d.days ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [year, month])
+    fetch(`/api/dashboard/trend?from=${fromStr}&to=${toStr}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) { setData(d.days ?? []); setLoading(false) } })
+      .catch(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [fromStr, toStr])
 
-  const isCurrentMonth =
-    year === now.getFullYear() && month === now.getMonth() + 1
-
-  function prevMonth() {
-    if (month === 1) { setYear((y) => y - 1); setMonth(12) }
-    else setMonth((m) => m - 1)
-  }
-
-  function nextMonth() {
-    if (isCurrentMonth) return
-    if (month === 12) { setYear((y) => y + 1); setMonth(1) }
-    else setMonth((m) => m + 1)
-  }
-
-  // ── Derive stacked chart data ──────────────────────────────────────────────
-  // Layer order (bottom → top): Ad Spend → COGS → Contribution Margin
-  // CM = Revenue Net − Ad Spend − COGS (clamped to 0)
   const chartData: ChartPoint[] = data.map((d) => {
     const adSpend = visible.meta_spend ? d.meta_spend : 0
     const cogs    = visible.cogs       ? d.cogs       : 0
-    const cm      = visible.revenue_net
-      ? Math.max(0, d.revenue_net - adSpend - cogs)
-      : 0
+    const cm      = visible.revenue_net ? Math.max(0, d.revenue_net - adSpend - cogs) : 0
     return { ...d, _ad_spend: adSpend, _cogs: cogs, _cm: cm }
   })
 
-  // ── Y-axis: €500 steps ──────────────────────────────────────────────────────
   const maxVal = Math.max(
-    ...data.map((d) =>
-      Math.max(
-        visible.revenue_gross ? d.revenue_gross : 0,
-        visible.revenue_net   ? d.revenue_net   : 0,
-        (visible.meta_spend ? d.meta_spend : 0) +
-          (visible.cogs ? d.cogs : 0),
-      )
-    ),
+    ...data.map(d => Math.max(
+      visible.revenue_gross ? d.revenue_gross : 0,
+      visible.revenue_net   ? d.revenue_net   : 0,
+      (visible.meta_spend ? d.meta_spend : 0) + (visible.cogs ? d.cogs : 0),
+    )),
     500
   )
   const yMax   = Math.ceil(maxVal / 500) * 500
   const yTicks = Array.from({ length: yMax / 500 + 1 }, (_, i) => i * 500)
 
-  // ── X-axis: every 5th day ──────────────────────────────────────────────────
-  const xTicks = data
-    .filter((_, i) => i % 5 === 0 || i === data.length - 1)
-    .map((d) => d.date)
+  const dayCount  = data.length
+  const tickEvery = dayCount <= 14 ? 1 : dayCount <= 31 ? 5 : dayCount <= 90 ? 7 : 14
+  const xTicks    = data.filter((_, i) => i % tickEvery === 0 || i === data.length - 1).map(d => d.date)
 
-  const showPriceFlag = year === 2026 && month === 3
+  const showPriceFlag = data.some(d => d.date === PRICE_CHANGE_DATE)
 
   return (
     <div>
-      {/* ── Controls ──────────────────────────────────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 8,
-        }}
-      >
-        {/* Month navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Toggles only */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 6, flexWrap: 'wrap' }}>
+        {TOGGLES.map(t => (
           <button
-            onClick={prevMonth}
+            key={t.key}
+            onClick={() => setVisible(v => ({ ...v, [t.key]: !v[t.key] }))}
             style={{
-              background: 'none', border: 'none', color: '#666',
-              cursor: 'pointer', fontSize: 18, padding: '0 4px',
-              fontFamily: 'inherit', lineHeight: 1,
-            }}
-          >
-            ‹
-          </button>
-          <span
-            style={{
+              background: 'none',
+              border: `1px solid ${visible[t.key] ? t.color : '#252525'}`,
+              borderRadius: 3, color: visible[t.key] ? t.color : '#333',
+              cursor: 'pointer', fontSize: '0.5625rem',
               fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-              fontSize: '0.8125rem',
-              color: '#CCC',
-              minWidth: 110,
-              textAlign: 'center',
+              letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px',
             }}
           >
-            {monthTitle(year, month)}
-          </span>
-          <button
-            onClick={nextMonth}
-            style={{
-              background: 'none', border: 'none',
-              color: isCurrentMonth ? '#2A2A2A' : '#666',
-              cursor: isCurrentMonth ? 'default' : 'pointer',
-              fontSize: 18, padding: '0 4px',
-              fontFamily: 'inherit', lineHeight: 1,
-            }}
-          >
-            ›
+            {t.label}
           </button>
-        </div>
-
-        {/* Line toggles */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {TOGGLES.map((t) => (
-            <button
-              key={t.key}
-              onClick={() =>
-                setVisible((v) => ({ ...v, [t.key]: !v[t.key] }))
-              }
-              style={{
-                background: 'none',
-                border: `1px solid ${visible[t.key] ? t.color : '#252525'}`,
-                borderRadius: 3,
-                color: visible[t.key] ? t.color : '#333',
-                cursor: 'pointer',
-                fontSize: '0.5625rem',
-                fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                padding: '3px 8px',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
 
-      {/* ── Chart ─────────────────────────────────────────────────────────── */}
       {loading ? (
         <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span className="label" style={{ color: '#333' }}>Loading…</span>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart
-            data={chartData}
-            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
-          >
+          <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradAdSpend" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b5998" stopOpacity={0.9} />
@@ -285,99 +161,30 @@ export function TrendChart() {
                 <stop offset="100%" stopColor="#FF8C42" stopOpacity={0.5} />
               </linearGradient>
             </defs>
-
             <CartesianGrid strokeDasharray="4 4" stroke="#EDECEA" vertical={false} />
-
-            <XAxis
-              dataKey="date"
-              ticks={xTicks}
-              tickFormatter={formatDateLabel}
+            <XAxis dataKey="date" ticks={xTicks} tickFormatter={formatDateLabel}
               tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              ticks={yTicks}
-              domain={[0, yMax]}
-              tickFormatter={(v) => formatEur(v)}
+              axisLine={false} tickLine={false} />
+            <YAxis ticks={yTicks} domain={[0, yMax]} tickFormatter={fmtEur}
               tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
-              axisLine={false}
-              tickLine={false}
-              width={58}
-            />
-
+              axisLine={false} tickLine={false} width={72} />
             <Tooltip content={<CustomTooltip />} />
-
             {showPriceFlag && (
-              <ReferenceLine
-                x={PRICE_CHANGE_DATE}
-                stroke="#3A3A3A"
-                strokeDasharray="3 3"
-                label={{
-                  value: 'price ↑',
-                  position: 'insideTopRight',
-                  fill: '#444',
-                  fontSize: 9,
-                  fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-                }}
-              />
+              <ReferenceLine x={PRICE_CHANGE_DATE} stroke="#3A3A3A" strokeDasharray="3 3"
+                label={{ value: 'price ↑', position: 'insideTopRight', fill: '#444', fontSize: 9,
+                  fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }} />
             )}
-
-            {/* ── Stacked areas (bottom → top) ───────────────────────────── */}
-            <Area
-              type="monotone"
-              dataKey="_ad_spend"
-              stackId="a"
-              fill="url(#gradAdSpend)"
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="_cogs"
-              stackId="a"
-              fill="url(#gradCogs)"
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="_cm"
-              stackId="a"
-              fill="#7DEFEF"
-              fillOpacity={0.18}
-              stroke="none"
-              isAnimationActive={false}
-            />
-
-            {/* ── Revenue Net — solid top boundary line ──────────────────── */}
+            <Area type="monotone" dataKey="_ad_spend" stackId="a" fill="url(#gradAdSpend)" stroke="none" isAnimationActive={false} />
+            <Area type="monotone" dataKey="_cogs"     stackId="a" fill="url(#gradCogs)"    stroke="none" isAnimationActive={false} />
+            <Area type="monotone" dataKey="_cm"       stackId="a" fill="#7DEFEF" fillOpacity={0.18} stroke="none" isAnimationActive={false} />
             {visible.revenue_net && (
-              <Line
-                type="monotone"
-                dataKey="revenue_net"
-                name="Revenue (Net)"
-                stroke="#7DEFEF"
-                strokeWidth={1.5}
-                dot={false}
-                activeDot={{ r: 3, fill: '#7DEFEF' }}
-                isAnimationActive={false}
-              />
+              <Line type="monotone" dataKey="revenue_net" stroke="#7DEFEF" strokeWidth={1.5}
+                dot={false} activeDot={{ r: 3, fill: '#7DEFEF' }} isAnimationActive={false} />
             )}
-
-            {/* ── Revenue Gross — optional dashed overlay ─────────────────── */}
             {visible.revenue_gross && (
-              <Line
-                type="monotone"
-                dataKey="revenue_gross"
-                name="Revenue (Gross)"
-                stroke="#7DEFEF"
-                strokeWidth={1}
-                strokeDasharray="4 3"
-                strokeOpacity={0.5}
-                dot={false}
-                activeDot={{ r: 3, fill: '#7DEFEF' }}
-                isAnimationActive={false}
-              />
+              <Line type="monotone" dataKey="revenue_gross" stroke="#7DEFEF" strokeWidth={1}
+                strokeDasharray="4 3" strokeOpacity={0.5} dot={false}
+                activeDot={{ r: 3, fill: '#7DEFEF' }} isAnimationActive={false} />
             )}
           </ComposedChart>
         </ResponsiveContainer>

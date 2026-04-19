@@ -157,6 +157,41 @@ export async function getOrderKpisForRange(from: Date, to: Date) {
   return computeMetrics(orders)
 }
 
+// ─── Daily trend for an arbitrary date range (used by /api/dashboard/trend) ──
+
+export async function getTrendDataForRange(from: Date, to: Date): Promise<TrendPoint[]> {
+  const orders = await getOrdersInRange(from, to)
+
+  const byDate = new Map<string, { gross: number; tax: number; cogs: number }>()
+  const cur = new Date(from); cur.setHours(0, 0, 0, 0)
+  const end = new Date(to);   end.setHours(23, 59, 59, 999)
+  while (cur <= end) {
+    byDate.set(isoDate(cur), { gross: 0, tax: 0, cogs: 0 })
+    cur.setDate(cur.getDate() + 1)
+  }
+
+  for (const order of orders) {
+    if (order.cancelled_at || order.financial_status === 'voided') continue
+    const date  = order.created_at.split('T')[0]
+    const entry = byDate.get(date)
+    if (!entry) continue
+    entry.gross += toFloat(order.total_price)
+    entry.tax   += toFloat(order.total_tax)
+    for (const li of order.line_items) entry.cogs += getUnitCogs(li.title) * li.quantity
+  }
+
+  const today = isoDate(new Date())
+  return Array.from(byDate.entries())
+    .filter(([date]) => date <= today)
+    .map(([date, d]) => ({
+      date,
+      revenue_gross: Math.round(d.gross * 100) / 100,
+      revenue_net:   Math.round((d.gross - d.tax) * 100) / 100,
+      cogs:          Math.round(d.cogs  * 100) / 100,
+      meta_spend:    0,
+    }))
+}
+
 // Prices valid from launch; selling price changed 2026-03-27 but COGS unchanged.
 
 const UNIT_COGS: [string, number][] = [
