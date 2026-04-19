@@ -43,7 +43,7 @@ export default async function DashboardPage() {
   return (
     <main style={{ padding: '32px 40px' }}>
       {/* Header */}
-      <div className="mb-4">
+      <div style={{ marginBottom: 16 }}>
         <h1 style={{
           fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
           fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1.2, margin: 0,
@@ -52,12 +52,12 @@ export default async function DashboardPage() {
         </h1>
       </div>
 
-      <DateRangeBar />
-
-      {/* Low stock alert */}
+      {/* Low stock alert — always first */}
       {lowStockItems.length > 0 && (
-        <div className="mb-6"><InventoryAlert items={lowStockItems} /></div>
+        <div style={{ marginBottom: 16 }}><InventoryAlert items={lowStockItems} /></div>
       )}
+
+      <DateRangeBar />
 
       {/* KPI grid */}
       <div style={{

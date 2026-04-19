@@ -12,8 +12,8 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
       style={{
         backgroundColor: 'rgba(255, 68, 68, 0.06)',
         border: '1px solid rgba(255, 68, 68, 0.25)',
-        borderRadius: '4px',
-        padding: '12px 16px',
+        borderRadius: 16,
+        padding: '16px 20px',
       }}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -42,7 +42,7 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
                 style={{
                   fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
                   fontSize: '0.8125rem',
-                  color: '#FFFFFF',
+                  color: '#111110',
                 }}
               >
                 {item.product_name} {item.variant}
