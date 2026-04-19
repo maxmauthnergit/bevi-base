@@ -1,4 +1,4 @@
-import { shopifyFetch } from './client'
+import { shopifyFetch, shopifyFetchAllOrders } from './client'
 import type { ShopifyOrder, ShopifyProduct } from './client'
 import type { KpiValue, DailySnapshot, StockLevel } from '@/lib/types'
 import { getMetric } from '@/lib/metrics-config'
@@ -42,12 +42,7 @@ async function getOrdersInRange(from: Date, to: Date): Promise<ShopifyOrder[]> {
     fields: ORDER_FIELDS,
   })
 
-  const data = await shopifyFetch<{ orders: ShopifyOrder[] }>(
-    `/orders.json?${params}`,
-    { next: { revalidate: 300 } }  // cache 5 min
-  )
-
-  return data.orders
+  return shopifyFetchAllOrders(params, { revalidate: 300 })
 }
 
 // ─── KPI computation ──────────────────────────────────────────────────────────

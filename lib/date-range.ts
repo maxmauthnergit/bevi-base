@@ -69,9 +69,9 @@ function computePreset(id: PresetId, now: Date = new Date()): { from: Date; to: 
     case 'yesterday':
       return { from: new Date(y, m, d - 1), to: new Date(y, m, d - 1, 23, 59, 59, 999) }
     case 'last-7':
-      return { from: new Date(y, m, d - 6), to: new Date(y, m, d, 23, 59, 59, 999) }
+      return { from: new Date(y, m, d - 7), to: new Date(y, m, d - 1, 23, 59, 59, 999) }
     case 'last-30':
-      return { from: new Date(y, m, d - 29), to: new Date(y, m, d, 23, 59, 59, 999) }
+      return { from: new Date(y, m, d - 30), to: new Date(y, m, d - 1, 23, 59, 59, 999) }
     case 'last-month':
       return { from: new Date(y, m - 1, 1), to: new Date(y, m, 0, 23, 59, 59, 999) }
     case 'last-quarter': {
