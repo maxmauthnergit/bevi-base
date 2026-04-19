@@ -103,10 +103,19 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
   for (const order of revenueOrders) {
     const gross = toFloat(order.total_price)
     const tax   = toFloat(order.total_tax)
-    revenue_gross += gross
-    revenue_net   += gross - tax
+
+    const refundAmt = (order.refunds ?? [])
+      .flatMap(r => r.transactions ?? [])
+      .filter(t => t.kind === 'refund' && t.status === 'success')
+      .reduce((s, t) => s + toFloat(t.amount), 0)
+
+    const effectiveGross = gross - refundAmt
+    const effectiveTax   = gross > 0 ? tax * (effectiveGross / gross) : 0
+
+    revenue_gross += effectiveGross
+    revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
-    if (order.financial_status === 'refunded') refund_count++
+    if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
   }
 
   return {

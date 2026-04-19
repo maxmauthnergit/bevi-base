@@ -124,6 +124,7 @@ export interface ShopifyRefund {
   id: number
   created_at: string
   refund_line_items: { quantity: number; line_item_id: number }[]
+  transactions: { id: number; amount: string; kind: string; status: string }[]
 }
 
 export interface ShopifyLineItem {
