@@ -44,12 +44,15 @@ export function KpiSection() {
     let cancelled = false
     setLoading(true)
     setError(false)
-    fetch(`/api/kpis?from=${fromStr}&to=${toStr}`)
+    const params = new URLSearchParams({ from: fromStr, to: toStr })
+    if (range.preset) params.set('preset', range.preset)
+    if (range.month)  params.set('month',  range.month)
+    fetch(`/api/kpis?${params}`)
       .then(r => r.json())
       .then(json => { if (!cancelled) { setData(json); setLoading(false) } })
       .catch(() => { if (!cancelled) { setError(true); setLoading(false) } })
     return () => { cancelled = true }
-  }, [fromStr, toStr])
+  }, [fromStr, toStr, range.preset, range.month])
 
   const subtitle = data?.compPeriod
     ? fmtCompPeriod(data.compPeriod.from, data.compPeriod.to)

@@ -34,9 +34,42 @@ export async function GET(req: NextRequest) {
   const toDate   = new Date(to   + 'T23:59:59')
   const durMs    = toDate.getTime() - fromDate.getTime()
 
-  // Comparison period: same duration, immediately before current range
-  const prevToDate   = new Date(fromDate.getTime() - 1)
-  const prevFromDate = new Date(prevToDate.getTime() - durMs)
+  const preset = req.nextUrl.searchParams.get('preset')
+  const month  = req.nextUrl.searchParams.get('month')
+
+  // Comparison period
+  let prevFromDate: Date
+  let prevToDate: Date
+
+  if (month) {
+    const [y, m] = month.split('-').map(Number)
+    const prevM   = m === 1 ? 12 : m - 1
+    const prevY   = m === 1 ? y - 1 : y
+    prevFromDate  = new Date(prevY, prevM - 1, 1, 0, 0, 0)
+    const lastDay = new Date(prevY, prevM, 0).getDate()
+    const toDay   = Math.min(toDate.getDate(), lastDay)
+    prevToDate    = new Date(prevY, prevM - 1, toDay, 23, 59, 59)
+  } else if (preset === 'last-month') {
+    prevToDate   = new Date(fromDate.getFullYear(), fromDate.getMonth(), 0, 23, 59, 59)
+    prevFromDate = new Date(prevToDate.getFullYear(), prevToDate.getMonth(), 1, 0, 0, 0)
+  } else if (preset === 'last-quarter') {
+    prevToDate   = new Date(fromDate.getTime() - 86_400_000)
+    prevToDate.setHours(23, 59, 59, 999)
+    const qStart = Math.floor(prevToDate.getMonth() / 3) * 3
+    prevFromDate = new Date(prevToDate.getFullYear(), qStart, 1, 0, 0, 0)
+  } else if (preset === 'ytd') {
+    const prevY  = fromDate.getFullYear() - 1
+    prevFromDate = new Date(prevY, 0, 1, 0, 0, 0)
+    prevToDate   = new Date(prevY, toDate.getMonth(), toDate.getDate(), 23, 59, 59)
+  } else if (preset === 'last-year') {
+    const prevY  = fromDate.getFullYear() - 1
+    prevFromDate = new Date(prevY, 0, 1, 0, 0, 0)
+    prevToDate   = new Date(prevY, 11, 31, 23, 59, 59)
+  } else {
+    // today, yesterday, last-7, last-30, custom: same duration shifted back
+    prevToDate   = new Date(fromDate.getTime() - 1)
+    prevFromDate = new Date(prevToDate.getTime() - durMs)
+  }
 
   const [curr, prev, currSpend, prevSpend] = await Promise.allSettled([
     getOrderKpisForRange(fromDate, toDate),
