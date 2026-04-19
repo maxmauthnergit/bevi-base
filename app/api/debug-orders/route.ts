@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { shopifyFetchAllOrders } from '@/lib/shopify/client'
+import { shopifyFetch, shopifyFetchAllOrders } from '@/lib/shopify/client'
 import { getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 
 export const dynamic = 'force-dynamic'
@@ -57,20 +57,28 @@ export async function GET(req: NextRequest) {
   const toDate   = parseInTimezone(to,   '23:59:59', tz)
 
   const base = { status: 'any', limit: '250', fields: ORDER_FIELDS }
+  const fromISO = fromDate.toISOString()
+  const toISO   = toDate.toISOString()
 
-  const [byCreatedAt, byProcessedAt] = await Promise.all([
+  // Shopify count endpoint — authoritative total, no pagination needed
+  const [countResult, byCreatedAt, byProcessedAt] = await Promise.all([
+    shopifyFetch<{ count: number }>(
+      `/orders/count.json?status=any&created_at_min=${fromISO}&created_at_max=${toISO}`,
+      { next: { revalidate: 0 } }
+    ),
     shopifyFetchAllOrders(new URLSearchParams({
-      ...base, created_at_min: fromDate.toISOString(), created_at_max: toDate.toISOString(),
+      ...base, created_at_min: fromISO, created_at_max: toISO,
     }), { revalidate: 0 }),
     shopifyFetchAllOrders(new URLSearchParams({
-      ...base, processed_at_min: fromDate.toISOString(), processed_at_max: toDate.toISOString(),
+      ...base, processed_at_min: fromISO, processed_at_max: toISO,
     }), { revalidate: 0 }),
   ])
 
   return NextResponse.json({
     tz,
-    range: { from, to, from_utc: fromDate.toISOString(), to_utc: toDate.toISOString() },
-    by_created_at:   summarise(byCreatedAt,   tz),
-    by_processed_at: summarise(byProcessedAt, tz),
+    range: { from, to, from_utc: fromISO, to_utc: toISO },
+    shopify_api_count:  countResult.count,
+    by_created_at:      summarise(byCreatedAt,   tz),
+    by_processed_at:    summarise(byProcessedAt, tz),
   })
 }
