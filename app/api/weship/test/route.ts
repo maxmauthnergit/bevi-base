@@ -20,7 +20,12 @@ async function login(): Promise<{ token: string; raw: unknown }> {
 
 async function probe(url: string, headers: Record<string, string>) {
   try {
-    const res = await fetch(url, { headers, cache: 'no-store' })
+    const res = await fetch(url, {
+      method: 'GET',
+      headers,
+      body: JSON.stringify({}),  // WeShip requires body even on GET
+      cache: 'no-store',
+    })
     const text = await res.text()
     let body: unknown = text
     try { body = JSON.parse(text) } catch { /* keep text */ }

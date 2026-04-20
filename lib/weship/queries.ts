@@ -13,7 +13,7 @@ export interface WeShipStockLevel {
 export async function getWeShipStock(): Promise<WeShipStockLevel[]> {
   const data = await weshipFetch<WeShipProductsResponse>(
     '/mapi/product/search',
-    { next: { revalidate: 600 } }
+    { next: { revalidate: 0 } }
   )
 
   return (data.rows ?? []).map((p: WeShipProduct) => ({
