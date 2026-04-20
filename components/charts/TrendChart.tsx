@@ -11,7 +11,7 @@ const PRICE_CHANGE_DATE = '2026-03-27'
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const C = {
-  revenueGross: '#7BB8B8',
+  revenueGross: '#111110',
   revenueNet:   '#1FA8A8',
   adSpend:      '#5175B0',
   cogs:         '#BF6035',
@@ -19,10 +19,11 @@ const C = {
 }
 
 const TOGGLES = [
-  { key: 'revenue_gross', label: 'Revenue (Gross)', color: C.revenueGross },
-  { key: 'revenue_net',   label: 'Revenue (Net)',   color: C.revenueNet   },
-  { key: 'cogs',          label: 'COGS',            color: C.cogs         },
-  { key: 'meta_spend',    label: 'Ad Spend',        color: C.adSpend      },
+  { key: 'revenue_gross', label: 'Revenue (Gross)',      color: C.revenueGross },
+  { key: 'revenue_net',   label: 'Revenue (Net)',        color: C.revenueNet   },
+  { key: 'cm',            label: 'Contribution Margin',  color: C.cm           },
+  { key: 'cogs',          label: 'COGS',                 color: C.cogs         },
+  { key: 'meta_spend',    label: 'Ad Spend',             color: C.adSpend      },
 ] as const
 
 type ToggleKey = (typeof TOGGLES)[number]['key']
@@ -112,6 +113,7 @@ export function TrendChart() {
   const [visible, setVisible] = useState<Record<ToggleKey, boolean>>({
     revenue_gross: false,
     revenue_net:   true,
+    cm:            true,
     cogs:          true,
     meta_spend:    true,
   })
@@ -132,7 +134,7 @@ export function TrendChart() {
   const chartData: ChartPoint[] = data.map((d) => {
     const adSpend   = visible.meta_spend ? d.meta_spend : 0
     const cogs      = visible.cogs       ? d.cogs       : 0
-    const cm        = visible.revenue_net ? Math.max(0, d.revenue_net - adSpend - cogs) : 0
+    const cm        = visible.cm ? Math.max(0, d.revenue_net - adSpend - cogs) : 0
     const cmActual  = d.revenue_net - d.meta_spend - d.cogs
     return { ...d, _ad_spend: adSpend, _cogs: cogs, _cm: cm, _cm_actual: cmActual }
   })
@@ -143,10 +145,10 @@ export function TrendChart() {
       visible.revenue_net   ? d.revenue_net   : 0,
       (visible.meta_spend ? d.meta_spend : 0) + (visible.cogs ? d.cogs : 0),
     )),
-    500
+    250
   )
-  const yMax   = Math.ceil(maxVal / 500) * 500
-  const yTicks = Array.from({ length: yMax / 500 + 1 }, (_, i) => i * 500)
+  const yMax   = Math.ceil(maxVal / 250) * 250
+  const yTicks = Array.from({ length: yMax / 250 + 1 }, (_, i) => i * 250)
 
   const dayCount  = data.length
   const tickEvery = dayCount <= 14 ? 1 : dayCount <= 31 ? 5 : dayCount <= 90 ? 7 : 14
@@ -218,9 +220,8 @@ export function TrendChart() {
                 dot={false} activeDot={{ r: 3, fill: C.revenueNet }} isAnimationActive={false} />
             )}
             {visible.revenue_gross && (
-              <Line type="monotone" dataKey="revenue_gross" stroke={C.revenueGross} strokeWidth={1}
-                strokeDasharray="4 3" strokeOpacity={0.6} dot={false}
-                activeDot={{ r: 3, fill: C.revenueGross }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="revenue_gross" stroke={C.revenueGross} strokeWidth={1.5}
+                dot={false} activeDot={{ r: 3, fill: C.revenueGross }} isAnimationActive={false} />
             )}
           </ComposedChart>
         </ResponsiveContainer>
