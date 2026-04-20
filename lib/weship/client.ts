@@ -74,12 +74,15 @@ export async function weshipFetch<T>(
 
   const res = await fetch(`${baseUrl}${path}`, {
     ...rest,
+    method: rest.method ?? 'GET',
     headers: {
       'Content-Type': 'application/json',
       // Try both common auth header formats — server accepts whichever it knows
       Cookie: `session_id=${token}`,
       ...(rest.headers ?? {}),
     },
+    // WeShip requires a body on every request, even GET
+    body: rest.body ?? JSON.stringify({}),
     next: next ?? { revalidate: 0 },
   })
 
