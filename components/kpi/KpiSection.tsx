@@ -14,7 +14,9 @@ function fmtCompPeriod(from: string, to: string) {
   const t = new Date(to   + 'T00:00:00')
   const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
   if (f.getFullYear() !== t.getFullYear()) opts.year = 'numeric'
-  return `vs. ${f.toLocaleDateString('en-GB', opts)} – ${t.toLocaleDateString('en-GB', opts)}`
+  const fStr = f.toLocaleDateString('en-GB', opts)
+  if (from === to) return `vs. ${fStr}`
+  return `vs. ${fStr} – ${t.toLocaleDateString('en-GB', opts)}`
 }
 
 const METRICS: MetricDefinition[] = [
