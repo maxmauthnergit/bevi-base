@@ -224,7 +224,7 @@ export default function FinancialsPage() {
           <span style={{
             fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
             letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
-            display: 'block', marginBottom: 32,
+            display: 'block', marginBottom: 16,
           }}>
             Bank Account Balance
           </span>
@@ -270,7 +270,7 @@ export default function FinancialsPage() {
           <span style={{
             fontFamily: G, fontSize: '0.625rem', fontWeight: 500,
             letterSpacing: '0.12em', color: '#9E9D98', textTransform: 'uppercase' as const,
-            display: 'block', marginBottom: 32,
+            display: 'block', marginBottom: 16,
           }}>
             Upcoming Costs Prediction
           </span>
@@ -329,9 +329,9 @@ export default function FinancialsPage() {
                 <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #F0EFE9' }} />
               </>)}
 
-              {/* Körperschaftsteuer K 04–06/2026 */}
+              {/* KÖST · Apr – Jun 2026 */}
               <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110', padding: '10px 0' }}>
-                Körperschaftsteuer K 04–06/2026
+                KÖST · Apr – Jun 2026
               </span>
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
                 Due: 15 May 2026
