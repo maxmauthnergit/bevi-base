@@ -12,6 +12,11 @@ function isoDate(d: Date) {
   return d.toISOString().split('T')[0]
 }
 
+// Get YYYY-MM-DD in the given timezone (not UTC)
+function isoDateInTZ(d: Date, tz: string): string {
+  return d.toLocaleDateString('sv', { timeZone: tz })
+}
+
 function getActionValue(
   actions: MetaInsight['actions'],
   type: string
@@ -131,8 +136,8 @@ export async function getMetaKPIs(): Promise<MetaKPIs> {
 
 // ─── Spend for an arbitrary date range (used by /api/kpis) ───────────────────
 
-export async function getMetaSpendForRange(from: Date, to: Date): Promise<number> {
-  const rows = await getInsights(isoDate(from), isoDate(to))
+export async function getMetaSpendForRange(from: Date, to: Date, tz = 'UTC'): Promise<number> {
+  const rows = await getInsights(isoDateInTZ(from, tz), isoDateInTZ(to, tz))
   return Math.round(rows.reduce((s, r) => s + toFloat(r.spend), 0) * 100) / 100
 }
 
@@ -154,8 +159,8 @@ export async function getDailySpend(): Promise<DailySpend[]> {
   return getDailySpendForRange(from, now)
 }
 
-export async function getDailySpendForRange(from: Date, to: Date): Promise<DailySpend[]> {
-  const rows = await getInsights(isoDate(from), isoDate(to), '1')
+export async function getDailySpendForRange(from: Date, to: Date, tz = 'UTC'): Promise<DailySpend[]> {
+  const rows = await getInsights(isoDateInTZ(from, tz), isoDateInTZ(to, tz), '1')
 
   return rows.map((row) => ({
     date:        row.date_start,

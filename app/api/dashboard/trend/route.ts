@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const [shopifyDays, metaSpend] = await Promise.all([
       getTrendDataForRange(fromDate, toDate).catch(() => null),
-      getDailySpendForRange(fromDate, toDate).catch(() => null),
+      getDailySpendForRange(fromDate, toDate, tz).catch(() => null),
     ])
 
     if (!shopifyDays) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })

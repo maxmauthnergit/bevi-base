@@ -4,8 +4,8 @@ import { getMetaSpendForRange } from '@/lib/meta/queries'
 
 export const dynamic = 'force-dynamic'
 
-function toISO(d: Date) {
-  return d.toISOString().split('T')[0]
+function isoInTZ(d: Date, tz: string) {
+  return d.toLocaleDateString('sv', { timeZone: tz })
 }
 
 function mkKpi(id: string, value: number, prev: number, isPositiveUp: boolean) {
@@ -85,8 +85,8 @@ export async function GET(req: NextRequest) {
   const [curr, prev, currSpend, prevSpend] = await Promise.allSettled([
     getOrderKpisForRange(fromDate, toDate),
     getOrderKpisForRange(prevFromDate, prevToDate),
-    getMetaSpendForRange(fromDate, toDate),
-    getMetaSpendForRange(prevFromDate, prevToDate),
+    getMetaSpendForRange(fromDate, toDate, tz),
+    getMetaSpendForRange(prevFromDate, prevToDate, tz),
   ])
 
   const c = curr.status     === 'fulfilled' ? curr.value     : null
@@ -115,6 +115,6 @@ export async function GET(req: NextRequest) {
       aov:           mkKpi('aov',           cAov,      pAov,      true),
     },
     period:     { from, to },
-    compPeriod: { from: toISO(prevFromDate), to: toISO(prevToDate) },
+    compPeriod: { from: isoInTZ(prevFromDate, tz), to: isoInTZ(prevToDate, tz) },
   })
 }
