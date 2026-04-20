@@ -6,11 +6,7 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const data = await weshipFetch<WeShipProductsResponse>('/mapi/product/search')
-  // Return raw on_stock + outgoing_stock entries for the first real product
+  // Return the full raw object for the first real product so we can see every field
   const sample = data.rows?.find(p => p.sku)
-  return NextResponse.json({
-    sample_sku: sample?.sku,
-    on_stock_entries:       sample?.on_stock,
-    outgoing_stock_entries: sample?.outgoing_stock,
-  })
+  return NextResponse.json({ sample })
 }
