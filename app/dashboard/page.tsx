@@ -26,6 +26,10 @@ export default async function DashboardPage() {
       const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
       return { ...item, effectiveUnits, daysLeft, lastUntil }
     })
+    .filter((item) =>
+      item.effectiveUnits < item.reorder_threshold ||
+      (item.daysLeft !== null && item.daysLeft < 60)
+    )
 
   return (
     <main style={{ padding: '32px 40px' }}>
