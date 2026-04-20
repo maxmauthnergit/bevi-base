@@ -7,6 +7,41 @@
 //   WESHIP_USERNAME
 //   WESHIP_PASSWORD
 
+import https from 'https'
+import http  from 'http'
+
+// Node's native fetch rejects GET+body (per HTTP spec). WeShip requires a body
+// even on GET requests, so we bypass fetch entirely with https.request.
+function nodeRequest(url: string, method: string, headers: Record<string, string>, body: string): Promise<{ ok: boolean; status: number; json(): Promise<unknown> }> {
+  return new Promise((resolve, reject) => {
+    const u   = new URL(url)
+    const mod = u.protocol === 'https:' ? https : http
+    const buf = Buffer.from(body, 'utf-8')
+
+    const req = mod.request({
+      hostname: u.hostname,
+      port:     u.port || (u.protocol === 'https:' ? 443 : 80),
+      path:     u.pathname + u.search,
+      method,
+      headers:  { ...headers, 'Content-Length': buf.length },
+    }, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', c => chunks.push(c as Buffer))
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf-8')
+        resolve({
+          ok:     (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
+          status: res.statusCode ?? 0,
+          json:   () => Promise.resolve(JSON.parse(text)),
+        })
+      })
+    })
+    req.on('error', reject)
+    req.write(buf)
+    req.end()
+  })
+}
+
 function getWeShipConfig() {
   const baseUrl  = process.env.WESHIP_BASE_URL
   const username = process.env.WESHIP_USERNAME
@@ -32,17 +67,13 @@ async function getToken(): Promise<string> {
 
   const { baseUrl, username, password } = getWeShipConfig()
 
-  const res = await fetch(`${baseUrl}/mapi/public/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user: username, password }),
-    cache: 'no-store',
-  })
+  const res = await nodeRequest(
+    `${baseUrl}/mapi/public/auth/login`, 'POST',
+    { 'Content-Type': 'application/json' },
+    JSON.stringify({ user: username, password })
+  )
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`WeShip login failed ${res.status}: ${text}`)
-  }
+  if (!res.ok) throw new Error(`WeShip login failed ${res.status}`)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await res.json() as Record<string, any>
@@ -65,31 +96,19 @@ async function getToken(): Promise<string> {
 
 export async function weshipFetch<T>(
   path: string,
-  options: RequestInit & { next?: { revalidate?: number } } = {}
+  options: { method?: string; body?: string; next?: { revalidate?: number } } = {}
 ): Promise<T> {
   const { baseUrl } = getWeShipConfig()
   const token = await getToken()
 
-  const { next, ...rest } = options
+  const res = await nodeRequest(
+    `${baseUrl}${path}`,
+    options.method ?? 'GET',
+    { 'Content-Type': 'application/json', Cookie: `session_id=${token}` },
+    options.body ?? JSON.stringify({})
+  )
 
-  const res = await fetch(`${baseUrl}${path}`, {
-    ...rest,
-    method: rest.method ?? 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      // Try both common auth header formats — server accepts whichever it knows
-      Cookie: `session_id=${token}`,
-      ...(rest.headers ?? {}),
-    },
-    // WeShip requires a body on every request, even GET
-    body: rest.body ?? JSON.stringify({}),
-    next: next ?? { revalidate: 0 },
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`WeShip API error ${res.status}: ${text}`)
-  }
+  if (!res.ok) throw new Error(`WeShip API error ${res.status}`)
 
   return res.json() as Promise<T>
 }
