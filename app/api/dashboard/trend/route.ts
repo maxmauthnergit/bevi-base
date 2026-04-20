@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTrendDataForMonth, getTrendDataForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getDailySpendForRange } from '@/lib/meta/queries'
+import { createServerClient } from '@/lib/supabase'
+import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +13,20 @@ function mergeMetaSpend(shopifyDays: Awaited<ReturnType<typeof getTrendDataForRa
   })
 }
 
+async function loadAmountsMap() {
+  try {
+    const client = createServerClient()
+    const { data } = await client.storage
+      .from('weship-invoices')
+      .download('config/production-costs.json')
+    if (data) {
+      const overrides = JSON.parse(await data.text()) as Record<string, Record<string, number>>
+      return buildAmountsMap(applyOverrides(overrides))
+    }
+  } catch { /* fall through */ }
+  return buildAmountsMap(DEFAULT_PRODUCT_COSTS)
+}
+
 export async function GET(req: NextRequest) {
   const sp   = req.nextUrl.searchParams
   const from = sp.get('from')
@@ -18,12 +34,12 @@ export async function GET(req: NextRequest) {
 
   // Date-range mode (used by dashboard with DateRangeBar)
   if (from && to) {
-    const tz       = await getShopTimezone()
+    const [tz, amountsMap] = await Promise.all([getShopTimezone(), loadAmountsMap()])
     const fromDate = parseInTimezone(from, '00:00:00', tz)
     const toDate   = parseInTimezone(to,   '23:59:59', tz)
 
     const [shopifyDays, metaSpend] = await Promise.all([
-      getTrendDataForRange(fromDate, toDate).catch(() => null),
+      getTrendDataForRange(fromDate, toDate, amountsMap).catch(() => null),
       getDailySpendForRange(fromDate, toDate, tz).catch(() => null),
     ])
 
@@ -43,9 +59,11 @@ export async function GET(req: NextRequest) {
   const fromDate = new Date(year, month - 1, 1)
   const toDate   = new Date(year, month, 0, 23, 59, 59)
 
+  const [amountsMap, tz] = await Promise.all([loadAmountsMap(), getShopTimezone()])
+
   const [shopifyDays, metaSpend] = await Promise.all([
-    getTrendDataForMonth(year, month).catch(() => null),
-    getDailySpendForRange(fromDate, toDate).catch(() => null),
+    getTrendDataForMonth(year, month, amountsMap).catch(() => null),
+    getDailySpendForRange(fromDate, toDate, tz).catch(() => null),
   ])
 
   if (!shopifyDays) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })

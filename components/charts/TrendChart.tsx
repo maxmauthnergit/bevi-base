@@ -9,11 +9,20 @@ import {
 
 const PRICE_CHANGE_DATE = '2026-03-27'
 
+// ─── Color palette ────────────────────────────────────────────────────────────
+const C = {
+  revenueGross: '#7BB8B8',
+  revenueNet:   '#1FA8A8',
+  adSpend:      '#5175B0',
+  cogs:         '#BF6035',
+  cm:           '#17C9B0',
+}
+
 const TOGGLES = [
-  { key: 'revenue_gross', label: 'Revenue (Gross)', color: '#7DEFEF' },
-  { key: 'revenue_net',   label: 'Revenue (Net)',   color: '#5BBCBC' },
-  { key: 'cogs',          label: 'COGS',            color: '#FF8C42' },
-  { key: 'meta_spend',    label: 'Ad Spend',        color: '#6B8FD4' },
+  { key: 'revenue_gross', label: 'Revenue (Gross)', color: C.revenueGross },
+  { key: 'revenue_net',   label: 'Revenue (Net)',   color: C.revenueNet   },
+  { key: 'cogs',          label: 'COGS',            color: C.cogs         },
+  { key: 'meta_spend',    label: 'Ad Spend',        color: C.adSpend      },
 ] as const
 
 type ToggleKey = (typeof TOGGLES)[number]['key']
@@ -27,9 +36,10 @@ interface TrendPoint {
 }
 
 interface ChartPoint extends TrendPoint {
-  _ad_spend: number
-  _cogs: number
-  _cm: number
+  _ad_spend:  number
+  _cogs:      number
+  _cm:        number
+  _cm_actual: number
 }
 
 function fmtEur(v: number) {
@@ -44,35 +54,56 @@ function formatDateLabel(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })
 }
 
-const DATAKEY_LABELS: Record<string, { label: string; color: string }> = {
-  revenue_gross: { label: 'Revenue (Gross)', color: '#7DEFEF' },
-  revenue_net:   { label: 'Revenue (Net)',   color: '#5BBCBC' },
-  _ad_spend:     { label: 'Ad Spend',        color: '#6B8FD4' },
-  _cogs:         { label: 'COGS',            color: '#FF8C42' },
-  _cm:           { label: 'Contribution Margin', color: '#7DEFEF' },
-}
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const entries = payload.filter((e: any) => e.value !== 0 && DATAKEY_LABELS[e.dataKey])
+  const d: ChartPoint = payload[0].payload
+  const payloadKeys   = new Set(payload.map((p: { dataKey: string }) => p.dataKey))
+
+  const F = 'Gustavo'
+  const row = (lbl: string, val: number, color: string, bold = false, large = false) => (
+    <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 28, marginBottom: 2 }}>
+      <span style={{ fontFamily: `'${F}', sans-serif`, fontSize: large ? '0.8125rem' : '0.72rem', color, fontWeight: bold ? 700 : 400 }}>
+        {lbl}
+      </span>
+      <span style={{ fontFamily: `'${F}', sans-serif`, fontSize: large ? '0.8125rem' : '0.72rem', color, fontWeight: bold ? 700 : 400, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+        {fmtEur(val)}
+      </span>
+    </div>
+  )
+  const sep = (margin = '5px 0') => <div style={{ borderTop: '1px solid #E8E7E2', margin }} />
+
   return (
     <div style={{
-      backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
-      borderRadius: 10, padding: '10px 14px', fontSize: '0.75rem',
-      fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
+      backgroundColor: '#FAFAF8', border: '1px solid #E3E2DC',
+      borderRadius: 10, padding: '10px 14px', minWidth: 210,
       boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
     }}>
-      <p style={{ color: '#9E9D98', marginBottom: 6, fontSize: '0.6875rem' }}>{formatDateLabel(label)}</p>
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {entries.map((entry: any, i: number) => {
-        const def = DATAKEY_LABELS[entry.dataKey]
-        return <p key={i} style={{ color: def.color, marginBottom: 2 }}>{def.label}: {fmtEur(entry.value)}</p>
-      })}
+      <p style={{ color: '#9E9D98', marginBottom: 8, fontSize: '0.6875rem', fontFamily: `'${F}', sans-serif` }}>
+        {formatDateLabel(label)}
+      </p>
+
+      {/* Revenue lines — top context */}
+      {payloadKeys.has('revenue_gross') && row('Revenue (Gross)', d.revenue_gross, C.revenueGross)}
+      {payloadKeys.has('revenue_net')   && row('Revenue (Net)',   d.revenue_net,   C.revenueNet)}
+
+      {sep()}
+
+      {/* Costs — bottom to top of stack */}
+      {d._ad_spend > 0 && row('Ad Spend', d._ad_spend, C.adSpend)}
+      {d._cogs     > 0 && row('COGS',     d._cogs,     C.cogs)}
+
+      {sep('6px 0')}
+
+      {/* CM — always show, emphasized */}
+      {row('Contribution Margin', d._cm_actual, C.cm, true, true)}
     </div>
   )
 }
+
+// ─── Chart ────────────────────────────────────────────────────────────────────
 
 export function TrendChart() {
   const { range } = useDateRange()
@@ -99,10 +130,11 @@ export function TrendChart() {
   }, [fromStr, toStr])
 
   const chartData: ChartPoint[] = data.map((d) => {
-    const adSpend = visible.meta_spend ? d.meta_spend : 0
-    const cogs    = visible.cogs       ? d.cogs       : 0
-    const cm      = visible.revenue_net ? Math.max(0, d.revenue_net - adSpend - cogs) : 0
-    return { ...d, _ad_spend: adSpend, _cogs: cogs, _cm: cm }
+    const adSpend   = visible.meta_spend ? d.meta_spend : 0
+    const cogs      = visible.cogs       ? d.cogs       : 0
+    const cm        = visible.revenue_net ? Math.max(0, d.revenue_net - adSpend - cogs) : 0
+    const cmActual  = d.revenue_net - d.meta_spend - d.cogs
+    return { ...d, _ad_spend: adSpend, _cogs: cogs, _cm: cm, _cm_actual: cmActual }
   })
 
   const maxVal = Math.max(
@@ -124,7 +156,7 @@ export function TrendChart() {
 
   return (
     <div>
-      {/* Toggles only */}
+      {/* Toggles */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 6, flexWrap: 'wrap' }}>
         {TOGGLES.map(t => (
           <button
@@ -132,8 +164,8 @@ export function TrendChart() {
             onClick={() => setVisible(v => ({ ...v, [t.key]: !v[t.key] }))}
             style={{
               background: 'none',
-              border: `1px solid ${visible[t.key] ? t.color : '#252525'}`,
-              borderRadius: 3, color: visible[t.key] ? t.color : '#333',
+              border: `1px solid ${visible[t.key] ? t.color : '#2E2E2E'}`,
+              borderRadius: 3, color: visible[t.key] ? t.color : '#444',
               cursor: 'pointer', fontSize: '0.5625rem',
               fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
               letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 8px',
@@ -153,12 +185,12 @@ export function TrendChart() {
           <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradAdSpend" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3b5998" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#3b5998" stopOpacity={0.6} />
+                <stop offset="0%" stopColor={C.adSpend} stopOpacity={0.90} />
+                <stop offset="100%" stopColor={C.adSpend} stopOpacity={0.65} />
               </linearGradient>
               <linearGradient id="gradCogs" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FF8C42" stopOpacity={0.85} />
-                <stop offset="100%" stopColor="#FF8C42" stopOpacity={0.5} />
+                <stop offset="0%" stopColor={C.cogs} stopOpacity={0.88} />
+                <stop offset="100%" stopColor={C.cogs} stopOpacity={0.60} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="4 4" stroke="#EDECEA" vertical={false} />
@@ -174,17 +206,21 @@ export function TrendChart() {
                 label={{ value: 'price ↑', position: 'insideTopRight', fill: '#444', fontSize: 9,
                   fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }} />
             )}
+            {/* Stacked areas — bottom to top: ad spend → cogs → CM */}
             <Area type="monotone" dataKey="_ad_spend" stackId="a" fill="url(#gradAdSpend)" stroke="none" isAnimationActive={false} />
             <Area type="monotone" dataKey="_cogs"     stackId="a" fill="url(#gradCogs)"    stroke="none" isAnimationActive={false} />
-            <Area type="monotone" dataKey="_cm"       stackId="a" fill="#7DEFEF" fillOpacity={0.18} stroke="none" isAnimationActive={false} />
+            <Area type="monotone" dataKey="_cm"       stackId="a"
+              fill={C.cm} fillOpacity={0.22} stroke={C.cm} strokeWidth={1} strokeOpacity={0.5}
+              isAnimationActive={false} />
+            {/* Revenue lines */}
             {visible.revenue_net && (
-              <Line type="monotone" dataKey="revenue_net" stroke="#7DEFEF" strokeWidth={1.5}
-                dot={false} activeDot={{ r: 3, fill: '#7DEFEF' }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="revenue_net" stroke={C.revenueNet} strokeWidth={1.5}
+                dot={false} activeDot={{ r: 3, fill: C.revenueNet }} isAnimationActive={false} />
             )}
             {visible.revenue_gross && (
-              <Line type="monotone" dataKey="revenue_gross" stroke="#7DEFEF" strokeWidth={1}
-                strokeDasharray="4 3" strokeOpacity={0.5} dot={false}
-                activeDot={{ r: 3, fill: '#7DEFEF' }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="revenue_gross" stroke={C.revenueGross} strokeWidth={1}
+                strokeDasharray="4 3" strokeOpacity={0.6} dot={false}
+                activeDot={{ r: 3, fill: C.revenueGross }} isAnimationActive={false} />
             )}
           </ComposedChart>
         </ResponsiveContainer>

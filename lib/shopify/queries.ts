@@ -196,9 +196,44 @@ export async function getOrderKpisForRange(from: Date, to: Date) {
   return computeMetrics(orders)
 }
 
+// ─── Per-unit cost rates used for trend COGS ─────────────────────────────────
+// manufacturing/ib_shipping are fallbacks — overridden by amountsMap from Supabase config.
+// weship/shipping are always used as estimates (no XLSX lookup in trend context).
+
+const PRODUCT_RATES: [string, { manufacturing: number; ib_shipping: number; weship: number; shipping: number }][] = [
+  ['squad',         { manufacturing: 27.03, ib_shipping: 11.67, weship: 4.20, shipping: 5.40 }],
+  ['bundle l',      { manufacturing: 11.20, ib_shipping:  5.35, weship: 3.89, shipping: 5.40 }],
+  ['bundle m',      { manufacturing: 10.76, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
+  ['bundle s',      { manufacturing:  9.45, ib_shipping:  3.89, weship: 3.50, shipping: 5.40 }],
+  ['full set',      { manufacturing:  9.01, ib_shipping:  3.89, weship: 3.04, shipping: 5.40 }],
+  ['water bladder', { manufacturing:  2.53, ib_shipping:  0.40, weship: 3.05, shipping: 2.50 }],
+  ['cleaning kit',  { manufacturing:  1.75, ib_shipping:  1.46, weship: 3.05, shipping: 5.40 }],
+  ['phone strap',   { manufacturing:  0.33, ib_shipping:  0.11, weship: 3.04, shipping: 2.50 }],
+]
+
+function getUnitCostTotal(
+  title: string,
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }>,
+): number {
+  const t = title.toLowerCase()
+  for (const [key, defaults] of PRODUCT_RATES) {
+    if (t.includes(key)) {
+      const ov  = amountsMap.get(key)
+      const mfg = ov?.manufacturing ?? defaults.manufacturing
+      const ib  = ov?.ib_shipping   ?? defaults.ib_shipping
+      return mfg + ib + defaults.weship + defaults.shipping
+    }
+  }
+  return 0
+}
+
 // ─── Daily trend for an arbitrary date range (used by /api/dashboard/trend) ──
 
-export async function getTrendDataForRange(from: Date, to: Date): Promise<TrendPoint[]> {
+export async function getTrendDataForRange(
+  from: Date,
+  to: Date,
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }> = new Map(),
+): Promise<TrendPoint[]> {
   const orders = await getOrdersInRange(from, to)
 
   const byDate = new Map<string, { gross: number; tax: number; cogs: number }>()
@@ -214,9 +249,12 @@ export async function getTrendDataForRange(from: Date, to: Date): Promise<TrendP
     const date  = order.created_at.split('T')[0]
     const entry = byDate.get(date)
     if (!entry) continue
-    entry.gross += toFloat(order.total_price)
+    const gross = toFloat(order.total_price)
+    entry.gross += gross
     entry.tax   += toFloat(order.total_tax)
-    for (const li of order.line_items) entry.cogs += getUnitCogs(li.title) * li.quantity
+    let cogs = 0.02 * gross + 0.25  // payment fee
+    for (const li of order.line_items) cogs += getUnitCostTotal(li.title, amountsMap) * li.quantity
+    entry.cogs += cogs
   }
 
   const today = isoDate(new Date())
@@ -231,44 +269,26 @@ export async function getTrendDataForRange(from: Date, to: Date): Promise<TrendP
     }))
 }
 
-// Prices valid from launch; selling price changed 2026-03-27 but COGS unchanged.
-
-const UNIT_COGS: [string, number][] = [
-  ['squad',    52.13],
-  ['bundle l', 28.49],
-  ['bundle m', 26.00],
-  ['bundle s', 24.58],
-  ['full set', 23.59],
-]
-
-function getUnitCogs(productTitle: string): number {
-  const t = productTitle.toLowerCase()
-  for (const [key, cost] of UNIT_COGS) {
-    if (t.includes(key)) return cost
-  }
-  return 0
-}
-
 // ─── Trend data for a specific calendar month ─────────────────────────────────
 
 export interface TrendPoint {
   date: string
   revenue_gross: number
-  revenue_net: number   // gross minus actual tax
-  cogs: number          // sum of unit COGS × quantity per day
+  revenue_net: number
+  cogs: number
   meta_spend: number    // merged externally by API route
 }
 
 export async function getTrendDataForMonth(
   year: number,
-  month: number
+  month: number,
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }> = new Map(),
 ): Promise<TrendPoint[]> {
   const from = new Date(year, month - 1, 1)
-  const to   = new Date(year, month, 0, 23, 59, 59) // last day of month
+  const to   = new Date(year, month, 0, 23, 59, 59)
 
   const orders = await getOrdersInRange(from, to)
 
-  // Seed all days of the month
   const byDate = new Map<string, { gross: number; tax: number; cogs: number }>()
   const daysInMonth = new Date(year, month, 0).getDate()
   for (let d = 1; d <= daysInMonth; d++) {
@@ -281,17 +301,17 @@ export async function getTrendDataForMonth(
     const date  = order.created_at.split('T')[0]
     const entry = byDate.get(date)
     if (!entry) continue
-    entry.gross += toFloat(order.total_price)
+    const gross = toFloat(order.total_price)
+    entry.gross += gross
     entry.tax   += toFloat(order.total_tax)
-    for (const li of order.line_items) {
-      entry.cogs += getUnitCogs(li.title) * li.quantity
-    }
+    let cogs = 0.02 * gross + 0.25
+    for (const li of order.line_items) cogs += getUnitCostTotal(li.title, amountsMap) * li.quantity
+    entry.cogs += cogs
   }
 
   const today = isoDate(new Date())
-
   return Array.from(byDate.entries())
-    .filter(([date]) => date <= today)   // exclude future days in current month
+    .filter(([date]) => date <= today)
     .map(([date, d]) => ({
       date,
       revenue_gross: Math.round(d.gross * 100) / 100,
