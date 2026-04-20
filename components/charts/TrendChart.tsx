@@ -11,7 +11,7 @@ const PRICE_CHANGE_DATE = '2026-03-27'
 
 // ─── Color palette ────────────────────────────────────────────────────────────
 const C = {
-  revenueGross: '#111110',
+  revenueGross: '#C4973A',
   revenueNet:   '#1FA8A8',
   adSpend:      '#5175B0',
   cogs:         '#BF6035',
@@ -74,15 +74,15 @@ function CustomTooltip({ active, payload, label }: any) {
       </span>
     </div>
   )
-  const sep = (margin = '5px 0') => <div style={{ borderTop: '1px solid #E8E7E2', margin }} />
+  const sep = (margin = '5px 0') => <div style={{ height: 1, backgroundColor: '#2A2A28', margin }} />
 
   return (
     <div style={{
-      backgroundColor: '#FAFAF8', border: '1px solid #E3E2DC',
+      backgroundColor: '#1C1C1A',
       borderRadius: 10, padding: '10px 14px', minWidth: 210,
-      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+      boxShadow: '0 8px 28px rgba(0,0,0,0.25)',
     }}>
-      <p style={{ color: '#9E9D98', marginBottom: 8, fontSize: '0.6875rem', fontFamily: `'${F}', sans-serif` }}>
+      <p style={{ color: '#6B6A64', marginBottom: 8, fontSize: '0.6875rem', fontFamily: `'${F}', sans-serif` }}>
         {formatDateLabel(label)}
       </p>
 
