@@ -278,100 +278,115 @@ export default function FinancialsPage() {
           {forecastLoading ? (
             <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>Loading…</span>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            // 3-column grid: name | due date | amount — "Due" always starts at the same column
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr max-content max-content', columnGap: 20, alignItems: 'center' }}>
 
               {/* WeShip */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                    WeShip · {currentMonthLabel}
-                  </span>
-                  <WithTip tip={
-                    <div>
-                      <TipRow label="Orders this month" value={weshipOrderCount !== null ? String(weshipOrderCount) : '—'} />
-                      <TipDivider />
-                      <TipRow label="Fulfillment fees" value={weshipFees !== null ? formatEur(weshipFees) : '—'} />
-                      <TipRow label="Shipping costs" value={weshipShipping !== null ? formatEur(weshipShipping) : '—'} />
-                      <TipDivider />
-                      <TipRow label="Total" value={weshipTotal !== null ? formatEur(weshipTotal) : '—'} total />
-                    </div>
-                  }>
-                    <span style={amountStyle}>
-                      {weshipTotal !== null ? formatEur(weshipTotal) : '—'}
-                    </span>
-                  </WithTip>
-                </div>
-                <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
-                  Due: First week of {nextMonthLabel}
-                </span>
+              <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110', padding: '10px 0' }}>
+                WeShip · {currentMonthLabel}
+              </span>
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
+                Due: First week of {nextMonthLabel}
+              </span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <WithTip tip={
+                  <div>
+                    <TipRow label="Orders this month" value={weshipOrderCount !== null ? String(weshipOrderCount) : '—'} />
+                    <TipDivider />
+                    <TipRow label="Fulfillment fees" value={weshipFees !== null ? formatEur(weshipFees) : '—'} />
+                    <TipRow label="Shipping costs" value={weshipShipping !== null ? formatEur(weshipShipping) : '—'} />
+                    <TipDivider />
+                    <TipRow label="Total" value={weshipTotal !== null ? formatEur(weshipTotal) : '—'} total />
+                  </div>
+                }>
+                  <span style={amountStyle}>{weshipTotal !== null ? formatEur(weshipTotal) : '—'}</span>
+                </WithTip>
               </div>
 
-              <div style={{ borderTop: '1px solid #F0EFE9' }} />
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #F0EFE9' }} />
 
               {/* VAT */}
-              {taxQuarter && (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                    <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                      VAT {taxQuarter.label} · {taxQuarter.period} {taxQuarter.year}
-                    </span>
-                    <WithTip tip={
-                      <div>
-                        <TipRow label="Period" value={`${taxQuarter.period} ${taxQuarter.year}`} />
-                        <TipRow label="Orders in period" value={taxOrderCount !== null ? String(taxOrderCount) : '—'} />
-                        <TipDivider />
-                        <TipRow label="Revenue tax collected" value={taxTotal !== null ? formatEur(taxTotal) : '—'} total />
-                      </div>
-                    }>
-                      <span style={amountStyle}>
-                        {taxTotal !== null ? formatEur(taxTotal) : '—'}
-                      </span>
-                    </WithTip>
-                  </div>
-                  <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
-                    Due: {taxQuarter.due.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </span>
-                </div>
-              )}
-
-              <div style={{ borderTop: '1px solid #F0EFE9' }} />
-
-              {/* Meta Ads — predicted from PayPal Europe bank transactions */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                  <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110' }}>
-                    Meta Ads · Ongoing
-                  </span>
+              {taxQuarter && (<>
+                <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110', padding: '10px 0' }}>
+                  VAT {taxQuarter.label} · {taxQuarter.period} {taxQuarter.year}
+                </span>
+                <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
+                  Due: {taxQuarter.due.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <WithTip tip={
                     <div>
-                      <TipRow label="Window" value="Last 30 days" />
-                      <TipRow label="Matched payments" value={String(metaPayments.length)} />
-                      {metaPayments.length >= 2 && (
-                        <>
-                          <TipDivider />
-                          <TipRow label="Avg interval" value={`${metaAvgInterval} days`} />
-                          <TipRow label="Last payment" value={metaPayments[metaPayments.length - 1].date} />
-                          <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                          <TipDivider />
-                          <TipRow label="Predicted amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} total />
-                        </>
-                      )}
+                      <TipRow label="Period" value={`${taxQuarter.period} ${taxQuarter.year}`} />
+                      <TipRow label="Orders in period" value={taxOrderCount !== null ? String(taxOrderCount) : '—'} />
+                      <TipDivider />
+                      <TipRow label="Revenue tax collected" value={taxTotal !== null ? formatEur(taxTotal) : '—'} total />
                     </div>
                   }>
-                    <span style={amountStyle}>
-                      {txnLoading ? '—' : metaNextAmount !== null ? formatEur(metaNextAmount) : '—'}
-                    </span>
+                    <span style={amountStyle}>{taxTotal !== null ? formatEur(taxTotal) : '—'}</span>
                   </WithTip>
                 </div>
-                <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
-                  {txnLoading
-                    ? 'Loading…'
-                    : metaPayments.length >= 2
-                      ? `Due: ${(metaNextDate! < today ? today : metaNextDate!).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                      : metaPayments.length === 1
-                        ? 'Only 1 payment found — interval unknown'
-                        : 'No Meta payments found in last 30 days'}
-                </span>
+
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #F0EFE9' }} />
+              </>)}
+
+              {/* Körperschaftsteuer K 04–06/2026 */}
+              <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110', padding: '10px 0' }}>
+                Körperschaftsteuer K 04–06/2026
+              </span>
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
+                Due: 15 May 2026
+              </span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <WithTip tip={
+                  <div>
+                    <TipRow label="Abgabenart" value="K 04-06/2026" />
+                    <TipRow label="Betrag" value="EUR 125,00" />
+                    <TipDivider />
+                    <TipRow label="Kto.-Nr." value="68 895/7588" />
+                    <TipRow label="IBAN" value="AT12 0100 0000 0553 4681" />
+                    <TipRow label="BIC" value="BUNDATWW" />
+                  </div>
+                }>
+                  <span style={amountStyle}>125,00 €</span>
+                </WithTip>
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #F0EFE9' }} />
+
+              {/* Meta Ads — predicted from PayPal Europe bank transactions */}
+              <span style={{ fontFamily: G, fontSize: '0.8125rem', fontWeight: 600, color: '#111110', padding: '10px 0' }}>
+                Meta Ads · Ongoing
+              </span>
+              <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
+                {txnLoading
+                  ? '—'
+                  : metaPayments.length >= 2
+                    ? `Due: ${(metaNextDate! < today ? today : metaNextDate!).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                    : metaPayments.length === 1
+                      ? 'Interval unknown'
+                      : 'No payments found'}
+              </span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <WithTip tip={
+                  <div>
+                    <TipRow label="Window" value="Last 30 days" />
+                    <TipRow label="Matched payments" value={String(metaPayments.length)} />
+                    {metaPayments.length >= 2 && (
+                      <>
+                        <TipDivider />
+                        <TipRow label="Avg interval" value={`${metaAvgInterval} days`} />
+                        <TipRow label="Last payment" value={metaPayments[metaPayments.length - 1].date} />
+                        <TipRow label="Next predicted" value={metaNextDate ? metaNextDate.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
+                        <TipDivider />
+                        <TipRow label="Predicted amount" value={metaNextAmount !== null ? formatEur(metaNextAmount) : '—'} total />
+                      </>
+                    )}
+                  </div>
+                }>
+                  <span style={amountStyle}>
+                    {txnLoading ? '—' : metaNextAmount !== null ? formatEur(metaNextAmount) : '—'}
+                  </span>
+                </WithTip>
               </div>
 
             </div>
