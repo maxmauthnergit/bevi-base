@@ -97,7 +97,7 @@ export function SalesMonthlyCharts() {
   return (
     <div style={CARD}>
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 20 }}>
         <span className="label">Revenue Gross / Month</span>
         <span className="label">Orders / Month</span>
       </div>
@@ -120,7 +120,7 @@ export function SalesMonthlyCharts() {
           const label  = monthLabel(d.month)
 
           return (
-            <div key={d.month} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+            <div key={d.month} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
               {/* Revenue */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -75,8 +75,8 @@ function BreakdownCard({
 }) {
   return (
     <div style={CARD}>
-      <span className="label" style={{ display: 'block', marginBottom: 16 }}>{title}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span className="label" style={{ display: 'block', marginBottom: 20 }}>{title}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {children}
       </div>
     </div>
