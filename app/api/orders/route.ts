@@ -71,7 +71,7 @@ function compositionKey(lineItems: ShopifyOrder['line_items']): string {
 const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'total_tax', 'total_discounts',
   'financial_status', 'fulfillment_status', 'cancel_reason', 'cancelled_at',
-  'line_items', 'shipping_address', 'billing_address',
+  'refunds', 'line_items', 'shipping_address', 'billing_address',
 ].join(',')
 
 
@@ -213,10 +213,16 @@ export async function GET(req: NextRequest) {
   const rows: OrderRow[] = rawOrders
     .filter(o => !o.cancelled_at && o.financial_status !== 'voided')
     .map(o => {
-      const gross    = parseFloat(o.total_price)     || 0
-      const tax      = parseFloat(o.total_tax)       || 0
-      const net      = gross - tax
-      const discount = parseFloat(o.total_discounts) || 0
+      const grossRaw  = parseFloat(o.total_price)     || 0
+      const taxRaw    = parseFloat(o.total_tax)       || 0
+      const discount  = parseFloat(o.total_discounts) || 0
+      const refundAmt = (o.refunds ?? [])
+        .flatMap(r => r.transactions ?? [])
+        .filter(t => t.kind === 'refund' && t.status === 'success')
+        .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+      const gross = grossRaw - refundAmt
+      const tax   = grossRaw > 0 ? taxRaw * (gross / grossRaw) : 0
+      const net   = gross - tax
 
       // Production COGS (always computed from config)
       let est_manufacturing = 0
