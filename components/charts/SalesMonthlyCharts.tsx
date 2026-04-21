@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 
 interface MonthData {
-  month: string        // "YYYY-MM"
+  month: string
   revenue_gross: number
   orders: number
 }
@@ -31,13 +31,15 @@ function monthLabel(month: string) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' })
 }
 
+// Newest first; year separator before the first month of each older year
 function buildRows(data: MonthData[]): RowItem[] {
+  const reversed = [...data].reverse()
   const rows: RowItem[] = []
   let lastYear: number | null = null
-  for (const d of data) {
+  for (const d of reversed) {
     const year = parseInt(d.month.slice(0, 4), 10)
     if (year !== lastYear) {
-      rows.push({ type: 'year', year })
+      if (lastYear !== null) rows.push({ type: 'year', year })
       lastYear = year
     }
     rows.push({ type: 'data', data: d })
@@ -45,101 +47,27 @@ function buildRows(data: MonthData[]): RowItem[] {
   return rows
 }
 
-function YearSeparator({ year }: { year: number }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 2px' }}>
-      <span className="label" style={{ color: '#C7C6C0', flexShrink: 0 }}>{year}</span>
-      <div style={{ flex: 1, height: 1, backgroundColor: '#E3E2DC' }} />
-    </div>
-  )
-}
-
-function BarRow({
-  label,
-  value,
-  formatted,
-  maxValue,
-  color,
-}: {
-  label: string
-  value: number
-  formatted: string
-  maxValue: number
-  color: string
-}) {
-  const pct = maxValue > 0 ? (value / maxValue) * 100 : 0
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span className="label">{label}</span>
-        <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
-          {formatted}
-        </span>
-      </div>
-      <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>
-        <div style={{
-          position: 'absolute', left: 0, top: 0,
-          height: '100%', width: `${pct}%`,
-          backgroundColor: color, borderRadius: 2, opacity: 0.65,
-          transition: 'width 0.3s ease',
-        }} />
-      </div>
-    </div>
-  )
-}
-
-function Section({
-  label,
-  rows,
-  valueKey,
-  maxValue,
-  color,
-  fmt,
-  showAll,
-}: {
-  label: string
-  rows: RowItem[]
-  valueKey: 'revenue_gross' | 'orders'
-  maxValue: number
-  color: string
-  fmt: (v: number) => string
-  showAll: boolean
-}) {
-  // Trim to DEFAULT_VISIBLE data rows when collapsed
-  let visible: RowItem[]
-  if (showAll) {
-    visible = rows
-  } else {
-    let dataCount = 0
-    visible = []
-    for (const row of rows) {
-      if (row.type === 'data') {
-        if (dataCount >= DEFAULT_VISIBLE) break
-        dataCount++
-      }
-      visible.push(row)
+function trimRows(rows: RowItem[], max: number): RowItem[] {
+  const result: RowItem[] = []
+  let dataCount = 0
+  for (const row of rows) {
+    if (row.type === 'data') {
+      if (dataCount >= max) break
+      dataCount++
     }
+    result.push(row)
   }
+  return result
+}
 
+function Bar({ pct, color }: { pct: number; color: string }) {
   return (
-    <div>
-      <span className="label" style={{ display: 'block', marginBottom: 12 }}>{label}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {visible.map((row, i) =>
-          row.type === 'year'
-            ? <YearSeparator key={`y-${row.year}`} year={row.year} />
-            : (
-              <BarRow
-                key={row.data.month}
-                label={monthLabel(row.data.month)}
-                value={row.data[valueKey]}
-                formatted={fmt(row.data[valueKey])}
-                maxValue={maxValue}
-                color={color}
-              />
-            )
-        )}
-      </div>
+    <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>
+      <div style={{
+        position: 'absolute', left: 0, top: 0, height: '100%',
+        width: `${pct}%`, backgroundColor: color, borderRadius: 2, opacity: 0.65,
+        transition: 'width 0.3s ease',
+      }} />
     </div>
   )
 }
@@ -157,53 +85,77 @@ export function SalesMonthlyCharts() {
   }, [])
 
   if (loading) {
-    return <div style={{ ...CARD, height: 240, opacity: 0.4 }} />
+    return <div style={{ ...CARD, height: 200, opacity: 0.4 }} />
   }
 
-  const rows       = buildRows(data)
+  const allRows    = buildRows(data)
+  const rows       = showAll ? allRows : trimRows(allRows, DEFAULT_VISIBLE)
   const maxRevenue = Math.max(...data.map(d => d.revenue_gross), 1)
   const maxOrders  = Math.max(...data.map(d => d.orders), 1)
   const hasMore    = data.length > DEFAULT_VISIBLE
 
   return (
     <div style={CARD}>
-      <Section
-        label="Revenue Gross / Month"
-        rows={rows}
-        valueKey="revenue_gross"
-        maxValue={maxRevenue}
-        color="#1FA8A8"
-        fmt={fmtEur}
-        showAll={showAll}
-      />
+      {/* Column headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 12 }}>
+        <span className="label">Revenue Gross / Month</span>
+        <span className="label">Orders / Month</span>
+      </div>
 
-      <div style={{ height: 1, backgroundColor: '#E3E2DC', margin: '20px 0' }} />
+      {/* Rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map((row, i) => {
+          if (row.type === 'year') {
+            return (
+              <div key={`y-${row.year}`} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '2px 0' }}>
+                <span className="label" style={{ color: '#C7C6C0', flexShrink: 0 }}>{row.year}</span>
+                <div style={{ flex: 1, height: 1, backgroundColor: '#E3E2DC' }} />
+              </div>
+            )
+          }
 
-      <Section
-        label="Orders / Month"
-        rows={rows}
-        valueKey="orders"
-        maxValue={maxOrders}
-        color="#C4973A"
-        fmt={v => String(v)}
-        showAll={showAll}
-      />
+          const d      = row.data
+          const revPct = (d.revenue_gross / maxRevenue) * 100
+          const ordPct = (d.orders / maxOrders) * 100
+          const label  = monthLabel(d.month)
+
+          return (
+            <div key={d.month} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              {/* Revenue */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="label">{label}</span>
+                  <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#1FA8A8' }}>
+                    {fmtEur(d.revenue_gross)}
+                  </span>
+                </div>
+                <Bar pct={revPct} color="#1FA8A8" />
+              </div>
+
+              {/* Orders */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="label">{label}</span>
+                  <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#C4973A' }}>
+                    {d.orders}
+                  </span>
+                </div>
+                <Bar pct={ordPct} color="#C4973A" />
+              </div>
+            </div>
+          )
+        })}
+      </div>
 
       {hasMore && (
         <button
           onClick={() => setShowAll(v => !v)}
           style={{
-            display: 'block',
-            marginTop: 16,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
+            display: 'block', marginTop: 16,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0,
             fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
-            fontSize: '0.625rem',
-            fontWeight: 500,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
+            fontSize: '0.625rem', fontWeight: 500,
+            letterSpacing: '0.12em', textTransform: 'uppercase',
             color: '#9E9D98',
           }}
         >
