@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTrendDataForMonth, getTrendDataForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
+import { getTrendDataForMonth, getTrendDataForRange, getTrendDataByHour, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getDailySpendForRange } from '@/lib/meta/queries'
 import { createServerClient } from '@/lib/supabase'
 import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
@@ -38,6 +38,13 @@ export async function GET(req: NextRequest) {
     const fromDate = parseInTimezone(from, '00:00:00', tz)
     const toDate   = parseInTimezone(to,   '23:59:59', tz)
 
+    // Single-day view → hourly granularity
+    if (from === to) {
+      const days = await getTrendDataByHour(fromDate, toDate, tz, amountsMap).catch(() => null)
+      if (!days) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })
+      return NextResponse.json({ from, to, granularity: 'hourly', days })
+    }
+
     const [shopifyDays, metaSpend] = await Promise.all([
       getTrendDataForRange(fromDate, toDate, amountsMap).catch(() => null),
       getDailySpendForRange(fromDate, toDate, tz).catch(() => null),
@@ -45,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     if (!shopifyDays) return NextResponse.json({ error: 'Shopify fetch failed' }, { status: 500 })
 
-    return NextResponse.json({ from, to, days: mergeMetaSpend(shopifyDays, metaSpend) })
+    return NextResponse.json({ from, to, granularity: 'daily', days: mergeMetaSpend(shopifyDays, metaSpend) })
   }
 
   // Legacy month mode (kept for other callers)

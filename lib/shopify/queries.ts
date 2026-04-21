@@ -269,6 +269,45 @@ export async function getTrendDataForRange(
     }))
 }
 
+// ─── Hourly trend for a single day (today / yesterday) ───────────────────────
+
+export async function getTrendDataByHour(
+  from: Date,
+  to: Date,
+  tz: string,
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }> = new Map(),
+): Promise<TrendPoint[]> {
+  const orders = await getOrdersInRange(from, to)
+
+  // Seed all 24 hours + a synthetic h=24 endpoint for the axis
+  const byHour = new Map<number, { gross: number; tax: number; cogs: number }>()
+  for (let h = 0; h <= 24; h++) byHour.set(h, { gross: 0, tax: 0, cogs: 0 })
+
+  const fmt = new Intl.DateTimeFormat('en', { timeZone: tz, hour: 'numeric', hour12: false })
+
+  for (const order of orders) {
+    if (order.cancelled_at || order.financial_status === 'voided') continue
+    const raw = fmt.format(new Date(order.created_at))
+    const h   = parseInt(raw === '24' ? '0' : raw, 10)
+    const entry = byHour.get(h)
+    if (!entry) continue
+    const gross = toFloat(order.total_price)
+    entry.gross += gross
+    entry.tax   += toFloat(order.total_tax)
+    let cogs = 0.02 * gross + 0.25
+    for (const li of order.line_items) cogs += getUnitCostTotal(li.title, amountsMap) * li.quantity
+    entry.cogs += cogs
+  }
+
+  return Array.from(byHour.entries()).map(([h, d]) => ({
+    date:          String(h),
+    revenue_gross: Math.round(d.gross * 100) / 100,
+    revenue_net:   Math.round((d.gross - d.tax) * 100) / 100,
+    cogs:          Math.round(d.cogs  * 100) / 100,
+    meta_spend:    0,
+  }))
+}
+
 // ─── Trend data for a specific calendar month ─────────────────────────────────
 
 export interface TrendPoint {
