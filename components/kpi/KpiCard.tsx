@@ -83,8 +83,7 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
             className="metric"
             style={{
               fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1,
-              cursor: noteLines ? 'default' : undefined,
-              borderBottom: noteLines ? '1px dotted #C7C6C0' : undefined,
+              borderBottom: noteLines && hovered ? '1px dotted #C7C6C0' : '1px dotted transparent',
             }}
           >
             {formatValue(value, metric.format)}
