@@ -1,5 +1,6 @@
 import { KpiSection } from '@/components/kpi/KpiSection'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
@@ -46,6 +47,8 @@ export default async function DashboardPage() {
       {lowStockItems.length > 0 && (
         <div style={{ marginBottom: 16 }}><InventoryAlert items={lowStockItems} /></div>
       )}
+
+      <DateRangeBar />
 
       {/* KPI grid — client component, reacts to date range */}
       <KpiSection />

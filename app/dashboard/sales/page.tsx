@@ -1,3 +1,4 @@
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { SalesKpiSection } from '@/components/kpi/SalesKpiSection'
 
 export default function SalesPage() {
@@ -16,6 +17,8 @@ export default function SalesPage() {
           Sales
         </h1>
       </div>
+
+      <DateRangeBar />
 
       <SalesKpiSection />
     </main>

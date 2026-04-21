@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import React from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import type { OrderRow } from '@/lib/types'
 
@@ -261,6 +262,8 @@ export default function OrdersPage() {
           Orders
         </h1>
       </div>
+
+      <DateRangeBar />
 
       {/* ── KPI summary ─────────────────────────────────────────────────────── */}
       {totals && (() => {

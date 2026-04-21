@@ -136,6 +136,7 @@ export interface ShopifyLineItem {
   sku: string
   quantity: number
   price: string
+  properties?: { name: string; value: string }[]
 }
 
 export interface ShopifyProduct {

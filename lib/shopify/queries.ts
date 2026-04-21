@@ -65,6 +65,7 @@ const ORDER_FIELDS = [
   'id', 'name', 'created_at', 'total_price', 'subtotal_price',
   'total_tax', 'financial_status', 'cancel_reason', 'cancelled_at',
   'refunds', 'line_items', 'billing_address', 'discount_codes',
+  'note_attributes',
 ].join(',')
 
 async function getOrdersInRange(from: Date, to: Date): Promise<ShopifyOrder[]> {
@@ -118,7 +119,11 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
     if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
-    if (order.line_items.some(li => li.title.toLowerCase().includes('bundle'))) bundle_order_count++
+    // Shopify native bundles mark component line items with a _bundle_line_item property
+    const isBundleOrder = order.line_items.some(li =>
+      li.properties?.some(p => p.name === '_bundle_line_item' || p.name === '_is_bundle_parent')
+    )
+    if (isBundleOrder) bundle_order_count++
   }
 
   return {

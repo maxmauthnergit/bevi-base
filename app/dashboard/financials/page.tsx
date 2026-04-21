@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -392,6 +393,8 @@ export default function FinancialsPage() {
           )}
         </div>
       </div>
+
+      <DateRangeBar />
 
       {/* Transactions */}
       <div style={{
