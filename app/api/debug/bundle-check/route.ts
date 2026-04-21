@@ -10,7 +10,7 @@ export async function GET() {
   const url = shopifyUrl('/orders.json') + '?' + new URLSearchParams({
     status: 'any',
     limit: '20',
-    fields: 'id,name,line_items',
+    fields: 'id,name,tags,note_attributes,line_items',
   })
 
   const res = await fetch(url, {
@@ -26,6 +26,8 @@ export async function GET() {
     orders: {
       id: number
       name: string
+      tags: string
+      note_attributes: { name: string; value: string }[]
       line_items: {
         title: string
         variant_title: string | null
@@ -37,7 +39,9 @@ export async function GET() {
   }
 
   const mapped = orders.map(o => ({
-    name: o.name,
+    name:            o.name,
+    tags:            o.tags,
+    note_attributes: o.note_attributes ?? [],
     line_items: o.line_items.map(li => ({
       title:         li.title,
       variant_title: li.variant_title,
@@ -47,25 +51,25 @@ export async function GET() {
     })),
   }))
 
-  const allPropNames = new Set<string>()
+  const allPropNames   = new Set<string>()
+  const allNoteAttrNames = new Set<string>()
+  const allTags        = new Set<string>()
+
   for (const o of mapped) {
+    for (const t of (o.tags ?? '').split(',').map(s => s.trim()).filter(Boolean)) allTags.add(t)
+    for (const a of o.note_attributes) allNoteAttrNames.add(a.name)
     for (const li of o.line_items) {
       for (const p of li.properties) allPropNames.add(p.name)
     }
   }
 
-  const noSkuItems = mapped.flatMap(o =>
-    o.line_items
-      .filter(li => !li.sku)
-      .map(li => ({ order: o.name, title: li.title, variant_title: li.variant_title }))
-  )
-
   return NextResponse.json({
     orders: mapped,
     summary: {
-      total_orders:      mapped.length,
-      unique_prop_names: [...allPropNames],
-      no_sku_line_items: noSkuItems,
+      total_orders:           mapped.length,
+      unique_tags:            [...allTags],
+      unique_note_attr_names: [...allNoteAttrNames],
+      unique_line_item_props: [...allPropNames],
     },
   })
 }
