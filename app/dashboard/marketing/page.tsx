@@ -1,5 +1,4 @@
 import { Card, CardHeader } from '@/components/ui/Card'
-import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import {
   mockMonthlyAdSpend,
   mockRoasTrend,
@@ -43,8 +42,6 @@ export default function MarketingPage() {
           Marketing
         </h1>
       </div>
-
-      <DateRangeBar />
 
       {/* Top stats */}
       <div
