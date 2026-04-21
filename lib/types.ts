@@ -18,7 +18,8 @@ export interface KpiValue {
   deltaPercent?: number   // % change
   trend?: 'up' | 'down' | 'flat'
   isPositiveUp?: boolean  // true = ↑ is good (revenue), false = ↑ is bad (spend)
-  note?: string           // shown in hover tooltip
+  note?: string                                    // simple hover text (fallback)
+  noteLines?: { label: string; value: string }[]   // structured tooltip rows
 }
 
 // ─── Sync / Integration ───────────────────────────────────────────────────────

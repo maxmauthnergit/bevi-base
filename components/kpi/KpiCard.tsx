@@ -18,7 +18,7 @@ function formatValue(value: number, format: FormatType): string {
     case 'euro':
       return fmtEur(value)
     case 'percent':
-      return `${value.toFixed(1)}%`
+      return `${value.toFixed(1)} %`
     case 'number':
       if (value % 1 !== 0) return value.toFixed(2)
       return new Intl.NumberFormat('de-DE').format(value)
@@ -31,7 +31,7 @@ function formatDelta(delta: number, format: FormatType): string {
   if (format === 'currency' || format === 'euro') {
     return `${delta >= 0 ? '+' : '−'}${fmtEur(Math.abs(delta))}`
   }
-  if (format === 'percent') return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}pp`
+  if (format === 'percent') return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} pp`
   if (format === 'number') {
     if (delta % 1 !== 0) return `${delta >= 0 ? '+' : ''}${delta.toFixed(2)}`
     return `${delta >= 0 ? '+' : ''}${new Intl.NumberFormat('de-DE').format(delta)}`
@@ -50,7 +50,7 @@ interface KpiCardProps {
 const G = "'Gustavo', 'Helvetica Neue', sans-serif"
 
 export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
-  const { value, delta, deltaPercent, trend, isPositiveUp, note } = data
+  const { value, delta, deltaPercent, trend, isPositiveUp, noteLines } = data
   const [hovered, setHovered] = useState(false)
 
   const isPositive = isPositiveUp ? trend === 'up' : trend === 'down'
@@ -68,45 +68,65 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
   return (
     <div
       className="p-6 flex flex-col gap-3"
-      style={{ backgroundColor: '#FFFFFF', borderRadius: 16, position: 'relative' }}
-      onMouseEnter={() => note && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      style={{ backgroundColor: '#FFFFFF', borderRadius: 16 }}
     >
-      {note && hovered && (
-        <div style={{
-          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: '#1C1C1A', borderRadius: 8, padding: '7px 12px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.22)',
-          whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none',
-          fontFamily: G, fontSize: '0.6875rem', color: '#C7C6C0',
-        }}>
-          {note}
-        </div>
-      )}
       <span className="label">{metric.label}</span>
 
       <div className="flex items-end justify-between gap-2">
-        <span
-          className="metric"
-          style={{ fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1 }}
+        {/* Value — tooltip anchored here */}
+        <div
+          style={{ position: 'relative', lineHeight: 1 }}
+          onMouseEnter={() => noteLines && setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
         >
-          {formatValue(value, metric.format)}
-        </span>
+          <span
+            className="metric"
+            style={{
+              fontSize: '1.75rem', fontWeight: 600, color: '#111110', lineHeight: 1,
+              cursor: noteLines ? 'default' : undefined,
+              borderBottom: noteLines ? '1px dotted #C7C6C0' : undefined,
+            }}
+          >
+            {formatValue(value, metric.format)}
+          </span>
+
+          {noteLines && hovered && (
+            <div style={{
+              position: 'absolute', bottom: 'calc(100% + 8px)', left: 0,
+              backgroundColor: '#1C1C1A', borderRadius: 8,
+              padding: '10px 14px', minWidth: 160,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.28)',
+              zIndex: 20, pointerEvents: 'none',
+            }}>
+              {noteLines.map((row, i) => (
+                <div
+                  key={row.label}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'baseline', gap: 20,
+                    marginBottom: i < noteLines.length - 1 ? 5 : 0,
+                  }}
+                >
+                  <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#7A7974', whiteSpace: 'nowrap' }}>
+                    {row.label}
+                  </span>
+                  <span style={{ fontFamily: G, fontSize: '0.6875rem', color: '#C7C6C0', fontWeight: 600, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {row.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {delta !== undefined && deltaPercent !== undefined && (
           <div
             className="flex items-center gap-1 shrink-0 mb-0.5"
-            style={{
-              backgroundColor: deltaBg,
-              borderRadius: 100,
-              padding: '3px 8px',
-              color: deltaColor,
-            }}
+            style={{ backgroundColor: deltaBg, borderRadius: 100, padding: '3px 8px', color: deltaColor }}
           >
             <span style={{ fontSize: '0.6875rem' }}>{trendArrow}</span>
             <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600 }}>
-              {deltaPercent.toFixed(1)}%
+              {deltaPercent.toFixed(1)} %
             </span>
           </div>
         )}
