@@ -17,6 +17,7 @@ export const PRESETS = [
   { id: 'last-quarter', label: 'Last quarter' },
   { id: 'ytd',          label: 'YTD'          },
   { id: 'last-year',    label: 'Last year'    },
+  { id: 'all-time',     label: 'All time'     },
 ] as const satisfies { id: string; label: string }[]
 
 export type PresetId = typeof PRESETS[number]['id']
@@ -83,6 +84,8 @@ function computePreset(id: PresetId, now: Date = new Date()): { from: Date; to: 
       return { from: new Date(y, 0, 1), to: new Date(y, m, d, 23, 59, 59, 999) }
     case 'last-year':
       return { from: new Date(y - 1, 0, 1), to: new Date(y - 1, 11, 31, 23, 59, 59, 999) }
+    case 'all-time':
+      return { from: new Date(2024, 10, 1), to: new Date(y, m, d, 23, 59, 59, 999) }
   }
 }
 

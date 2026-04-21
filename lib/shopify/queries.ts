@@ -87,6 +87,7 @@ interface OrderMetrics {
   order_count: number
   unit_count: number
   refund_count: number
+  bundle_order_count: number
 }
 
 function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
@@ -94,6 +95,7 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
   let revenue_net = 0
   let unit_count = 0
   let refund_count = 0
+  let bundle_order_count = 0
 
   // Shopify analytics counts all non-voided orders (including cancelled)
   const countableOrders = orders.filter(o => o.financial_status !== 'voided')
@@ -116,6 +118,7 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
     if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
+    if (order.line_items.some(li => li.title.toLowerCase().includes('bundle'))) bundle_order_count++
   }
 
   return {
@@ -124,6 +127,7 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     order_count:   countableOrders.length,
     unit_count,
     refund_count,
+    bundle_order_count,
   }
 }
 

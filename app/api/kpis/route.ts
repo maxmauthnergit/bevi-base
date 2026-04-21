@@ -94,25 +94,35 @@ export async function GET(req: NextRequest) {
   const cs = currSpend.status === 'fulfilled' ? currSpend.value : 0
   const ps = prevSpend.status === 'fulfilled' ? prevSpend.value : 0
 
-  const cRevGross = c?.revenue_gross ?? 0
-  const pRevGross = p?.revenue_gross ?? 0
-  const cRevNet   = c?.revenue_net   ?? 0
-  const pRevNet   = p?.revenue_net   ?? 0
-  const cOrders   = c?.order_count   ?? 0
-  const pOrders   = p?.order_count   ?? 0
-  const cUnits    = c?.unit_count    ?? 0
-  const pUnits    = p?.unit_count    ?? 0
-  const cAov      = cOrders > 0 ? cRevNet / cOrders : 0
-  const pAov      = pOrders > 0 ? pRevNet / pOrders : 0
+  const cRevGross     = c?.revenue_gross      ?? 0
+  const pRevGross     = p?.revenue_gross      ?? 0
+  const cRevNet       = c?.revenue_net        ?? 0
+  const pRevNet       = p?.revenue_net        ?? 0
+  const cOrders       = c?.order_count        ?? 0
+  const pOrders       = p?.order_count        ?? 0
+  const cUnits        = c?.unit_count         ?? 0
+  const pUnits        = p?.unit_count         ?? 0
+  const cRefunds      = c?.refund_count       ?? 0
+  const pRefunds      = p?.refund_count       ?? 0
+  const cBundles      = c?.bundle_order_count ?? 0
+  const pBundles      = p?.bundle_order_count ?? 0
+  const cAov          = cOrders > 0 ? cRevNet / cOrders : 0
+  const pAov          = pOrders > 0 ? pRevNet / pOrders : 0
+  const cReturnRate   = cOrders > 0 ? Math.round((cRefunds / cOrders) * 1000) / 10 : 0
+  const pReturnRate   = pOrders > 0 ? Math.round((pRefunds / pOrders) * 1000) / 10 : 0
+  const cBundleRate   = cOrders > 0 ? Math.round((cBundles / cOrders) * 1000) / 10 : 0
+  const pBundleRate   = pOrders > 0 ? Math.round((pBundles / pOrders) * 1000) / 10 : 0
 
   return NextResponse.json({
     kpis: {
-      revenue_gross: mkKpi('revenue_gross', cRevGross, pRevGross, true),
-      revenue_net:   mkKpi('revenue_net',   cRevNet,   pRevNet,   true),
-      orders:        mkKpi('orders',        cOrders,   pOrders,   true),
-      units_sold:    mkKpi('units_sold',    cUnits,    pUnits,    true),
-      meta_spend:    mkKpi('meta_spend',    cs,        ps,        false),
-      aov:           mkKpi('aov',           cAov,      pAov,      true),
+      revenue_gross: mkKpi('revenue_gross', cRevGross,   pRevGross,   true),
+      revenue_net:   mkKpi('revenue_net',   cRevNet,     pRevNet,     true),
+      orders:        mkKpi('orders',        cOrders,     pOrders,     true),
+      units_sold:    mkKpi('units_sold',    cUnits,      pUnits,      true),
+      meta_spend:    mkKpi('meta_spend',    cs,          ps,          false),
+      aov:           mkKpi('aov',           cAov,        pAov,        true),
+      return_rate:   mkKpi('return_rate',   cReturnRate, pReturnRate, false),
+      bundle_rate:   mkKpi('bundle_rate',   cBundleRate, pBundleRate, true),
     },
     period:     { from, to },
     compPeriod: { from: isoInTZ(prevFromDate, tz), to: isoInTZ(prevToDate, tz) },
