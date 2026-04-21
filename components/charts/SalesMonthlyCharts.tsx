@@ -3,10 +3,16 @@
 import { useEffect, useState } from 'react'
 
 interface MonthData {
-  month: string
+  month: string        // "YYYY-MM"
   revenue_gross: number
   orders: number
 }
+
+type RowItem =
+  | { type: 'year'; year: number }
+  | { type: 'data'; data: MonthData }
+
+const DEFAULT_VISIBLE = 5
 
 const CARD = {
   backgroundColor: '#FFFFFF',
@@ -22,8 +28,30 @@ function fmtEur(v: number) {
 
 function monthLabel(month: string) {
   const [y, m] = month.split('-').map(Number)
-  const short  = new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' })
-  return m === 1 ? `${short} '${String(y).slice(2)}` : short
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' })
+}
+
+function buildRows(data: MonthData[]): RowItem[] {
+  const rows: RowItem[] = []
+  let lastYear: number | null = null
+  for (const d of data) {
+    const year = parseInt(d.month.slice(0, 4), 10)
+    if (year !== lastYear) {
+      rows.push({ type: 'year', year })
+      lastYear = year
+    }
+    rows.push({ type: 'data', data: d })
+  }
+  return rows
+}
+
+function YearSeparator({ year }: { year: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0 2px' }}>
+      <span className="label" style={{ color: '#C7C6C0', flexShrink: 0 }}>{year}</span>
+      <div style={{ flex: 1, height: 1, backgroundColor: '#E3E2DC' }} />
+    </div>
+  )
 }
 
 function BarRow({
@@ -60,36 +88,57 @@ function BarRow({
   )
 }
 
-function MonthCard({
-  title,
-  data,
+function Section({
+  label,
+  rows,
   valueKey,
+  maxValue,
   color,
   fmt,
+  showAll,
 }: {
-  title: string
-  data: MonthData[]
-  valueKey: keyof MonthData
+  label: string
+  rows: RowItem[]
+  valueKey: 'revenue_gross' | 'orders'
+  maxValue: number
   color: string
   fmt: (v: number) => string
+  showAll: boolean
 }) {
-  const values  = data.map(d => d[valueKey] as number)
-  const maxVal  = Math.max(...values, 1)
+  // Trim to DEFAULT_VISIBLE data rows when collapsed
+  let visible: RowItem[]
+  if (showAll) {
+    visible = rows
+  } else {
+    let dataCount = 0
+    visible = []
+    for (const row of rows) {
+      if (row.type === 'data') {
+        if (dataCount >= DEFAULT_VISIBLE) break
+        dataCount++
+      }
+      visible.push(row)
+    }
+  }
 
   return (
-    <div style={CARD}>
-      <span className="label" style={{ display: 'block', marginBottom: 16 }}>{title}</span>
+    <div>
+      <span className="label" style={{ display: 'block', marginBottom: 12 }}>{label}</span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {data.map(d => (
-          <BarRow
-            key={d.month}
-            label={monthLabel(d.month)}
-            value={d[valueKey] as number}
-            formatted={fmt(d[valueKey] as number)}
-            maxValue={maxVal}
-            color={color}
-          />
-        ))}
+        {visible.map((row, i) =>
+          row.type === 'year'
+            ? <YearSeparator key={`y-${row.year}`} year={row.year} />
+            : (
+              <BarRow
+                key={row.data.month}
+                label={monthLabel(row.data.month)}
+                value={row.data[valueKey]}
+                formatted={fmt(row.data[valueKey])}
+                maxValue={maxValue}
+                color={color}
+              />
+            )
+        )}
       </div>
     </div>
   )
@@ -98,6 +147,7 @@ function MonthCard({
 export function SalesMonthlyCharts() {
   const [data,    setData]    = useState<MonthData[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAll, setShowAll] = useState(false)
 
   useEffect(() => {
     fetch('/api/sales/monthly')
@@ -107,29 +157,59 @@ export function SalesMonthlyCharts() {
   }, [])
 
   if (loading) {
-    return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {[0, 1].map(i => <div key={i} style={{ ...CARD, height: 240, opacity: 0.4 }} />)}
-      </div>
-    )
+    return <div style={{ ...CARD, height: 240, opacity: 0.4 }} />
   }
 
+  const rows       = buildRows(data)
+  const maxRevenue = Math.max(...data.map(d => d.revenue_gross), 1)
+  const maxOrders  = Math.max(...data.map(d => d.orders), 1)
+  const hasMore    = data.length > DEFAULT_VISIBLE
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-      <MonthCard
-        title="Revenue Gross / Month"
-        data={data}
+    <div style={CARD}>
+      <Section
+        label="Revenue Gross / Month"
+        rows={rows}
         valueKey="revenue_gross"
+        maxValue={maxRevenue}
         color="#1FA8A8"
         fmt={fmtEur}
+        showAll={showAll}
       />
-      <MonthCard
-        title="Orders / Month"
-        data={data}
+
+      <div style={{ height: 1, backgroundColor: '#E3E2DC', margin: '20px 0' }} />
+
+      <Section
+        label="Orders / Month"
+        rows={rows}
         valueKey="orders"
+        maxValue={maxOrders}
         color="#C4973A"
-        fmt={v => `${v}`}
+        fmt={v => String(v)}
+        showAll={showAll}
       />
+
+      {hasMore && (
+        <button
+          onClick={() => setShowAll(v => !v)}
+          style={{
+            display: 'block',
+            marginTop: 16,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif",
+            fontSize: '0.625rem',
+            fontWeight: 500,
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            color: '#9E9D98',
+          }}
+        >
+          {showAll ? '↑ Show less' : `↓ Show all (${data.length} months)`}
+        </button>
+      )}
     </div>
   )
 }

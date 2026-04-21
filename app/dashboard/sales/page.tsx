@@ -21,7 +21,7 @@ export default function SalesPage() {
       </div>
 
       {/* Date-independent: monthly overview */}
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 16, maxWidth: 480 }}>
         <SalesMonthlyCharts />
       </div>
 
