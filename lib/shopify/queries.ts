@@ -258,6 +258,68 @@ export async function getBundleOrderCountForRange(from: Date, to: Date): Promise
   return count
 }
 
+const BUNDLE_IDS_GQL = `
+  query GetBundleOrderIds($first: Int!, $after: String, $query: String!) {
+    orders(first: $first, after: $after, query: $query) {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          legacyResourceId
+          cancelledAt
+          displayFinancialStatus
+          lineItems(first: 100) {
+            edges {
+              node {
+                lineItemGroup { id }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+type BundleIdsGqlResp = {
+  orders: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    edges: {
+      node: {
+        legacyResourceId: string
+        cancelledAt: string | null
+        displayFinancialStatus: string
+        lineItems: {
+          edges: { node: { lineItemGroup: { id: string } | null } }[]
+        }
+      }
+    }[]
+  }
+}
+
+export async function getBundleOrderIdsForRange(from: Date, to: Date): Promise<Set<number>> {
+  const dateQuery = `created_at:>="${from.toISOString()}" created_at:<="${to.toISOString()}"`
+  const ids = new Set<number>()
+  let cursor: string | null = null
+
+  for (;;) {
+    const data: BundleIdsGqlResp = await shopifyGraphQL<BundleIdsGqlResp>(BUNDLE_IDS_GQL, {
+      first: 50,
+      after: cursor,
+      query: dateQuery,
+    })
+    for (const { node } of data.orders.edges) {
+      if (node.cancelledAt || node.displayFinancialStatus === 'VOIDED') continue
+      if (node.lineItems.edges.some(e => e.node.lineItemGroup !== null)) {
+        ids.add(parseInt(node.legacyResourceId, 10))
+      }
+    }
+    if (!data.orders.pageInfo.hasNextPage) break
+    cursor = data.orders.pageInfo.endCursor
+  }
+
+  return ids
+}
+
 // ─── Per-unit cost rates used for trend COGS ─────────────────────────────────
 // manufacturing/ib_shipping are fallbacks — overridden by amountsMap from Supabase config.
 // weship/shipping are always used as estimates (no XLSX lookup in trend context).

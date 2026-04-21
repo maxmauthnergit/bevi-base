@@ -1,5 +1,7 @@
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { SalesKpiSection } from '@/components/kpi/SalesKpiSection'
+import { SalesMonthlyCharts } from '@/components/charts/SalesMonthlyCharts'
+import { SalesBreakdownSection } from '@/components/charts/SalesBreakdownSection'
 
 export default function SalesPage() {
   return (
@@ -18,9 +20,17 @@ export default function SalesPage() {
         </h1>
       </div>
 
+      {/* Date-independent: monthly overview */}
+      <div style={{ marginBottom: 16 }}>
+        <SalesMonthlyCharts />
+      </div>
+
       <DateRangeBar />
 
       <SalesKpiSection />
+
+      {/* Date-dependent: breakdown by product, bundle, market */}
+      <SalesBreakdownSection />
     </main>
   )
 }
