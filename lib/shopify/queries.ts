@@ -1,4 +1,4 @@
-import { shopifyFetch, shopifyFetchAllOrders } from './client'
+import { shopifyFetch, shopifyFetchAllOrders, shopifyGraphQL } from './client'
 import type { ShopifyOrder, ShopifyProduct, ShopifyShop } from './client'
 import type { KpiValue, DailySnapshot, StockLevel } from '@/lib/types'
 import { getMetric } from '@/lib/metrics-config'
@@ -119,13 +119,6 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
     if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
-    // Bundle orders: Shopify bundle products have no SKU (per inventory skip logic),
-    // and/or Shopify's native Bundles app marks line items with _bundle_* properties.
-    const isBundleOrder = order.line_items.some(li =>
-      !li.sku ||
-      li.properties?.some(p => p.name.toLowerCase().includes('bundle'))
-    )
-    if (isBundleOrder) bundle_order_count++
   }
 
   return {
@@ -205,6 +198,64 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
 export async function getOrderKpisForRange(from: Date, to: Date) {
   const orders = await getOrdersInRange(from, to)
   return computeMetrics(orders)
+}
+
+const BUNDLE_GQL = `
+  query GetBundleOrders($first: Int!, $after: String, $query: String!) {
+    orders(first: $first, after: $after, query: $query) {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          cancelledAt
+          displayFinancialStatus
+          lineItems(first: 100) {
+            edges {
+              node {
+                lineItemGroup { id }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+type BundleGqlResp = {
+  orders: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    edges: {
+      node: {
+        cancelledAt: string | null
+        displayFinancialStatus: string
+        lineItems: {
+          edges: { node: { lineItemGroup: { id: string } | null } }[]
+        }
+      }
+    }[]
+  }
+}
+
+export async function getBundleOrderCountForRange(from: Date, to: Date): Promise<number> {
+  const dateQuery = `created_at:>="${from.toISOString()}" created_at:<="${to.toISOString()}"`
+  let count = 0
+  let cursor: string | null = null
+
+  for (;;) {
+    const data: BundleGqlResp = await shopifyGraphQL<BundleGqlResp>(BUNDLE_GQL, {
+      first: 50,
+      after: cursor,
+      query: dateQuery,
+    })
+    for (const { node } of data.orders.edges) {
+      if (node.cancelledAt || node.displayFinancialStatus === 'VOIDED') continue
+      if (node.lineItems.edges.some(e => e.node.lineItemGroup !== null)) count++
+    }
+    if (!data.orders.pageInfo.hasNextPage) break
+    cursor = data.orders.pageInfo.endCursor
+  }
+
+  return count
 }
 
 // ─── Per-unit cost rates used for trend COGS ─────────────────────────────────

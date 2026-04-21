@@ -84,6 +84,24 @@ export async function shopifyFetchAllOrders(
   return all
 }
 
+export async function shopifyGraphQL<T>(
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<T> {
+  const { domain, token } = getShopifyConfig()
+  const url = `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`Shopify GraphQL ${res.status}: ${await res.text()}`)
+  const json = await res.json() as { data?: T; errors?: { message: string }[] }
+  if (json.errors?.length) throw new Error(json.errors.map(e => e.message).join('; '))
+  return json.data as T
+}
+
 // ─── API types ────────────────────────────────────────────────────────────────
 
 export interface ShopifyShop {

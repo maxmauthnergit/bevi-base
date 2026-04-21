@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getOrderKpisForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
+import { getOrderKpisForRange, getBundleOrderCountForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getMetaSpendForRange } from '@/lib/meta/queries'
 
 export const dynamic = 'force-dynamic'
@@ -99,16 +99,17 @@ export async function GET(req: NextRequest) {
 
   // All time: no meaningful comparison period — return values only
   if (preset === 'all-time') {
-    const [curr, currSpend] = await Promise.allSettled([
+    const [curr, currSpend, currBundles] = await Promise.allSettled([
       getOrderKpisForRange(fromDate, toDate),
       getMetaSpendForRange(fromDate, toDate, tz),
+      getBundleOrderCountForRange(fromDate, toDate),
     ])
-    const c  = curr.status      === 'fulfilled' ? curr.value      : null
-    const cs = currSpend.status === 'fulfilled' ? currSpend.value : 0
-    const cOrders    = c?.order_count        ?? 0
-    const cRefunds   = c?.refund_count       ?? 0
-    const cBundles   = c?.bundle_order_count ?? 0
-    const cRevNet    = c?.revenue_net        ?? 0
+    const c  = curr.status        === 'fulfilled' ? curr.value        : null
+    const cs = currSpend.status   === 'fulfilled' ? currSpend.value   : 0
+    const cOrders    = c?.order_count  ?? 0
+    const cRefunds   = c?.refund_count ?? 0
+    const cBundles   = currBundles.status === 'fulfilled' ? currBundles.value : 0
+    const cRevNet    = c?.revenue_net   ?? 0
     const cAov       = cOrders > 0 ? cRevNet / cOrders : 0
     const cRetRate   = cOrders > 0 ? Math.round((cRefunds / cOrders) * 1000) / 10 : 0
     const cBundleRate = cOrders > 0 ? Math.round((cBundles / cOrders) * 1000) / 10 : 0
@@ -127,30 +128,32 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  const [curr, prev, currSpend, prevSpend] = await Promise.allSettled([
+  const [curr, prev, currSpend, prevSpend, currBundles, prevBundles] = await Promise.allSettled([
     getOrderKpisForRange(fromDate, toDate),
     getOrderKpisForRange(prevFromDate, prevToDate),
     getMetaSpendForRange(fromDate, toDate, tz),
     getMetaSpendForRange(prevFromDate, prevToDate, tz),
+    getBundleOrderCountForRange(fromDate, toDate),
+    getBundleOrderCountForRange(prevFromDate, prevToDate),
   ])
 
-  const c = curr.status     === 'fulfilled' ? curr.value     : null
-  const p = prev.status     === 'fulfilled' ? prev.value     : null
+  const c  = curr.status      === 'fulfilled' ? curr.value      : null
+  const p  = prev.status      === 'fulfilled' ? prev.value      : null
   const cs = currSpend.status === 'fulfilled' ? currSpend.value : 0
   const ps = prevSpend.status === 'fulfilled' ? prevSpend.value : 0
 
-  const cRevGross     = c?.revenue_gross      ?? 0
-  const pRevGross     = p?.revenue_gross      ?? 0
-  const cRevNet       = c?.revenue_net        ?? 0
-  const pRevNet       = p?.revenue_net        ?? 0
-  const cOrders       = c?.order_count        ?? 0
-  const pOrders       = p?.order_count        ?? 0
-  const cUnits        = c?.unit_count         ?? 0
-  const pUnits        = p?.unit_count         ?? 0
-  const cRefunds      = c?.refund_count       ?? 0
-  const pRefunds      = p?.refund_count       ?? 0
-  const cBundles      = c?.bundle_order_count ?? 0
-  const pBundles      = p?.bundle_order_count ?? 0
+  const cRevGross = c?.revenue_gross ?? 0
+  const pRevGross = p?.revenue_gross ?? 0
+  const cRevNet   = c?.revenue_net   ?? 0
+  const pRevNet   = p?.revenue_net   ?? 0
+  const cOrders   = c?.order_count   ?? 0
+  const pOrders   = p?.order_count   ?? 0
+  const cUnits    = c?.unit_count    ?? 0
+  const pUnits    = p?.unit_count    ?? 0
+  const cRefunds  = c?.refund_count  ?? 0
+  const pRefunds  = p?.refund_count  ?? 0
+  const cBundles  = currBundles.status === 'fulfilled' ? currBundles.value : 0
+  const pBundles  = prevBundles.status === 'fulfilled' ? prevBundles.value : 0
   const cAov          = cOrders > 0 ? cRevNet / cOrders : 0
   const pAov          = pOrders > 0 ? pRevNet / pOrders : 0
   const cReturnRate   = cOrders > 0 ? Math.round((cRefunds / cOrders) * 1000) / 10 : 0
