@@ -8,7 +8,7 @@ function isoInTZ(d: Date, tz: string) {
   return d.toLocaleDateString('sv', { timeZone: tz })
 }
 
-function mkKpi(id: string, value: number, prev: number, isPositiveUp: boolean) {
+function mkKpi(id: string, value: number, prev: number, isPositiveUp: boolean, note?: string) {
   const delta        = Math.round((value - prev) * 100) / 100
   const deltaPercent = prev !== 0 ? Math.round((delta / prev) * 1000) / 10 : 0
   return {
@@ -19,11 +19,12 @@ function mkKpi(id: string, value: number, prev: number, isPositiveUp: boolean) {
     deltaPercent,
     trend:         delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
     isPositiveUp,
+    ...(note ? { note } : {}),
   }
 }
 
-function mkKpiOnly(id: string, value: number, isPositiveUp: boolean) {
-  return { metricId: id, value: Math.round(value * 100) / 100, isPositiveUp }
+function mkKpiOnly(id: string, value: number, isPositiveUp: boolean, note?: string) {
+  return { metricId: id, value: Math.round(value * 100) / 100, isPositiveUp, ...(note ? { note } : {}) }
 }
 
 export async function GET(req: NextRequest) {
@@ -109,8 +110,8 @@ export async function GET(req: NextRequest) {
         units_sold:    mkKpiOnly('units_sold',    c?.unit_count ?? 0,    true),
         meta_spend:    mkKpiOnly('meta_spend',    cs,                    false),
         aov:           mkKpiOnly('aov',           cAov,                  true),
-        return_rate:   mkKpiOnly('return_rate',   cRetRate,              false),
-        bundle_rate:   mkKpiOnly('bundle_rate',   cBundleRate,           true),
+        return_rate:   mkKpiOnly('return_rate',   cRetRate,    false, `${cRefunds} refunded of ${cOrders} orders`),
+        bundle_rate:   mkKpiOnly('bundle_rate',   cBundleRate, true),
       },
       period: { from, to },
     })
@@ -155,7 +156,7 @@ export async function GET(req: NextRequest) {
       units_sold:    mkKpi('units_sold',    cUnits,      pUnits,      true),
       meta_spend:    mkKpi('meta_spend',    cs,          ps,          false),
       aov:           mkKpi('aov',           cAov,        pAov,        true),
-      return_rate:   mkKpi('return_rate',   cReturnRate, pReturnRate, false),
+      return_rate:   mkKpi('return_rate',   cReturnRate, pReturnRate, false, `${cRefunds} refunded of ${cOrders} orders`),
       bundle_rate:   mkKpi('bundle_rate',   cBundleRate, pBundleRate, true),
     },
     period:     { from, to },

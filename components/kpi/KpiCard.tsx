@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import type { KpiValue, MetricDefinition, FormatType } from '@/lib/types'
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -44,8 +47,11 @@ interface KpiCardProps {
   subtitle?: string
 }
 
+const G = "'Gustavo', 'Helvetica Neue', sans-serif"
+
 export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
-  const { value, delta, deltaPercent, trend, isPositiveUp } = data
+  const { value, delta, deltaPercent, trend, isPositiveUp, note } = data
+  const [hovered, setHovered] = useState(false)
 
   const isPositive = isPositiveUp ? trend === 'up' : trend === 'down'
   const isNegative = isPositiveUp ? trend === 'down' : trend === 'up'
@@ -62,11 +68,22 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
   return (
     <div
       className="p-6 flex flex-col gap-3"
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-      }}
+      style={{ backgroundColor: '#FFFFFF', borderRadius: 16, position: 'relative' }}
+      onMouseEnter={() => note && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
+      {note && hovered && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: '#1C1C1A', borderRadius: 8, padding: '7px 12px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.22)',
+          whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none',
+          fontFamily: G, fontSize: '0.6875rem', color: '#C7C6C0',
+        }}>
+          {note}
+        </div>
+      )}
       <span className="label">{metric.label}</span>
 
       <div className="flex items-end justify-between gap-2">
