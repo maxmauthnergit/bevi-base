@@ -119,9 +119,11 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
     if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
-    // Shopify native bundles mark component line items with a _bundle_line_item property
+    // Bundle orders: Shopify bundle products have no SKU (per inventory skip logic),
+    // and/or Shopify's native Bundles app marks line items with _bundle_* properties.
     const isBundleOrder = order.line_items.some(li =>
-      li.properties?.some(p => p.name === '_bundle_line_item' || p.name === '_is_bundle_parent')
+      !li.sku ||
+      li.properties?.some(p => p.name.toLowerCase().includes('bundle'))
     )
     if (isBundleOrder) bundle_order_count++
   }

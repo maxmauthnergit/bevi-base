@@ -22,6 +22,10 @@ function mkKpi(id: string, value: number, prev: number, isPositiveUp: boolean) {
   }
 }
 
+function mkKpiOnly(id: string, value: number, isPositiveUp: boolean) {
+  return { metricId: id, value: Math.round(value * 100) / 100, isPositiveUp }
+}
+
 export async function GET(req: NextRequest) {
   const from = req.nextUrl.searchParams.get('from') // YYYY-MM-DD
   const to   = req.nextUrl.searchParams.get('to')   // YYYY-MM-DD
@@ -80,6 +84,36 @@ export async function GET(req: NextRequest) {
     // today, yesterday, last-7, last-30, custom: same duration shifted back
     prevToDate   = new Date(fromDate.getTime() - 1)
     prevFromDate = new Date(prevToDate.getTime() - durMs)
+  }
+
+  // All time: no meaningful comparison period — return values only
+  if (preset === 'all-time') {
+    const [curr, currSpend] = await Promise.allSettled([
+      getOrderKpisForRange(fromDate, toDate),
+      getMetaSpendForRange(fromDate, toDate, tz),
+    ])
+    const c  = curr.status      === 'fulfilled' ? curr.value      : null
+    const cs = currSpend.status === 'fulfilled' ? currSpend.value : 0
+    const cOrders    = c?.order_count        ?? 0
+    const cRefunds   = c?.refund_count       ?? 0
+    const cBundles   = c?.bundle_order_count ?? 0
+    const cRevNet    = c?.revenue_net        ?? 0
+    const cAov       = cOrders > 0 ? cRevNet / cOrders : 0
+    const cRetRate   = cOrders > 0 ? Math.round((cRefunds / cOrders) * 1000) / 10 : 0
+    const cBundleRate = cOrders > 0 ? Math.round((cBundles / cOrders) * 1000) / 10 : 0
+    return NextResponse.json({
+      kpis: {
+        revenue_gross: mkKpiOnly('revenue_gross', c?.revenue_gross ?? 0, true),
+        revenue_net:   mkKpiOnly('revenue_net',   cRevNet,               true),
+        orders:        mkKpiOnly('orders',        cOrders,               true),
+        units_sold:    mkKpiOnly('units_sold',    c?.unit_count ?? 0,    true),
+        meta_spend:    mkKpiOnly('meta_spend',    cs,                    false),
+        aov:           mkKpiOnly('aov',           cAov,                  true),
+        return_rate:   mkKpiOnly('return_rate',   cRetRate,              false),
+        bundle_rate:   mkKpiOnly('bundle_rate',   cBundleRate,           true),
+      },
+      period: { from, to },
+    })
   }
 
   const [curr, prev, currSpend, prevSpend] = await Promise.allSettled([
