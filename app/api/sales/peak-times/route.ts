@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
   const by_hour = byHour
     .map((orders, h) => ({
       hour:   h,
-      label:  `${String(h).padStart(2, '0')}:00`,
+      label:  `${String(h).padStart(2, '0')}:00 – ${String((h + 1) % 24).padStart(2, '0')}:00`,
       orders,
     }))
     .sort((a, b) => b.orders - a.orders)

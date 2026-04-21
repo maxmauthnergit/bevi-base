@@ -132,7 +132,7 @@ export function SalesPeakTimes() {
       <PeakCard
         title="Peak Days"
         rows={activeDays}
-        color="#5175B0"
+        color="#17C9B0"
         defaultVisible={DEFAULT_VISIBLE_DAYS}
       />
     </div>
