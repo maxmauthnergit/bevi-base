@@ -28,7 +28,7 @@ function fmtEur(v: number) {
 
 function monthLabel(month: string) {
   const [y, m] = month.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short' })
+  return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })
 }
 
 // Newest first; year separator before the first month of each older year
