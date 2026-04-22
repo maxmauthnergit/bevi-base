@@ -56,6 +56,7 @@ export interface MetaInsight {
   clicks: string
   cpm: string
   cpc: string
+  ctr?: string
   reach: string
   purchase_roas?: { action_type: string; value: string }[]
   actions?: { action_type: string; value: string }[]

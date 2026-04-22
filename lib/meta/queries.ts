@@ -32,10 +32,49 @@ const INSIGHT_FIELDS = [
   'clicks',
   'cpm',
   'cpc',
+  'ctr',
   'reach',
   'purchase_roas',
   'actions',
 ].join(',')
+
+// ─── Aggregate type returned by getMetaInsightsForRange ───────────────────────
+
+export interface MetaRangeInsights {
+  spend:       number
+  impressions: number
+  clicks:      number
+  cpm:         number
+  ctr:         number
+  meta_roas:   number
+  purchases:   number
+}
+
+function aggregateInsights(rows: MetaInsight[]): MetaRangeInsights {
+  let spend = 0, impressions = 0, clicks = 0, purchases = 0
+  let roasAttributedRevenue = 0
+
+  for (const row of rows) {
+    const s = toFloat(row.spend)
+    spend       += s
+    impressions += toFloat(row.impressions)
+    clicks      += toFloat(row.clicks)
+    purchases   += getActionValue(row.actions, 'purchase') || getActionValue(row.actions, 'omni_purchase')
+    if (row.purchase_roas?.length) {
+      roasAttributedRevenue += toFloat(row.purchase_roas[0].value) * s
+    }
+  }
+
+  return {
+    spend:       Math.round(spend * 100) / 100,
+    impressions: Math.round(impressions),
+    clicks:      Math.round(clicks),
+    cpm:         impressions > 0 ? Math.round((spend / impressions) * 100000) / 100 : 0,
+    ctr:         impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
+    meta_roas:   spend > 0 ? Math.round((roasAttributedRevenue / spend) * 100) / 100 : 0,
+    purchases:   Math.round(purchases),
+  }
+}
 
 // ─── Fetch insights for a date range ─────────────────────────────────────────
 
@@ -169,4 +208,19 @@ export async function getDailySpendForRange(from: Date, to: Date, tz = 'UTC'): P
     clicks:      toFloat(row.clicks),
     roas:        row.purchase_roas?.length ? toFloat(row.purchase_roas[0].value) : 0,
   }))
+}
+
+// ─── Aggregate insights for an arbitrary date range ───────────────────────────
+
+export async function getMetaInsightsForRange(from: Date, to: Date, tz: string): Promise<MetaRangeInsights> {
+  const rows = await getInsights(isoDateInTZ(from, tz), isoDateInTZ(to, tz))
+  return aggregateInsights(rows)
+}
+
+// ─── Monthly rows from Nov 2024 to today ─────────────────────────────────────
+
+export async function getMonthlyMetaInsights(): Promise<MetaInsight[]> {
+  const since = '2024-11-01'
+  const until = isoDate(new Date())
+  return getInsights(since, until, 'monthly')
 }
