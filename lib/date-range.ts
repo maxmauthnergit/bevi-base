@@ -105,5 +105,5 @@ export function makeMonthRange(ym: string): DateRange {
 }
 
 export function defaultDateRange(): DateRange {
-  return makePresetRange('last-month')
+  return makePresetRange('last-30')
 }
