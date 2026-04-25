@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+
 const navItems = [
   {
     href: '/dashboard',
@@ -103,11 +105,15 @@ export function BottomNav() {
             <span style={{ color: active ? '#7DEFEF' : '#555550', display: 'flex', flexShrink: 0 }}>
               {item.icon}
             </span>
-            <span className="label" style={{
+            <span style={{
+              fontFamily: G,
               fontSize: '0.4375rem',
+              fontWeight: 500,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
               color: active ? '#FFFFFF' : '#555550',
               whiteSpace: 'nowrap',
-              letterSpacing: '0.08em',
+              lineHeight: 1,
             }}>
               {item.label.toUpperCase()}
             </span>
