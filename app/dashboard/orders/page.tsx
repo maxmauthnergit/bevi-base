@@ -5,6 +5,7 @@ import React from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import type { OrderRow } from '@/lib/types'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -178,7 +179,7 @@ function KpiHero({ label, value, color }: { label: string; value: string; color?
   return (
     <div>
       <div style={{ fontFamily: G, fontSize: '0.625rem', fontWeight: 500, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#9E9D98', marginBottom: 7 }}>{label}</div>
-      <div style={{ fontFamily: G, fontSize: '1.875rem', fontWeight: 700, color: color ?? '#111110', lineHeight: 1, letterSpacing: '-0.02em' }}>
+      <div style={{ fontFamily: G, fontSize: '1.875rem', fontWeight: 700, color: color ?? '#111110', lineHeight: 1, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
         {value}
       </div>
     </div>
@@ -212,6 +213,8 @@ const groupTh: React.CSSProperties = {
 
 export default function OrdersPage() {
   const { range } = useDateRange()
+  const bp = useBreakpoint()
+  const isMobile = bp === 'mobile'
   const [orders, setOrders]   = useState<OrderRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
@@ -288,10 +291,10 @@ export default function OrdersPage() {
             overflow: 'hidden',
             marginBottom: 20,
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1px' }}>
 
               {/* Tile 1 — Revenue */}
-              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+              <div style={{ backgroundColor: '#FFFFFF', padding: isMobile ? '18px 20px' : '24px 28px' }}>
                 <span style={tileLabel}>Revenue</span>
                 <KpiHero label="Net Revenue" value={fmt(totals.net)} />
                 {divider}
@@ -301,7 +304,7 @@ export default function OrdersPage() {
               </div>
 
               {/* Tile 2 — Costs */}
-              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+              <div style={{ backgroundColor: '#FFFFFF', padding: isMobile ? '18px 20px' : '24px 28px' }}>
                 <span style={tileLabel}>Costs</span>
                 <KpiHero label="Total Costs" value={fmt(totalCosts)} />
                 {divider}
@@ -312,7 +315,7 @@ export default function OrdersPage() {
               </div>
 
               {/* Tile 3 — Profit */}
-              <div style={{ backgroundColor: '#FFFFFF', padding: '24px 28px' }}>
+              <div style={{ backgroundColor: '#FFFFFF', padding: isMobile ? '18px 20px' : '24px 28px' }}>
                 <span style={tileLabel}>Profit</span>
                 <KpiHero
                   label="Net Profit"
@@ -359,21 +362,21 @@ export default function OrdersPage() {
               const hist = xlsxInfo.historical ?? 0
               const est  = xlsxInfo.estimated  ?? 0
               return (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', rowGap: 4 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: invoiceColor }} />
-                    <span className="label" style={{ color: invoiceColor }}>{xlsxInfo.matched} / {total} from WeShip invoice</span>
+                    <span className="label" style={{ color: invoiceColor, whiteSpace: 'nowrap' }}>{xlsxInfo.matched} / {total} from WeShip invoice</span>
                   </span>
                   {hist > 0 && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, backgroundColor: '#6B6A64' }} />
-                      <span className="label" style={{ color: '#6B6A64' }}>{hist} from historic data</span>
+                      <span className="label" style={{ color: '#6B6A64', whiteSpace: 'nowrap' }}>{hist} from historic data</span>
                     </span>
                   )}
                   {est > 0 && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, border: '1.5px solid #9E9D98', backgroundColor: 'transparent' }} />
-                      <span className="label" style={{ color: '#9E9D98' }}>{est} with no data</span>
+                      <span className="label" style={{ color: '#9E9D98', whiteSpace: 'nowrap' }}>{est} with no data</span>
                     </span>
                   )}
                 </span>

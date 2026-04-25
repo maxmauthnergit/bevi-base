@@ -29,7 +29,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ label, action }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-8">
+    <div className="flex items-center justify-between flex-wrap gap-y-2 mb-8">
       <span className="label">{label}</span>
       {action}
     </div>
