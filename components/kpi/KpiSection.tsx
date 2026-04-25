@@ -61,12 +61,7 @@ export function KpiSection() {
     : 'vs. prev. period'
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
-      gap: 16,
-      marginBottom: 16,
-    }}>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
       {METRICS.map(metric => {
         const kpi = data?.kpis[metric.id]
         return (

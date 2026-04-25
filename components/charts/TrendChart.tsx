@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import {
   ResponsiveContainer, ComposedChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
@@ -47,6 +48,11 @@ function fmtEur(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v) + ' €'
 }
 
+function fmtEurShort(v: number) {
+  if (v >= 1000) return `${Math.round(v / 1000)}k`
+  return String(v)
+}
+
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -61,6 +67,8 @@ const F = "'Gustavo', 'Helvetica Neue', sans-serif"
 
 export function TrendChart() {
   const { range } = useDateRange()
+  const bp = useBreakpoint()
+  const isMobile = bp === 'mobile'
   const [data,        setData]        = useState<TrendPoint[]>([])
   const [granularity, setGranularity] = useState<'daily' | 'hourly'>('daily')
   const [loading,     setLoading]     = useState(true)
@@ -210,9 +218,9 @@ export function TrendChart() {
             <XAxis dataKey="date" ticks={xTicks} tickFormatter={xTickFormatter} type="category"
               tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
               axisLine={false} tickLine={false} />
-            <YAxis ticks={yTicks} domain={[0, yMax]} tickFormatter={fmtEur}
+            <YAxis ticks={yTicks} domain={[0, yMax]} tickFormatter={isMobile ? fmtEurShort : fmtEur}
               tick={{ fill: '#9E9D98', fontSize: 10, fontFamily: "'Gustavo', 'Helvetica Neue', sans-serif" }}
-              axisLine={false} tickLine={false} width={72} />
+              axisLine={false} tickLine={false} width={isMobile ? 32 : 72} />
             <Tooltip content={renderTooltip} />
             {showPriceFlag && (
               <ReferenceLine x={PRICE_CHANGE_DATE} stroke="#3A3A3A" strokeDasharray="3 3"
