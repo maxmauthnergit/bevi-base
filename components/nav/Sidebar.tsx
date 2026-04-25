@@ -9,11 +9,9 @@ const navItems = [
     href: '/dashboard',
     label: 'Overview',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="0" y="0" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
-        <rect x="8" y="0" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
-        <rect x="0" y="8" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
-        <rect x="8" y="8" width="6" height="6" rx="1.5" fill="currentColor" opacity="0.9" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1.5 L13 7 L11.5 7 L11.5 12.5 L2.5 12.5 L2.5 7 L1 7 Z"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -21,8 +19,10 @@ const navItems = [
     href: '/dashboard/sales',
     label: 'Sales',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M1 10 L4 6 L7 8 L10 3 L13 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <rect x="1.5" y="9" width="2.5" height="4" rx="0.5" fill="currentColor" />
+        <rect x="5.75" y="6" width="2.5" height="7" rx="0.5" fill="currentColor" />
+        <rect x="10" y="3" width="2.5" height="10" rx="0.5" fill="currentColor" />
       </svg>
     ),
   },
@@ -30,9 +30,11 @@ const navItems = [
     href: '/dashboard/orders',
     label: 'Orders',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M4 4.5 H10 M4 7 H10 M4 9.5 H7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M3.5 5 L2 12.5 L12 12.5 L10.5 5 Z"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M5.5 5 C5.5 2.5 8.5 2.5 8.5 5"
+          stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -40,9 +42,11 @@ const navItems = [
     href: '/dashboard/marketing',
     label: 'Marketing',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M7 4 L7 7 L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M2 5.5 L2 8.5 L5 8.5 L9.5 12 L9.5 2 L5 5.5 Z"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M11 5 C12.3 6 12.3 8 11 9"
+          stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -50,10 +54,11 @@ const navItems = [
     href: '/dashboard/financials',
     label: 'Financials',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="8" width="2.5" height="5" rx="1" fill="currentColor" />
-        <rect x="5.5" y="5" width="2.5" height="8" rx="1" fill="currentColor" />
-        <rect x="10" y="2" width="2.5" height="11" rx="1" fill="currentColor" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M10 4 C9 2 6.5 1.5 5 2.5 C3 3.8 2.5 6 2.5 7.5 C2.5 9 3 10.5 5 11.5 C6.5 12.2 9 11.5 10 10"
+          stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" fill="none" />
+        <path d="M2.5 6.5 L9 6.5 M2.5 8.5 L8.5 8.5"
+          stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -61,11 +66,13 @@ const navItems = [
     href: '/dashboard/inventory',
     label: 'Inventory',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="1" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="7.5" y="1" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="1" y="7.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-        <rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M7 2 L12 4.5 L7 7 L2 4.5 Z"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M2 4.5 L2 9.5 L7 12 L7 7"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M7 7 L12 4.5 L12 9.5 L7 12"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -73,9 +80,10 @@ const navItems = [
     href: '/dashboard/settings',
     label: 'Settings',
     icon: (
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M7 1 L7 3 M7 11 L7 13 M1 7 L3 7 M11 7 L13 7 M2.5 2.5 L4 4 M10 10 L11.5 11.5 M11.5 2.5 L10 4 M4 10 L2.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+        <path d="M5.5 1 L8.5 1 L8.5 3 L11 5.5 L13 5.5 L13 8.5 L11 8.5 L8.5 11 L8.5 13 L5.5 13 L5.5 11 L3 8.5 L1 8.5 L1 5.5 L3 5.5 L5.5 3 Z"
+          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+        <circle cx="7" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.35" />
       </svg>
     ),
   },
