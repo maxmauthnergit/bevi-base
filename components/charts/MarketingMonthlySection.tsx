@@ -174,7 +174,7 @@ export function MarketingMonthlySection() {
         </div>
 
         {/* Legend */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 16, marginTop: 16, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 8, height: 3, backgroundColor: '#1FA8A8', opacity: 0.4, borderRadius: 1 }} />
             <span className="label" style={{ color: '#9E9D98' }}>Revenue</span>
@@ -182,6 +182,10 @@ export function MarketingMonthlySection() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 8, height: 3, backgroundColor: '#DC2626', opacity: 0.55, borderRadius: 1 }} />
             <span className="label" style={{ color: '#9E9D98' }}>Spend</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 3, backgroundColor: '#5175B0', opacity: 0.65, borderRadius: 1 }} />
+            <span className="label" style={{ color: '#9E9D98' }}>Blended ROAS</span>
           </div>
         </div>
 
