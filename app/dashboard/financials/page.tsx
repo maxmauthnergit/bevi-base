@@ -208,10 +208,10 @@ export default function FinancialsPage() {
   }
 
   return (
-    <main style={{ padding: '32px 40px' }}>
+    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
       {/* Header */}
       <div className="mb-4">
-        <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>
+        <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>
           Financials
         </h1>
       </div>

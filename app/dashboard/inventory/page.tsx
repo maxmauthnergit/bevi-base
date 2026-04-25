@@ -40,7 +40,7 @@ export default async function InventoryPage() {
   })
 
   return (
-    <main style={{ padding: '32px 40px' }}>
+    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
       {/* Header */}
       <div className="mb-4">
         <h1

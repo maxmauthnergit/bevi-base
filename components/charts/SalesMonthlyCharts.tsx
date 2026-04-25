@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 
 interface MonthData {
   month: string
@@ -76,6 +77,8 @@ export function SalesMonthlyCharts() {
   const [data,    setData]    = useState<MonthData[]>([])
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
+  const bp = useBreakpoint()
+  const isMobile = bp === 'mobile'
 
   useEffect(() => {
     fetch('/api/sales/monthly')
@@ -97,9 +100,9 @@ export function SalesMonthlyCharts() {
   return (
     <div style={CARD}>
       {/* Column headers */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 40, marginBottom: 20 }}>
         <span className="label">Revenue Gross / Month</span>
-        <span className="label">Orders / Month</span>
+        {!isMobile && <span className="label">Orders / Month</span>}
       </div>
 
       {/* Rows */}
@@ -120,7 +123,7 @@ export function SalesMonthlyCharts() {
           const label  = monthLabel(d.month)
 
           return (
-            <div key={d.month} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
+            <div key={d.month} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 6 : 40 }}>
               {/* Revenue */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -135,7 +138,9 @@ export function SalesMonthlyCharts() {
               {/* Orders */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="label">{label}</span>
+                  <span className="label" style={{ color: isMobile ? '#C7C6C0' : undefined }}>
+                    {isMobile ? 'Orders' : label}
+                  </span>
                   <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#C4973A' }}>
                     {d.orders}
                   </span>

@@ -110,7 +110,7 @@ export function SalesPeakTimes() {
 
   if (loading || !data) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
         <div style={{ ...CARD, height: 260 }} />
         <div style={{ ...CARD, height: 260 }} />
       </div>
@@ -122,7 +122,7 @@ export function SalesPeakTimes() {
   const activeDays  = data.by_day.filter(r => r.orders > 0)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ alignItems: 'start' }}>
       <PeakCard
         title="Peak Hours"
         rows={activeHours}

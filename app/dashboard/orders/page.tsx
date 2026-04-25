@@ -255,10 +255,10 @@ export default function OrdersPage() {
   const totalMargin = totals && totals.net > 0 ? (totalDb / totals.net) * 100 : null
 
   return (
-    <main style={{ padding: '32px 40px' }}>
+    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
       {/* Page header */}
       <div className="mb-4">
-        <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>
+        <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>
           Orders
         </h1>
       </div>

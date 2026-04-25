@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import {
   PRESETS, makePresetRange, makeMonthRange,
@@ -248,6 +249,8 @@ export function DateRangeBar() {
   const { range, setRange } = useDateRange()
   const [showCalendar, setShowCalendar] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
+  const bp = useBreakpoint()
+  const isMobile = bp === 'mobile'
 
   const displayYM      = range.month ?? toYM(range.from)
   const monthNavActive = !!range.month
@@ -290,6 +293,61 @@ export function DateRangeBar() {
     const to   = new Date(toStr   + 'T23:59:59')
     setRange({ from, to, label: fmtDateRange(from, to) })
     setShowCalendar(false)
+  }
+
+  if (isMobile) {
+    return (
+      <div ref={barRef} style={{ marginBottom: 16, position: 'relative' }}>
+        {/* Row 1: month nav + custom date */}
+        <div style={{
+          backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
+          borderRadius: '16px 16px 0 0', padding: '8px 12px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid #F0EFE9',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
+            <span style={{ fontFamily: G, fontSize: FS, fontWeight: 500, color: monthNavActive ? '#111110' : '#6B6A64', minWidth: 64, textAlign: 'center' }}>
+              {fmtYM(displayYM)}
+            </span>
+            <button style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <button
+              style={{ ...pillStyle(isCustom || showCalendar), display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: '0.6875rem' }}
+              onClick={() => setShowCalendar(v => !v)}
+            >
+              <span>{fmtDateRange(range.from, range.to)}</span>
+              <span style={{ color: (isCustom || showCalendar) ? 'rgba(255,255,255,0.5)' : '#9E9D98', display: 'flex' }}><ChevDown /></span>
+            </button>
+            {showCalendar && (
+              <CalendarPicker
+                initialFrom={toDateStr(range.from)}
+                initialTo={toDateStr(range.to)}
+                onApply={applyCustom}
+                onClose={() => setShowCalendar(false)}
+              />
+            )}
+          </div>
+        </div>
+        {/* Row 2: scrollable presets */}
+        <div style={{
+          backgroundColor: '#FFFFFF', border: '1px solid #E3E2DC',
+          borderTop: 'none', borderRadius: '0 0 16px 16px',
+          padding: '6px 10px',
+          display: 'flex', alignItems: 'center', gap: 2,
+          overflowX: 'auto', flexWrap: 'nowrap',
+          scrollbarWidth: 'none',
+        }}>
+          {PRESETS.map(p => (
+            <button key={p.id} style={{ ...pillStyle(range.preset === p.id), whiteSpace: 'nowrap', fontSize: '0.6875rem', padding: '4px 9px' }} onClick={() => selectPreset(p.id as PresetId)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (

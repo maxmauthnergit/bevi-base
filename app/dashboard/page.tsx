@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     )
 
   return (
-    <main style={{ padding: '32px 40px' }}>
+    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <h1 style={{

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useBreakpoint } from '@/hooks/useBreakpoint'
 
 interface MonthRow {
   month:        string
@@ -77,6 +78,8 @@ export function MarketingMonthlySection() {
   const [months,  setMonths]  = useState<MonthRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showAll, setShowAll] = useState(false)
+  const bp = useBreakpoint()
+  const isMobile = bp === 'mobile'
 
   useEffect(() => {
     fetch('/api/marketing/monthly')
@@ -101,9 +104,9 @@ export function MarketingMonthlySection() {
       {/* Combined Spend vs Revenue + Blended ROAS card */}
       <div style={CARD}>
         {/* Column headers */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 0 : 40, marginBottom: 20 }}>
           <span className="label">Spend vs. Revenue</span>
-          <span className="label">Blended ROAS / Month</span>
+          {!isMobile && <span className="label">Blended ROAS / Month</span>}
         </div>
 
         {/* Rows */}
@@ -120,7 +123,7 @@ export function MarketingMonthlySection() {
 
             const d = row.data
             return (
-              <div key={d.month} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
+              <div key={d.month} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 6 : 40 }}>
                 {/* Spend vs Revenue */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

@@ -324,9 +324,9 @@ export default function SettingsPage() {
   const multiple   = vkNetto / totalCogs
 
   return (
-    <main style={{ padding: '32px 40px' }}>
+    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
       <div className="mb-4">
-        <h1 style={{ fontFamily: G, fontSize: '1.75rem', fontWeight: 600, color: '#111110', margin: 0 }}>Settings</h1>
+        <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>Settings</h1>
       </div>
 
       {/* ── 1. AUTOMATED DATA IMPORTS ──────────────────────────────────────── */}

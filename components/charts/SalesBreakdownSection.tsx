@@ -103,7 +103,7 @@ export function SalesBreakdownSection() {
 
   if (loading || !data) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
         <div style={{ ...CARD, height: 300 }} />
         <div style={{ ...CARD, height: 300 }} />
       </div>
@@ -114,7 +114,7 @@ export function SalesBreakdownSection() {
   const maxMarket  = Math.max(...data.by_market.map(r => r.revenue),  1)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'start' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ alignItems: 'start' }}>
       <BreakdownCard title="Revenue by Product">
         {data.by_product.map((row, i) => (
           <BarRow
