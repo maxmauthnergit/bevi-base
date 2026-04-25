@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { clsx } from 'clsx'
+import { createSupabaseBrowser } from '@/lib/supabase/browser'
 
 const navItems = [
   {
@@ -85,10 +86,17 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router   = useRouter()
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
+  }
+
+  async function signOut() {
+    const supabase = createSupabaseBrowser()
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
@@ -188,9 +196,24 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: '16px 20px', borderTop: '1px solid #1E1E1C' }}>
-        <p className="label" style={{ color: '#3A3A38', marginBottom: 2 }}>Bevi Bag GmbH</p>
-        <p className="label" style={{ color: '#2A2A28' }}>Internal use only</p>
+      <div style={{ padding: '12px 16px', borderTop: '1px solid #1E1E1C' }}>
+        <p className="label" style={{ color: '#3A3A38', marginBottom: 8 }}>Bevi Bag GmbH</p>
+        <button
+          onClick={signOut}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
+            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontSize: '0.6875rem', color: '#3A3A38', letterSpacing: '0.04em',
+          }}
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+            <path d="M4.5 2 L1.5 2 L1.5 10 L4.5 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7.5 4 L10.5 6 L7.5 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.5 6 L10.5 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          Sign out
+        </button>
       </div>
     </aside>
   )

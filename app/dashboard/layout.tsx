@@ -1,12 +1,31 @@
 import { Sidebar } from '@/components/nav/Sidebar'
 import { BottomNav } from '@/components/nav/BottomNav'
 import { DateRangeProvider } from '@/components/providers/DateRangeProvider'
+import { createSupabaseServer } from '@/lib/supabase/server'
+import { TopBarUser } from '@/components/nav/TopBarUser'
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const supabase = await createSupabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const displayName = user?.user_metadata?.full_name
+    ?? user?.user_metadata?.name
+    ?? user?.email?.split('@')[0]
+    ?? 'User'
+
+  const initials = displayName
+    .split(' ')
+    .map((w: string) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
+  const avatarUrl: string | undefined = user?.user_metadata?.avatar_url
+
   return (
     <div className="flex h-full" style={{ backgroundColor: '#F5F4F0' }}>
       {/* Sidebar — desktop only */}
@@ -26,37 +45,7 @@ export default function DashboardLayout({
             backgroundColor: '#F5F4F0',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, textAlign: 'right' }}>
-              <span
-                style={{
-                  fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  fontSize: '0.8125rem', fontWeight: 500, color: '#111110', lineHeight: 1,
-                }}
-              >
-                Max Mauthner
-              </span>
-              <span className="label" style={{ color: '#9E9D98', fontSize: '0.625rem', lineHeight: 1 }}>
-                Co-Founder
-              </span>
-            </div>
-            <div
-              style={{
-                width: 30, height: 30, borderRadius: '50%',
-                backgroundColor: '#E3E2DC',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  fontSize: '0.625rem', fontWeight: 600, color: '#6B6A64', letterSpacing: '0.02em',
-                }}
-              >
-                MM
-              </span>
-            </div>
-          </div>
+          <TopBarUser displayName={displayName} initials={initials} avatarUrl={avatarUrl} />
         </div>
 
         <DateRangeProvider>
