@@ -25,7 +25,7 @@ export default async function InventoryPage() {
 
   const rows = levels.map((item) => {
     const ws           = weshipStock?.find((w) => w.sku === item.sku)
-    const unitsWeship  = ws?.on_stock ?? null
+    const unitsWeship  = ws != null ? ws.on_stock - ws.outgoing : null
     const unitsShopify = item.units
     const avgSales     = avgDailySales?.[item.sku] ?? 0
 
