@@ -402,12 +402,14 @@ export default function SettingsPage() {
                     const fmtDay = (ds: string | null) =>
                       ds ? new Date(ds + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'
                     const period = `${fmtDay(upload.date_from)} – ${fmtDay(upload.date_to)}`
-                    const stmtLabel = new Date(upload.statement_month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                    const uploadedOn = upload.uploaded_at
+                      ? new Date(upload.uploaded_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : '?'
                     const isDel    = deletingPdf === upload.statement_month
                     return (
                       <div key={upload.statement_month} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: !isLast ? '1px solid #EDECEA' : 'none' }}>
                         <div style={{ flex: 1 }}>
-                          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>Statement {stmtLabel}</span>
+                          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>Statement uploaded on {uploadedOn}</span>
                           <span className="label" style={{ display: 'block', marginTop: 2, color: '#9E9D98' }}>{period}</span>
                         </div>
                         <button
