@@ -20,7 +20,7 @@ export default async function DashboardPage() {
     .filter((s) => s.is_low)
     .map((item) => {
       const ws             = weshipStock?.find((w) => w.sku === item.sku)
-      const effectiveUnits = ws?.on_stock ?? item.units
+      const effectiveUnits = ws != null ? ws.on_stock - ws.outgoing : item.units
       const avgSales       = avgDailySales?.[item.sku] ?? 0
       const daysLeft       = avgSales > 0 ? Math.floor(effectiveUnits / avgSales) : null
       const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
