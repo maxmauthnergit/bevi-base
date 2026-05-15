@@ -17,7 +17,6 @@ export default async function DashboardPage() {
   ])
 
   const lowStockItems = (stockLevels ?? [])
-    .filter((s) => s.is_low)
     .map((item) => {
       const ws             = weshipStock?.find((w) => w.sku === item.sku)
       const effectiveUnits = ws != null ? ws.on_stock - ws.outgoing : item.units
