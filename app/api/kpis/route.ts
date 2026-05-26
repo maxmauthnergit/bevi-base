@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrderKpisForRange, getBundleOrderCountForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getMetaSpendForRange } from '@/lib/meta/queries'
+import { createServerClient } from '@/lib/supabase'
+import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
+
+async function loadAmountsMap() {
+  try {
+    const client = createServerClient()
+    const { data } = await client.storage
+      .from('weship-invoices')
+      .download('config/production-costs.json')
+    if (data) {
+      const overrides = JSON.parse(await data.text()) as Record<string, Record<string, number>>
+      return buildAmountsMap(applyOverrides(overrides))
+    }
+  } catch { /* fall through */ }
+  return buildAmountsMap(DEFAULT_PRODUCT_COSTS)
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +61,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'from and to are required' }, { status: 400 })
   }
 
-  const tz       = await getShopTimezone()
+  const [tz, amountsMap] = await Promise.all([getShopTimezone(), loadAmountsMap()])
   const fromDate = parseInTimezone(from, '00:00:00', tz)
   const toDate   = parseInTimezone(to,   '23:59:59', tz)
   const durMs    = toDate.getTime() - fromDate.getTime()
@@ -100,7 +116,7 @@ export async function GET(req: NextRequest) {
   // All time: no meaningful comparison period — return values only
   if (preset === 'all-time') {
     const [curr, currSpend, currBundles] = await Promise.allSettled([
-      getOrderKpisForRange(fromDate, toDate),
+      getOrderKpisForRange(fromDate, toDate, amountsMap),
       getMetaSpendForRange(fromDate, toDate, tz),
       getBundleOrderCountForRange(fromDate, toDate),
     ])
@@ -110,27 +126,29 @@ export async function GET(req: NextRequest) {
     const cRefunds   = c?.refund_count ?? 0
     const cBundles   = currBundles.status === 'fulfilled' ? currBundles.value : 0
     const cRevNet    = c?.revenue_net   ?? 0
+    const cCogs      = c?.cogs          ?? 0
     const cAov       = cOrders > 0 ? cRevNet / cOrders : 0
     const cRetRate   = cOrders > 0 ? Math.round((cRefunds / cOrders) * 1000) / 10 : 0
     const cBundleRate = cOrders > 0 ? Math.round((cBundles / cOrders) * 1000) / 10 : 0
+    const cContribMargin = cRevNet - cCogs - cs
     return NextResponse.json({
       kpis: {
-        revenue_gross: mkKpiOnly('revenue_gross', c?.revenue_gross ?? 0, true),
-        revenue_net:   mkKpiOnly('revenue_net',   cRevNet,               true),
-        orders:        mkKpiOnly('orders',        cOrders,               true),
-        units_sold:    mkKpiOnly('units_sold',    c?.unit_count ?? 0,    true),
-        meta_spend:    mkKpiOnly('meta_spend',    cs,                    false),
-        aov:           mkKpiOnly('aov',           cAov,                  true),
-        return_rate:   mkKpiOnly('return_rate',   cRetRate,    false, returnRateNote(cOrders, cRefunds, cRetRate)),
-        bundle_rate:   mkKpiOnly('bundle_rate',   cBundleRate, true),
+        revenue_gross:       mkKpiOnly('revenue_gross',       c?.revenue_gross ?? 0, true),
+        revenue_net:         mkKpiOnly('revenue_net',         cRevNet,               true),
+        orders:              mkKpiOnly('orders',              cOrders,               true),
+        contribution_margin: mkKpiOnly('contribution_margin', cContribMargin,        true),
+        meta_spend:          mkKpiOnly('meta_spend',          cs,                    false),
+        aov:                 mkKpiOnly('aov',                 cAov,                  true),
+        return_rate:         mkKpiOnly('return_rate',         cRetRate,    false, returnRateNote(cOrders, cRefunds, cRetRate)),
+        bundle_rate:         mkKpiOnly('bundle_rate',         cBundleRate, true),
       },
       period: { from, to },
     })
   }
 
   const [curr, prev, currSpend, prevSpend, currBundles, prevBundles] = await Promise.allSettled([
-    getOrderKpisForRange(fromDate, toDate),
-    getOrderKpisForRange(prevFromDate, prevToDate),
+    getOrderKpisForRange(fromDate, toDate, amountsMap),
+    getOrderKpisForRange(prevFromDate, prevToDate, amountsMap),
     getMetaSpendForRange(fromDate, toDate, tz),
     getMetaSpendForRange(prevFromDate, prevToDate, tz),
     getBundleOrderCountForRange(fromDate, toDate),
@@ -148,8 +166,6 @@ export async function GET(req: NextRequest) {
   const pRevNet   = p?.revenue_net   ?? 0
   const cOrders   = c?.order_count   ?? 0
   const pOrders   = p?.order_count   ?? 0
-  const cUnits    = c?.unit_count    ?? 0
-  const pUnits    = p?.unit_count    ?? 0
   const cRefunds  = c?.refund_count  ?? 0
   const pRefunds  = p?.refund_count  ?? 0
   const cBundles  = currBundles.status === 'fulfilled' ? currBundles.value : 0
@@ -160,17 +176,19 @@ export async function GET(req: NextRequest) {
   const pReturnRate   = pOrders > 0 ? Math.round((pRefunds / pOrders) * 1000) / 10 : 0
   const cBundleRate   = cOrders > 0 ? Math.round((cBundles / cOrders) * 1000) / 10 : 0
   const pBundleRate   = pOrders > 0 ? Math.round((pBundles / pOrders) * 1000) / 10 : 0
+  const cContribMargin = cRevNet - (c?.cogs ?? 0) - cs
+  const pContribMargin = pRevNet - (p?.cogs ?? 0) - ps
 
   return NextResponse.json({
     kpis: {
-      revenue_gross: mkKpi('revenue_gross', cRevGross,   pRevGross,   true),
-      revenue_net:   mkKpi('revenue_net',   cRevNet,     pRevNet,     true),
-      orders:        mkKpi('orders',        cOrders,     pOrders,     true),
-      units_sold:    mkKpi('units_sold',    cUnits,      pUnits,      true),
-      meta_spend:    mkKpi('meta_spend',    cs,          ps,          false),
-      aov:           mkKpi('aov',           cAov,        pAov,        true),
-      return_rate:   mkKpi('return_rate',   cReturnRate, pReturnRate, false, returnRateNote(cOrders, cRefunds, cReturnRate)),
-      bundle_rate:   mkKpi('bundle_rate',   cBundleRate, pBundleRate, true),
+      revenue_gross:       mkKpi('revenue_gross',       cRevGross,       pRevGross,       true),
+      revenue_net:         mkKpi('revenue_net',         cRevNet,         pRevNet,         true),
+      orders:              mkKpi('orders',              cOrders,         pOrders,         true),
+      contribution_margin: mkKpi('contribution_margin', cContribMargin,  pContribMargin,  true),
+      meta_spend:          mkKpi('meta_spend',          cs,              ps,              false),
+      aov:                 mkKpi('aov',                 cAov,            pAov,            true),
+      return_rate:         mkKpi('return_rate',         cReturnRate,     pReturnRate,     false, returnRateNote(cOrders, cRefunds, cReturnRate)),
+      bundle_rate:         mkKpi('bundle_rate',         cBundleRate,     pBundleRate,     true),
     },
     period:     { from, to },
     compPeriod: { from: isoInTZ(prevFromDate, tz), to: isoInTZ(prevToDate, tz) },
