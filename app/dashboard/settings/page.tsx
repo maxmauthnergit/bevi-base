@@ -99,12 +99,14 @@ const PRODUCTS: Product[] = [
 type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
 type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
 type PdfUpload = { filename: string; statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string | null }
+type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[] }
 
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
   const [bankOpen, setBankOpen]       = useState(true)
   const [weshipOpen, setWeshipOpen]   = useState(false)
   const [weshipMonths, setWeshipMonths] = useState<WeshipMonth[]>(buildMonths)
+  const [metaToken, setMetaToken]     = useState<MetaTokenInfo | null>(null)
   const [uploading, setUploading]     = useState<string | null>(null)
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [fileError, setFileError]     = useState<string | null>(null)
@@ -233,6 +235,9 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => { loadPdfs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetch('/api/meta/token-info').then(r => r.json()).then(d => { if (!d.error) setMetaToken(d) }).catch(() => {})
+  }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -352,6 +357,28 @@ export default function SettingsPage() {
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
+              {api.id === 'meta' && metaToken && (() => {
+                const warn  = metaToken.days_left !== null && metaToken.days_left <= 7
+                const exp   = metaToken.days_left !== null && metaToken.days_left < 0
+                const color = exp ? '#DC2626' : warn ? '#D97706' : '#6B6A64'
+                const bg    = exp ? 'rgba(220,38,38,0.06)' : warn ? 'rgba(217,119,6,0.06)' : 'transparent'
+                const label = metaToken.never_expires
+                  ? 'Token never expires'
+                  : exp
+                  ? `Token expired ${Math.abs(metaToken.days_left!)} days ago — renew in Vercel env vars`
+                  : warn
+                  ? `Token expires in ${metaToken.days_left} days — renew soon`
+                  : `Token valid · expires in ${metaToken.days_left} days`
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 8, backgroundColor: bg, marginBottom: 4 }}>
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+                      <circle cx="6.5" cy="6.5" r="5.5" stroke={color} strokeWidth="1.2"/>
+                      <path d="M6.5 5.5v3M6.5 4h.01" stroke={color} strokeWidth="1.2" strokeLinecap="round"/>
+                    </svg>
+                    <span style={{ fontFamily: G, fontSize: '0.6875rem', color }}>{label}</span>
+                  </div>
+                )
+              })()}
               {open && (
                 <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '12px 16px', marginBottom: i < APIS.length - 1 ? 12 : 0 }}>
                   <span className="label" style={{ display: 'block', marginBottom: 8, color: '#6B6A64' }}>
