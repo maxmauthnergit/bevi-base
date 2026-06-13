@@ -43,8 +43,13 @@ type WeshipMonth = {
 
 function buildMonths(): WeshipMonth[] {
   const out: WeshipMonth[] = []
+  const now = new Date()
+  let endY = now.getFullYear()
+  let endM = now.getMonth() + 2 // current month + 1 (getMonth is 0-based)
+  if (endM > 12) { endM -= 12; endY++ }
+
   let y = 2024, m = 11
-  while (y < 2026 || (y === 2026 && m <= 4)) {
+  while (y < endY || (y === endY && m <= endM)) {
     const key = `${y}-${String(m).padStart(2,'0')}`
     out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasServices: false })
     if (++m > 12) { m = 1; y++ }
