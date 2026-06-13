@@ -350,6 +350,27 @@ export default function SettingsPage() {
                 <div style={{ flex: 1 }}>
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
+                  {api.id === 'meta' && metaToken && (() => {
+                    const warn  = metaToken.days_left !== null && metaToken.days_left <= 7
+                    const exp   = metaToken.days_left !== null && metaToken.days_left < 0
+                    const color = exp ? '#DC2626' : warn ? '#D97706' : '#9E9D98'
+                    const label = metaToken.never_expires
+                      ? 'Token never expires'
+                      : exp
+                      ? `Token expired ${Math.abs(metaToken.days_left!)}d ago — renew in Vercel`
+                      : warn
+                      ? `Token expires in ${metaToken.days_left}d — renew soon`
+                      : `Token valid · expires in ${metaToken.days_left}d`
+                    return (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <svg width="11" height="11" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
+                          <circle cx="6.5" cy="6.5" r="5.5" stroke={color} strokeWidth="1.4"/>
+                          <path d="M6.5 5.5v3M6.5 4h.01" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
+                        </svg>
+                        <span style={{ fontFamily: G, fontSize: '0.6875rem', color }}>{label}</span>
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, backgroundColor: api.connected ? 'rgba(13,133,133,0.08)' : 'rgba(220,38,38,0.07)', border: `1px solid ${api.connected ? 'rgba(13,133,133,0.2)' : 'rgba(220,38,38,0.18)'}`, whiteSpace: 'nowrap' }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: api.connected ? '#0D8585' : '#DC2626', display: 'inline-block' }} />
@@ -357,28 +378,6 @@ export default function SettingsPage() {
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
-              {api.id === 'meta' && metaToken && (() => {
-                const warn  = metaToken.days_left !== null && metaToken.days_left <= 7
-                const exp   = metaToken.days_left !== null && metaToken.days_left < 0
-                const color = exp ? '#DC2626' : warn ? '#D97706' : '#6B6A64'
-                const bg    = exp ? 'rgba(220,38,38,0.06)' : warn ? 'rgba(217,119,6,0.06)' : 'transparent'
-                const label = metaToken.never_expires
-                  ? 'Token never expires'
-                  : exp
-                  ? `Token expired ${Math.abs(metaToken.days_left!)} days ago — renew in Vercel env vars`
-                  : warn
-                  ? `Token expires in ${metaToken.days_left} days — renew soon`
-                  : `Token valid · expires in ${metaToken.days_left} days`
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px', borderRadius: 8, backgroundColor: bg, marginBottom: 4 }}>
-                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
-                      <circle cx="6.5" cy="6.5" r="5.5" stroke={color} strokeWidth="1.2"/>
-                      <path d="M6.5 5.5v3M6.5 4h.01" stroke={color} strokeWidth="1.2" strokeLinecap="round"/>
-                    </svg>
-                    <span style={{ fontFamily: G, fontSize: '0.6875rem', color }}>{label}</span>
-                  </div>
-                )
-              })()}
               {open && (
                 <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '12px 16px', marginBottom: i < APIS.length - 1 ? 12 : 0 }}>
                   <span className="label" style={{ display: 'block', marginBottom: 8, color: '#6B6A64' }}>
