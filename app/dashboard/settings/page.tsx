@@ -467,21 +467,6 @@ export default function SettingsPage() {
           </div>
           {weshipOpen && (
             <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '4px 16px 8px' }}>
-              <div style={{ padding: '10px 0 8px', borderBottom: '1px solid #EDECEA', marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span className="label" style={{ color: '#9E9D98' }}>Upload a new XLSX cost list</span>
-                <button
-                  style={{ ...btn, color: '#111110', borderColor: '#D0CFC8' }}
-                  onClick={() => {
-                    setFileError(null)
-                    const firstPending = weshipMonths.find(m => !m.hasServices)
-                    uploadKey.current = firstPending?.key ?? weshipMonths[0].key
-                    fileRef.current!.accept = '.xlsx'
-                    fileRef.current?.click()
-                  }}
-                >
-                  + Upload XLSX
-                </button>
-              </div>
               {fileError && (
                 <div style={{ padding: '8px 0 4px', fontSize: '0.75rem', color: '#DC2626', fontFamily: G }}>
                   {fileError}
