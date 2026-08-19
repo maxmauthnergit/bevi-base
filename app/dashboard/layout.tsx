@@ -3,6 +3,7 @@ import { BottomNav } from '@/components/nav/BottomNav'
 import { DateRangeProvider } from '@/components/providers/DateRangeProvider'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { TopBarUser } from '@/components/nav/TopBarUser'
+import { redirect } from 'next/navigation'
 
 export default async function DashboardLayout({
   children,
@@ -11,6 +12,10 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Authoritative session check. proxy.ts only inspects the cookie, so a
+  // stale or forged one reaches this point — reject it here.
+  if (!user) redirect('/login')
 
   const displayName = user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
