@@ -29,10 +29,6 @@ function fmtEur(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v) + ' €'
 }
 
-function fmtOrders(v: number) {
-  return `${v} ${v === 1 ? 'order' : 'orders'}`
-}
-
 function BarRow({
   label,
   sublabel,
@@ -53,7 +49,8 @@ function BarRow({
   // Only the selected metric is shown — the toggle switches the value outright
   // rather than re-emphasising one of two.
   const value = metric === 'revenue' ? revenue : orders
-  const text  = metric === 'revenue' ? fmtEur(revenue) : fmtOrders(orders)
+  // The toggle already says "Orders", so the count needs no unit word.
+  const text  = metric === 'revenue' ? fmtEur(revenue) : String(orders)
   const pct   = max > 0 ? (value / max) * 100 : 0
 
   return (

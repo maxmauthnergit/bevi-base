@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     created_at_min: fromDate.toISOString(),
     created_at_max: toDate.toISOString(),
     limit:          '250',
-    fields:         'id,created_at,financial_status,cancelled_at',
+    fields:         'id,created_at,financial_status,cancelled_at,total_price,refunds',
   })
 
   const orders = await shopifyFetchAllOrders(params, { revalidate: 0 })
