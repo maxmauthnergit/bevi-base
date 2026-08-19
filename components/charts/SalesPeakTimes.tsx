@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import { SkeletonCard } from '@/components/ui/Skeleton'
+import { MetricToggle, type SalesMetric } from '@/components/ui/MetricToggle'
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-interface HourRow { hour: number; label: string; orders: number }
-interface DayRow  { day: number; label: string;  orders: number }
+interface HourRow { hour: number; label: string; orders: number; revenue: number }
+interface DayRow  { day: number; label: string;  orders: number; revenue: number }
 
 interface PeakData {
   by_hour: HourRow[]
@@ -28,6 +29,10 @@ const CARD = {
 const DEFAULT_VISIBLE_HOURS = 8
 const DEFAULT_VISIBLE_DAYS  = 7   // only 7 days total — always show all
 
+function fmtEur(v: number) {
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(v) + ' €'
+}
+
 function Bar({ pct, color }: { pct: number; color: string }) {
   return (
     <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>
@@ -40,7 +45,7 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   )
 }
 
-function PeakCard<T extends { label: string; orders: number }>({
+function PeakCard<T extends { label: string; orders: number; revenue: number }>({
   title,
   rows,
   color,
@@ -52,28 +57,42 @@ function PeakCard<T extends { label: string; orders: number }>({
   defaultVisible: number
 }) {
   const [showAll, setShowAll] = useState(false)
-  const maxOrders = Math.max(...rows.map(r => r.orders), 1)
-  const visible   = showAll ? rows : rows.slice(0, defaultVisible)
-  const hasMore   = rows.length > defaultVisible
+  const [metric,  setMetric]  = useState<SalesMetric>('orders')
+
+  const pick   = (r: T) => (metric === 'revenue' ? r.revenue : r.orders)
+  const maxVal = Math.max(...rows.map(pick), 1)
+
+  // Re-sort by the metric on show, so the busiest slot stays at the top.
+  const sorted  = [...rows].sort((a, b) => pick(b) - pick(a))
+  const visible = showAll ? sorted : sorted.slice(0, defaultVisible)
+  const hasMore = sorted.length > defaultVisible
 
   return (
     <div style={CARD}>
-      <span className="label" style={{ display: 'block', marginBottom: 20 }}>{title}</span>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 12, marginBottom: 20,
+      }}>
+        <span className="label">{title}</span>
+        <MetricToggle value={metric} onChange={setMetric} />
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {visible.map(row => (
           <div key={row.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="label">{row.label}</span>
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
                 <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
-                  {row.orders}
+                  {metric === 'revenue' ? fmtEur(row.revenue) : row.orders}
                 </span>
                 <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                  {row.orders === 1 ? 'order' : 'orders'}
+                  {metric === 'revenue'
+                    ? `${row.orders} ${row.orders === 1 ? 'order' : 'orders'}`
+                    : (row.orders === 1 ? 'order' : 'orders')}
                 </span>
               </span>
             </div>
-            <Bar pct={(row.orders / maxOrders) * 100} color={color} />
+            <Bar pct={(pick(row) / maxVal) * 100} color={color} />
           </div>
         ))}
       </div>
@@ -89,7 +108,7 @@ function PeakCard<T extends { label: string; orders: number }>({
             color: '#9E9D98',
           }}
         >
-          {showAll ? '↑ Show less' : `↓ Show all (${rows.length})`}
+          {showAll ? '↑ Show less' : `↓ Show all (${sorted.length})`}
         </button>
       )}
     </div>
@@ -130,13 +149,13 @@ export function SalesPeakTimes() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ alignItems: 'start' }}>
       <PeakCard
-        title="Peak Hours"
+        title="Sales by Hour"
         rows={activeHours}
         color="#BF6035"
         defaultVisible={DEFAULT_VISIBLE_HOURS}
       />
       <PeakCard
-        title="Peak Days"
+        title="Sales by Day"
         rows={activeDays}
         color="#17C9B0"
         defaultVisible={DEFAULT_VISIBLE_DAYS}

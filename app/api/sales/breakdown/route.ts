@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
 
   const byProduct = new Map<string, number>()
   const byMarket  = new Map<string, number>()
+  const marketOrders = new Map<string, number>()
   // Order ids per product, so a product appearing in several line items of the
   // same order is still counted once.
   const productOrders = new Map<string, Set<number>>()
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       ?? order.billing_address?.country_code
       ?? 'Unknown'
     byMarket.set(country, (byMarket.get(country) ?? 0) + revenue)
+    marketOrders.set(country, (marketOrders.get(country) ?? 0) + 1)
 
     for (const li of order.line_items) {
       const key       = `${li.title}|||${li.variant_title ?? ''}`
@@ -73,7 +75,11 @@ export async function GET(req: NextRequest) {
   const by_market = Array.from(byMarket.entries())
     .sort(([, a], [, b]) => b - a)
     .slice(0, 12)
-    .map(([country, revenue]) => ({ country, revenue: Math.round(revenue) }))
+    .map(([country, revenue]) => ({
+      country,
+      revenue: Math.round(revenue),
+      orders:  marketOrders.get(country) ?? 0,
+    }))
 
   return NextResponse.json({ by_product, by_market })
 }

@@ -104,11 +104,11 @@ type PdfUpload = { filename: string; statement_month: string; date_from: string 
 type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[] }
 
 
-type PillState = 'ok' | 'warn' | 'error'
+type PillState = 'ok' | 'muted' | 'error'
 
 const PILL_COLORS: Record<PillState, { fg: string; bg: string; border: string }> = {
   ok:    { fg: '#0D8585', bg: 'rgba(13,133,133,0.08)', border: 'rgba(13,133,133,0.2)'  },
-  warn:  { fg: '#D97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
+  muted: { fg: '#6B6A64', bg: '#F0EFE9',               border: '#E3E2DC'               },
   error: { fg: '#DC2626', bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)'  },
 }
 
@@ -127,13 +127,19 @@ function StatusPill({ state, label }: { state: PillState; label: string }) {
   )
 }
 
-/** One-line token lifetime, shown under the Connected pill. */
-function metaTokenNote(t: MetaTokenInfo): { text: string; color: string } {
-  if (t.never_expires)      return { text: 'Never expires',                         color: '#9E9D98' }
-  if (t.days_left === null) return { text: 'Expiry unknown',                        color: '#9E9D98' }
-  if (t.days_left < 0)      return { text: `Expired ${Math.abs(t.days_left)}d ago`, color: '#DC2626' }
-  if (t.days_left <= 7)     return { text: `Renew soon · ${t.days_left}d left`,     color: '#D97706' }
-  return { text: `Expires in ${t.days_left}d`, color: '#9E9D98' }
+/**
+ * Token lifetime as a pill matching the Connected badge. Red once the token is
+ * within a week of expiry (or already expired), plain grey before that.
+ */
+const TOKEN_WARNING_DAYS = 7
+
+function metaTokenNote(t: MetaTokenInfo): { text: string; state: PillState } {
+  if (t.never_expires)      return { text: 'Never expires',                          state: 'muted' }
+  if (t.days_left === null) return { text: 'Expiry unknown',                          state: 'muted' }
+  if (t.days_left < 0)      return { text: `Expired ${Math.abs(t.days_left)}d ago`,   state: 'error' }
+  if (t.days_left <= TOKEN_WARNING_DAYS)
+                            return { text: `Expires in ${t.days_left}d`,              state: 'error' }
+  return { text: `Expires in ${t.days_left}d`, state: 'muted' }
 }
 
 function DatabaseCard() {
@@ -178,7 +184,7 @@ function DatabaseCard() {
               label={status?.connected ? 'Connected' : 'Unreachable'}
             />
             <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
-              {status?.connected ? `${status.latency_ms} ms` : 'no response'}
+              {status?.connected ? `${status.latency_ms} ms round-trip` : 'no response'}
             </span>
           </div>
         )}
@@ -204,6 +210,12 @@ function DatabaseCard() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
               Verify the window against your current plan — it has changed before,
               and paid plans do not pause at all.
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
+              The round-trip above times one test query against{' '}
+              <code style={{ fontFamily: 'monospace' }}>bank_transactions</code>. The
+              first call after an idle spell carries cold-start overhead and can
+              exceed a second; that is startup cost, not query speed.
             </span>
           </>
         ) : (
@@ -477,11 +489,7 @@ export default function SettingsPage() {
                   <StatusPill state={api.connected ? 'ok' : 'error'} label={api.connected ? 'Connected' : 'Not connected'} />
                   {api.id === 'meta' && metaToken && (() => {
                     const note = metaTokenNote(metaToken)
-                    return (
-                      <span className="label" style={{ fontSize: '0.625rem', color: note.color, whiteSpace: 'nowrap' }}>
-                        {note.text}
-                      </span>
-                    )
+                    return <StatusPill state={note.state} label={note.text} />
                   })()}
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
