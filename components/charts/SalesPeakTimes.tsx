@@ -81,15 +81,15 @@ function PeakCard<T extends { label: string; orders: number; revenue: number }>(
           <div key={row.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="label">{row.label}</span>
-              <span style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
                 <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
                   {metric === 'revenue' ? fmtEur(row.revenue) : row.orders}
                 </span>
-                <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                  {metric === 'revenue'
-                    ? `${row.orders} ${row.orders === 1 ? 'order' : 'orders'}`
-                    : (row.orders === 1 ? 'order' : 'orders')}
-                </span>
+                {metric === 'orders' && (
+                  <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
+                    {row.orders === 1 ? 'order' : 'orders'}
+                  </span>
+                )}
               </span>
             </div>
             <Bar pct={(pick(row) / maxVal) * 100} color={color} />

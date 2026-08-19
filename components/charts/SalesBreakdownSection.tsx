@@ -50,12 +50,11 @@ function BarRow({
   max: number
   color: string
 }) {
-  // The selected metric drives the bar and the emphasised number; the other one
-  // stays visible in muted text so switching never hides information.
-  const primaryValue = metric === 'revenue' ? revenue : orders
-  const primaryText  = metric === 'revenue' ? fmtEur(revenue) : String(orders)
-  const secondaryText = metric === 'revenue' ? fmtOrders(orders) : fmtEur(revenue)
-  const pct = max > 0 ? (primaryValue / max) * 100 : 0
+  // Only the selected metric is shown — the toggle switches the value outright
+  // rather than re-emphasising one of two.
+  const value = metric === 'revenue' ? revenue : orders
+  const text  = metric === 'revenue' ? fmtEur(revenue) : fmtOrders(orders)
+  const pct   = max > 0 ? (value / max) * 100 : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -66,13 +65,8 @@ function BarRow({
             <span style={{ color: '#C7C6C0', marginLeft: 4 }}>{sublabel}</span>
           )}
         </span>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexShrink: 0 }}>
-          <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
-            {primaryText}
-          </span>
-          <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-            {secondaryText}
-          </span>
+        <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color, flexShrink: 0 }}>
+          {text}
         </span>
       </div>
       <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>

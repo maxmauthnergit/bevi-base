@@ -178,15 +178,10 @@ function DatabaseCard() {
         {loading ? (
           <Skeleton width={92} height={22} radius={6} />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <StatusPill
-              state={status?.connected ? 'ok' : 'error'}
-              label={status?.connected ? 'Connected' : 'Unreachable'}
-            />
-            <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
-              {status?.connected ? `${status.latency_ms} ms round-trip` : 'no response'}
-            </span>
-          </div>
+          <StatusPill
+            state={status?.connected ? 'ok' : 'error'}
+            label={status?.connected ? 'Connected' : 'Unreachable'}
+          />
         )}
       </div>
 
@@ -210,12 +205,6 @@ function DatabaseCard() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
               Verify the window against your current plan — it has changed before,
               and paid plans do not pause at all.
-            </span>
-            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
-              The round-trip above times one test query against{' '}
-              <code style={{ fontFamily: 'monospace' }}>bank_transactions</code>. The
-              first call after an idle spell carries cold-start overhead and can
-              exceed a second; that is startup cost, not query speed.
             </span>
           </>
         ) : (
@@ -485,12 +474,12 @@ export default function SettingsPage() {
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                  <StatusPill state={api.connected ? 'ok' : 'error'} label={api.connected ? 'Connected' : 'Not connected'} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                   {api.id === 'meta' && metaToken && (() => {
                     const note = metaTokenNote(metaToken)
                     return <StatusPill state={note.state} label={note.text} />
                   })()}
+                  <StatusPill state={api.connected ? 'ok' : 'error'} label={api.connected ? 'Connected' : 'Not connected'} />
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
