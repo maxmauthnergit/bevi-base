@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import type { ProductCostConfig } from '@/lib/costs-config'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -100,6 +102,126 @@ type BankTxn = { id: string; date: string; counterparty: string; reference: stri
 type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
 type PdfUpload = { filename: string; statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string | null }
 type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[] }
+
+
+type PillState = 'ok' | 'warn' | 'error'
+
+const PILL_COLORS: Record<PillState, { fg: string; bg: string; border: string }> = {
+  ok:    { fg: '#0D8585', bg: 'rgba(13,133,133,0.08)', border: 'rgba(13,133,133,0.2)'  },
+  warn:  { fg: '#D97706', bg: 'rgba(217,119,6,0.08)',  border: 'rgba(217,119,6,0.22)'  },
+  error: { fg: '#DC2626', bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)'  },
+}
+
+function StatusPill({ state, label }: { state: PillState; label: string }) {
+  const c = PILL_COLORS[state]
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 6,
+      backgroundColor: c.bg, border: `1px solid ${c.border}`,
+      whiteSpace: 'nowrap',
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: c.fg, display: 'inline-block' }} />
+      <span className="label" style={{ color: c.fg }}>{label}</span>
+    </div>
+  )
+}
+
+/** One-line token lifetime, shown under the Connected pill. */
+function metaTokenNote(t: MetaTokenInfo): { text: string; color: string } {
+  if (t.never_expires)      return { text: 'Never expires',                         color: '#9E9D98' }
+  if (t.days_left === null) return { text: 'Expiry unknown',                        color: '#9E9D98' }
+  if (t.days_left < 0)      return { text: `Expired ${Math.abs(t.days_left)}d ago`, color: '#DC2626' }
+  if (t.days_left <= 7)     return { text: `Renew soon · ${t.days_left}d left`,     color: '#D97706' }
+  return { text: `Expires in ${t.days_left}d`, color: '#9E9D98' }
+}
+
+function DatabaseCard() {
+  const [status, setStatus] = useState<DatabaseStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/database/status')
+      .then(r => r.json())
+      .then(d => { if (!cancelled) { setStatus(d); setLoading(false) } })
+      .catch(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const deadline = status?.connected
+    ? pauseDeadline(status.checked_at, status.pause_after_days)
+    : null
+
+  const deadlineLabel = deadline
+    ? deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+
+  return (
+    <Card className="mb-4">
+      <CardHeader label="Database" />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>
+            Supabase
+          </span>
+          <span className="label">Postgres · Auth · Storage</span>
+        </div>
+
+        {loading ? (
+          <Skeleton width={92} height={22} radius={6} />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <StatusPill
+              state={status?.connected ? 'ok' : 'error'}
+              label={status?.connected ? 'Connected' : 'Unreachable'}
+            />
+            <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98', whiteSpace: 'nowrap' }}>
+              {status?.connected ? `${status.latency_ms} ms` : 'no response'}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Free-plan pause window */}
+      <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '12px 16px' }}>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Skeleton width={140} height={9} />
+            <Skeleton width="80%" height={9} />
+          </div>
+        ) : status?.connected ? (
+          <>
+            <span className="label" style={{ display: 'block', marginBottom: 6, color: '#6B6A64' }}>
+              Free plan · inactivity pause
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', display: 'block' }}>
+              Pauses after {status.pause_after_days} days without activity. Opening this
+              page counts as activity, so the earliest pause is{' '}
+              <strong style={{ color: '#111110', fontWeight: 600 }}>{deadlineLabel}</strong>.
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
+              Verify the window against your current plan — it has changed before,
+              and paid plans do not pause at all.
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="label" style={{ display: 'block', marginBottom: 6, color: '#DC2626' }}>
+              Not reachable
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', display: 'block' }}>
+              {status?.error ?? 'The status check failed.'} If the project was paused
+              for inactivity, resume it in the Supabase dashboard — it stays paused
+              until you do.
+            </span>
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
@@ -350,31 +472,17 @@ export default function SettingsPage() {
                 <div style={{ flex: 1 }}>
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                  <StatusPill state={api.connected ? 'ok' : 'error'} label={api.connected ? 'Connected' : 'Not connected'} />
                   {api.id === 'meta' && metaToken && (() => {
-                    const warn  = metaToken.days_left !== null && metaToken.days_left <= 7
-                    const exp   = metaToken.days_left !== null && metaToken.days_left < 0
-                    const color = exp ? '#DC2626' : warn ? '#D97706' : '#9E9D98'
-                    const label = metaToken.never_expires
-                      ? 'Token never expires'
-                      : exp
-                      ? `Token expired ${Math.abs(metaToken.days_left!)}d ago — renew in Vercel`
-                      : warn
-                      ? `Token expires in ${metaToken.days_left}d — renew soon`
-                      : `Token valid · expires in ${metaToken.days_left}d`
+                    const note = metaTokenNote(metaToken)
                     return (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                        <svg width="11" height="11" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>
-                          <circle cx="6.5" cy="6.5" r="5.5" stroke={color} strokeWidth="1.4"/>
-                          <path d="M6.5 5.5v3M6.5 4h.01" stroke={color} strokeWidth="1.4" strokeLinecap="round"/>
-                        </svg>
-                        <span style={{ fontFamily: G, fontSize: '0.6875rem', color }}>{label}</span>
+                      <span className="label" style={{ fontSize: '0.625rem', color: note.color, whiteSpace: 'nowrap' }}>
+                        {note.text}
                       </span>
                     )
                   })()}
-                </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, backgroundColor: api.connected ? 'rgba(13,133,133,0.08)' : 'rgba(220,38,38,0.07)', border: `1px solid ${api.connected ? 'rgba(13,133,133,0.2)' : 'rgba(220,38,38,0.18)'}`, whiteSpace: 'nowrap' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: api.connected ? '#0D8585' : '#DC2626', display: 'inline-block' }} />
-                  <span className="label" style={{ color: api.connected ? '#0D8585' : '#DC2626' }}>{api.connected ? 'Connected' : 'Not connected'}</span>
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
@@ -395,7 +503,10 @@ export default function SettingsPage() {
         })}
       </Card>
 
-      {/* ── 2. MANUAL DATA ENTRY ───────────────────────────────────────────── */}
+      {/* ── 2. DATABASE ────────────────────────────────────────────────────── */}
+      <DatabaseCard />
+
+      {/* ── 3. MANUAL DATA ENTRY ───────────────────────────────────────────── */}
       <Card className="mb-4">
         <CardHeader label="Manual Data Entry" />
 

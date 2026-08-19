@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import { KpiCard } from '@/components/kpi/KpiCard'
+import { Skeleton } from '@/components/ui/Skeleton'
 import type { KpiValue, MetricDefinition } from '@/lib/types'
 
 function toDateStr(d: Date) {
@@ -70,7 +71,6 @@ export function SalesKpiSection() {
             style={{
               position: 'relative', borderRadius: 16,
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #E3E2DC',
-              opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s',
             }}
           >
             {kpi ? (
@@ -81,12 +81,12 @@ export function SalesKpiSection() {
                 <div style={{ marginTop: 12, fontSize: '0.75rem', color: '#9E9D98' }}>—</div>
               </div>
             ) : (
-              <div className="p-6">
+              <div className="p-6" role="status" aria-busy="true">
                 <span className="label">{metric.label}</span>
-                <div style={{
-                  marginTop: 12, height: 28, borderRadius: 6,
-                  backgroundColor: '#F0EFE9', width: '60%',
-                }} />
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Skeleton width="60%" height={28} />
+                  <Skeleton width="40%" height={9} />
+                </div>
               </div>
             )}
           </div>

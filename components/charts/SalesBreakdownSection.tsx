@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-interface ProductRow { title: string; variant: string | null; revenue: number }
+interface ProductRow { title: string; variant: string | null; revenue: number; orders: number }
 interface MarketRow  { country: string; revenue: number }
 
 interface BreakdownData {
@@ -31,12 +32,14 @@ function BarRow({
   label,
   sublabel,
   revenue,
+  orders,
   maxRevenue,
   color,
 }: {
   label: string
   sublabel?: string | null
   revenue: number
+  orders?: number
   maxRevenue: number
   color: string
 }) {
@@ -50,8 +53,15 @@ function BarRow({
             <span style={{ color: '#C7C6C0', marginLeft: 4 }}>{sublabel}</span>
           )}
         </span>
-        <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color, flexShrink: 0 }}>
-          {fmtEur(revenue)}
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexShrink: 0 }}>
+          <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
+            {fmtEur(revenue)}
+          </span>
+          {orders !== undefined && (
+            <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
+              {orders} {orders === 1 ? 'order' : 'orders'}
+            </span>
+          )}
         </span>
       </div>
       <div style={{ position: 'relative', height: 4, backgroundColor: '#E3E2DC', borderRadius: 2 }}>
@@ -103,9 +113,9 @@ export function SalesBreakdownSection() {
 
   if (loading || !data) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-        <div style={{ ...CARD, height: 300 }} />
-        <div style={{ ...CARD, height: 300 }} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SkeletonCard height={300} lines={5} />
+        <SkeletonCard height={300} lines={5} />
       </div>
     )
   }
@@ -115,13 +125,14 @@ export function SalesBreakdownSection() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ alignItems: 'start' }}>
-      <BreakdownCard title="Revenue by Product">
+      <BreakdownCard title="Revenue / Orders by Product">
         {data.by_product.map((row, i) => (
           <BarRow
             key={i}
             label={row.title}
             sublabel={row.variant}
             revenue={row.revenue}
+            orders={row.orders}
             maxRevenue={maxProduct}
             color="#1FA8A8"
           />

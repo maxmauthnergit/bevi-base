@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 
 function toDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -63,8 +64,13 @@ function PeakCard<T extends { label: string; orders: number }>({
           <div key={row.label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className="label">{row.label}</span>
-              <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
-                {row.orders}
+              <span style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span className="metric" style={{ fontSize: '0.6875rem', fontWeight: 600, color }}>
+                  {row.orders}
+                </span>
+                <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
+                  {row.orders === 1 ? 'order' : 'orders'}
+                </span>
               </span>
             </div>
             <Bar pct={(row.orders / maxOrders) * 100} color={color} />
@@ -110,9 +116,9 @@ export function SalesPeakTimes() {
 
   if (loading || !data) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-        <div style={{ ...CARD, height: 260 }} />
-        <div style={{ ...CARD, height: 260 }} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SkeletonCard height={260} lines={4} />
+        <SkeletonCard height={260} lines={4} />
       </div>
     )
   }

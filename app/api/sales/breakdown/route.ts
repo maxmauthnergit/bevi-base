@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
 
   const byProduct = new Map<string, number>()
   const byMarket  = new Map<string, number>()
+  // Order ids per product, so a product appearing in several line items of the
+  // same order is still counted once.
+  const productOrders = new Map<string, Set<number>>()
 
   for (const order of orders) {
     if (order.financial_status === 'voided' || order.cancelled_at) continue
@@ -47,6 +50,10 @@ export async function GET(req: NextRequest) {
       const key       = `${li.title}|||${li.variant_title ?? ''}`
       const liRevenue = toFloat(li.price) * li.quantity
       byProduct.set(key, (byProduct.get(key) ?? 0) + liRevenue)
+
+      let orderIds = productOrders.get(key)
+      if (!orderIds) { orderIds = new Set(); productOrders.set(key, orderIds) }
+      orderIds.add(order.id)
     }
   }
 
@@ -55,7 +62,12 @@ export async function GET(req: NextRequest) {
     .slice(0, 14)
     .map(([key, revenue]) => {
       const [title, variant] = key.split('|||')
-      return { title, variant: variant || null, revenue: Math.round(revenue) }
+      return {
+        title,
+        variant: variant || null,
+        revenue: Math.round(revenue),
+        orders:  productOrders.get(key)?.size ?? 0,
+      }
     })
 
   const by_market = Array.from(byMarket.entries())

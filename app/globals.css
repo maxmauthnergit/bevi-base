@@ -108,3 +108,28 @@ body {
 ::-webkit-scrollbar-track  { background: #F5F4F0; }
 ::-webkit-scrollbar-thumb  { background: #D0CFC8; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #B8B7B0; }
+
+/* ── Loading skeletons ────────────────────────────────────────────────────── */
+
+@keyframes bevi-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #F0EFE9 25%,
+    #E3E2DC 50%,
+    #F0EFE9 75%
+  );
+  background-size: 200% 100%;
+  animation: bevi-shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Respect users who ask for reduced motion — keep the placeholder, drop the
+   movement. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}

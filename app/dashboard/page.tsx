@@ -4,6 +4,7 @@ import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
+import { isLowStock } from '@/lib/inventory'
 import { getWeShipStock } from '@/lib/weship/queries'
 
 
@@ -25,10 +26,9 @@ export default async function DashboardPage() {
       const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
       return { ...item, effectiveUnits, daysLeft, lastUntil }
     })
-    .filter((item) =>
-      item.effectiveUnits < item.reorder_threshold ||
-      (item.daysLeft !== null && item.daysLeft < 60)
-    )
+    // Coverage is the only criterion — the absolute reorder_threshold is
+    // ignored on purpose (see lib/inventory.ts).
+    .filter((item) => isLowStock(item.daysLeft))
 
   return (
     <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">

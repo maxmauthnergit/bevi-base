@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { SkeletonChart } from '@/components/ui/Skeleton'
 import {
   ResponsiveContainer, ComposedChart, Area, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
@@ -198,9 +199,7 @@ export function TrendChart() {
       </div>
 
       {loading ? (
-        <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span className="label" style={{ color: '#333' }}>Loading…</span>
-        </div>
+        <SkeletonChart height={280} />
       ) : (
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>

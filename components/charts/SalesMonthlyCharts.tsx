@@ -1,4 +1,5 @@
 'use client'
+import { SkeletonCard } from '@/components/ui/Skeleton'
 
 import { useEffect, useState } from 'react'
 import { useBreakpoint } from '@/hooks/useBreakpoint'
@@ -88,7 +89,7 @@ export function SalesMonthlyCharts() {
   }, [])
 
   if (loading) {
-    return <div style={{ ...CARD, height: 200, opacity: 0.4 }} />
+    return <SkeletonCard height={200} lines={3} />
   }
 
   const allRows    = buildRows(data)

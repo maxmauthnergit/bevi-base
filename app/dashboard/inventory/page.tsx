@@ -2,6 +2,8 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getWeShipStock } from '@/lib/weship/queries'
 
+import { COVERAGE_WARNING_DAYS, coverageFill, isLowStock } from '@/lib/inventory'
+
 export const revalidate = 600
 
 function formatDate(d: Date) {
@@ -34,7 +36,8 @@ export default async function InventoryPage() {
     const lastUntil = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
 
     const effectiveUnits = unitsWeship ?? unitsShopify
-    const isLow = effectiveUnits < item.reorder_threshold
+    // Coverage decides, not the absolute reorder_threshold — see lib/inventory.ts.
+    const isLow = isLowStock(daysLeft)
 
     return { ...item, unitsWeship, unitsShopify, avgSales, daysLeft, lastUntil, isLow, effectiveUnits }
   })
@@ -96,9 +99,7 @@ export default async function InventoryPage() {
                   : item.variant
 
                 // Stock bar geometry
-                const barMax  = Math.max(item.effectiveUnits, item.reorder_threshold) * 1.4
-                const barFill = Math.min(100, (item.effectiveUnits / barMax) * 100)
-                const barMark = (item.reorder_threshold / barMax) * 100
+                const barFill = coverageFill(item.daysLeft)
                 const barColor = item.isLow ? '#DC2626' : '#0D8585'
 
                 return (
@@ -203,7 +204,7 @@ export default async function InventoryPage() {
                             className="label"
                             style={{
                               fontSize: '0.6875rem',
-                              color: item.daysLeft !== null && item.daysLeft < 60 ? '#DC2626' : '#0D8585',
+                              color: item.isLow ? '#DC2626' : '#0D8585',
                             }}
                           >
                             {item.daysLeft}d
@@ -234,24 +235,14 @@ export default async function InventoryPage() {
                               opacity: item.isLow ? 0.8 : 0.6,
                             }}
                           />
-                          {/* Threshold marker */}
-                          <div
-                            style={{
-                              position: 'absolute', top: -2, bottom: -2,
-                              left: `${barMark}%`,
-                              width: 1.5,
-                              backgroundColor: '#9E9D98',
-                              borderRadius: 1,
-                            }}
-                          />
                         </div>
                         {/* Numbers */}
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span className="metric" style={{ fontSize: '0.625rem', color: item.isLow ? '#DC2626' : '#6B6A64' }}>
-                            {item.effectiveUnits}
+                            {item.effectiveUnits} units
                           </span>
                           <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                            min {item.reorder_threshold}
+                            {COVERAGE_WARNING_DAYS}d cover
                           </span>
                         </div>
                       </div>
@@ -287,18 +278,8 @@ export default async function InventoryPage() {
             desc: 'Projected date at current avg sales/day from WeShip stock',
           },
           {
-            term: 'Stock Level Min',
-            desc: (
-              <>
-                Reorder threshold per product — configure in{' '}
-                <a
-                  href="/dashboard/settings"
-                  style={{ color: '#6B6A64', textDecoration: 'underline', textUnderlineOffset: 2 }}
-                >
-                  Settings
-                </a>
-              </>
-            ),
+            term: 'Stock Level',
+            desc: `Days of cover at current avg sales/day, measured against the ${COVERAGE_WARNING_DAYS}-day warning line. Flagged red below it.`,
           },
         ].map(({ term, desc }) => (
           <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>

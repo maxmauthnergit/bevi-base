@@ -1,6 +1,7 @@
 'use client'
 
 import { useBreakpoint } from '@/hooks/useBreakpoint'
+import { COVERAGE_WARNING_DAYS, coverageFill } from '@/lib/inventory'
 import type { StockLevel } from '@/lib/types'
 
 interface AlertItem extends StockLevel {
@@ -55,9 +56,9 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
             ? ''
             : item.variant
 
-          const barMax  = Math.max(item.effectiveUnits, item.reorder_threshold) * 1.4
-          const barFill = Math.min(100, (item.effectiveUnits / barMax) * 100)
-          const barMark = (item.reorder_threshold / barMax) * 100
+          // Bar measures days of coverage against the warning line, not the
+          // reorder threshold — see lib/inventory.ts.
+          const barFill = coverageFill(item.daysLeft)
 
           const separator = {
             borderBottom: i < items.length - 1 ? '1px solid rgba(255,68,68,0.12)' : 'none',
@@ -71,18 +72,13 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
                   width: `${barFill}%`, height: '100%',
                   backgroundColor: '#DC2626', borderRadius: 3, opacity: 0.8,
                 }} />
-                <div style={{
-                  position: 'absolute', top: -2, bottom: -2,
-                  left: `${barMark}%`, width: 1.5,
-                  backgroundColor: '#9E9D98', borderRadius: 1,
-                }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="metric" style={{ fontSize: '0.625rem', color: '#DC2626' }}>
-                  {item.effectiveUnits}
+                  {item.effectiveUnits} units
                 </span>
                 <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                  min {item.reorder_threshold}
+                  {COVERAGE_WARNING_DAYS}d cover
                 </span>
               </div>
             </div>
@@ -95,7 +91,7 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
               </span>
               <span className="label" style={{
                 fontSize: '0.6875rem',
-                color: item.daysLeft !== null && item.daysLeft < 60 ? '#DC2626' : '#0D8585',
+                color: '#DC2626',
               }}>
                 {item.daysLeft}d
               </span>
