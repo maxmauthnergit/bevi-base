@@ -101,9 +101,11 @@ interface BankTx {
 export default function FinancialsPage() {
   const { range } = useDateRange()
 
-  const [txns, setTxns]             = useState<BankTx[]>([])
-  const [txnLoading, setTxnLoading] = useState(true)
-  const [txnError, setTxnError]     = useState<string | null>(null)
+  const [txns, setTxns]                       = useState<BankTx[]>([])
+  const [snapshotBalance, setSnapshotBalance] = useState<number | null>(null)
+  const [snapshotMonth, setSnapshotMonth]     = useState<string | null>(null)
+  const [txnLoading, setTxnLoading]           = useState(true)
+  const [txnError, setTxnError]               = useState<string | null>(null)
 
   const [weshipTotal, setWeshipTotal]       = useState<number | null>(null)
   const [weshipFees, setWeshipFees]         = useState<number | null>(null)
@@ -125,6 +127,8 @@ export default function FinancialsPage() {
       .then(r => r.json())
       .then(data => {
         setTxns(data.transactions ?? [])
+        setSnapshotBalance(data.current_balance_eur ?? null)
+        setSnapshotMonth(data.balance_as_of_month ?? null)
         setTxnLoading(false)
       })
       .catch((e: Error) => {
@@ -188,11 +192,18 @@ export default function FinancialsPage() {
     metaNextAmount = Math.abs(metaPayments[0].amount_eur)
   }
 
-  const balance         = txns.reduce((s, t) => s + t.amount_eur, 0)
+  // Prefer the snapshot closing balance from the bank statement (authoritative).
+  // Fall back to summing transactions only when no snapshot has been uploaded yet.
+  const txnSum          = txns.reduce((s, t) => s + t.amount_eur, 0)
+  const balance         = snapshotBalance !== null ? snapshotBalance : txnSum
   const latestDate      = txns.length > 0 ? txns[0].date : null
-  const latestDateLabel = latestDate
-    ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '—'
+  const snapshotLabel   = snapshotMonth
+    ? new Date(snapshotMonth + '-01T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : null
+  const latestDateLabel = snapshotLabel
+    ?? (latestDate
+      ? new Date(latestDate + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+      : '—')
 
   const [showAllTxns, setShowAllTxns] = useState(false)
 
@@ -238,9 +249,9 @@ export default function FinancialsPage() {
               <div style={{ display: 'block', marginBottom: 8 }}>
                 <WithTip align="left" tip={
                   <div>
-                    <TipRow label="Source" value="Uploaded bank statements" />
+                    <TipRow label="Source" value={snapshotBalance !== null ? 'Bank statement closing balance' : 'Sum of uploaded transactions'} />
                     <TipRow label="Transactions" value={String(txns.length)} />
-                    <TipRow label="Latest entry" value={latestDateLabel} />
+                    <TipRow label="Statement month" value={snapshotLabel ?? latestDateLabel} />
                     <TipDivider />
                     <div style={{ fontFamily: G, fontSize: '0.6875rem', marginTop: 2 }}>
                       <a href="/dashboard/settings" style={{ color: '#7A7974', textDecoration: 'none' }}>
