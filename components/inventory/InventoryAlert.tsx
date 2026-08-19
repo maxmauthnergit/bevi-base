@@ -1,7 +1,6 @@
 'use client'
 
 import { useBreakpoint } from '@/hooks/useBreakpoint'
-import { COVERAGE_WARNING_DAYS, coverageFill } from '@/lib/inventory'
 import type { StockLevel } from '@/lib/types'
 
 interface AlertItem extends StockLevel {
@@ -56,32 +55,15 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
             ? ''
             : item.variant
 
-          // Bar measures days of coverage against the warning line, not the
-          // reorder threshold — see lib/inventory.ts.
-          const barFill = coverageFill(item.daysLeft)
-
           const separator = {
             borderBottom: i < items.length - 1 ? '1px solid rgba(255,68,68,0.12)' : 'none',
           }
 
-          const stockBar = (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <div style={{ position: 'relative', height: 5, backgroundColor: '#F0C0C0', borderRadius: 3 }}>
-                <div style={{
-                  position: 'absolute', left: 0, top: 0,
-                  width: `${barFill}%`, height: '100%',
-                  backgroundColor: '#DC2626', borderRadius: 3, opacity: 0.8,
-                }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span className="metric" style={{ fontSize: '0.625rem', color: '#DC2626' }}>
-                  {item.effectiveUnits} units
-                </span>
-                <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                  {COVERAGE_WARNING_DAYS}d cover
-                </span>
-              </div>
-            </div>
+          // Plain figure instead of a bar — matched to the days label beside it.
+          const unitsCell = (
+            <span className="label" style={{ fontSize: '0.6875rem', color: '#DC2626', whiteSpace: 'nowrap' }}>
+              {item.effectiveUnits} units
+            </span>
           )
 
           const dateCell = item.lastUntil ? (
@@ -102,8 +84,8 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
 
           if (isMobile) {
             return (
-              <div key={item.sku} style={{ padding: '10px 0', ...separator, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Row 1: name + date */}
+              <div key={item.sku} style={{ padding: '10px 0', ...separator }}>
+                {/* Name, units and date on one line */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden', flex: 1 }}>
                     {dot && (
@@ -119,10 +101,11 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
                       {item.product_name}{variantLabel ? ` · ${variantLabel}` : ''}
                     </span>
                   </div>
-                  {dateCell}
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexShrink: 0 }}>
+                    {unitsCell}
+                    {dateCell}
+                  </span>
                 </div>
-                {/* Row 2: full-width bar */}
-                {stockBar}
               </div>
             )
           }
@@ -132,7 +115,7 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
               key={item.sku}
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 130px 120px',
+                gridTemplateColumns: '1fr 90px 130px',
                 alignItems: 'center',
                 gap: 16,
                 padding: '10px 0',
@@ -157,11 +140,11 @@ export function InventoryAlert({ items }: InventoryAlertProps) {
                 </div>
               </div>
 
+              {/* Units on hand */}
+              <div>{unitsCell}</div>
+
               {/* Stock Lasts Until */}
               <div>{dateCell}</div>
-
-              {/* Stock Level bar */}
-              {stockBar}
             </div>
           )
         })}

@@ -2,7 +2,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getWeShipStock } from '@/lib/weship/queries'
 
-import { COVERAGE_WARNING_DAYS, coverageFill, isLowStock } from '@/lib/inventory'
+import { isLowStock } from '@/lib/inventory'
 
 export const revalidate = 600
 
@@ -72,8 +72,7 @@ export default async function InventoryPage() {
                   { label: 'Units WeShip',       align: 'right', pl: 0,  pr: 16 },
                   { label: 'Units Shopify',      align: 'right', pl: 0,  pr: 40 },
                   { label: 'Avg Sales/Day',      align: 'right', pl: 0,  pr: 32 },
-                  { label: 'Stock Lasts Until',  align: 'left',  pl: 0,  pr: 32 },
-                  { label: 'Stock Level',        align: 'left',  pl: 0,  pr: 0  },
+                  { label: 'Stock Lasts Until',  align: 'left',  pl: 0,  pr: 0  },
                 ].map(({ label, align, pr }) => (
                   <th
                     key={label}
@@ -99,8 +98,6 @@ export default async function InventoryPage() {
                   : item.variant
 
                 // Stock bar geometry
-                const barFill = coverageFill(item.daysLeft)
-                const barColor = item.isLow ? '#DC2626' : '#0D8585'
 
                 return (
                   <tr
@@ -215,39 +212,6 @@ export default async function InventoryPage() {
                       )}
                     </td>
 
-                    {/* Stock Level — inline bar */}
-                    <td style={{ padding: '12px 0', paddingRight: 24 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 100 }}>
-                        {/* Bar */}
-                        <div
-                          style={{
-                            position: 'relative', height: 5,
-                            backgroundColor: '#E3E2DC', borderRadius: 3,
-                          }}
-                        >
-                          {/* Fill */}
-                          <div
-                            style={{
-                              position: 'absolute', left: 0, top: 0,
-                              width: `${barFill}%`, height: '100%',
-                              backgroundColor: barColor,
-                              borderRadius: 3,
-                              opacity: item.isLow ? 0.8 : 0.6,
-                            }}
-                          />
-                        </div>
-                        {/* Numbers */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span className="metric" style={{ fontSize: '0.625rem', color: item.isLow ? '#DC2626' : '#6B6A64' }}>
-                            {item.effectiveUnits} units
-                          </span>
-                          <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                            {COVERAGE_WARNING_DAYS}d cover
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
                   </tr>
                 )
               })}
@@ -276,10 +240,6 @@ export default async function InventoryPage() {
           {
             term: 'Stock Lasts Until',
             desc: 'Projected date at current avg sales/day from WeShip stock',
-          },
-          {
-            term: 'Stock Level',
-            desc: `Days of cover at current avg sales/day, measured against the ${COVERAGE_WARNING_DAYS}-day warning line. Flagged red below it.`,
           },
         ].map(({ term, desc }) => (
           <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>
