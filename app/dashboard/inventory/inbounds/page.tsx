@@ -6,11 +6,12 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
-  G, inp, btn, btnPrimary, btnDanger, btnField, btnAccent, btnLarge, iconBtn, iconBtnDanger,
-  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt,
+  G, inp, btn, btnField, btnAccent, btnLarge, iconBtnDanger,
+  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
 import { Field } from '@/components/ui/Field'
+import { SectionHeading } from '@/components/ui/SectionHeading'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
   reconcileQuantities, productName, usdToEur, perProductSummary,
@@ -604,8 +605,8 @@ export default function InboundsPage() {
             </p>
 
             {/* ─── Production ─────────────────────────────────────────── */}
-            <div style={{ marginTop: 32 }}>
-              <p className="label" style={{ marginBottom: 10 }}>Production</p>
+            <div>
+              <SectionHeading>Production</SectionHeading>
               <div style={frame}>
                 <RateRow
                   fxKey="production"
@@ -732,8 +733,8 @@ export default function InboundsPage() {
             </div>
 
             {/* ─── IB Shipping ────────────────────────────────────────── */}
-            <div style={{ marginTop: 32 }}>
-              <p className="label" style={{ marginBottom: 10 }}>IB Shipping</p>
+            <div>
+              <SectionHeading>IB Shipping</SectionHeading>
 
               {draft.shipments.length === 0 ? (
                 <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
@@ -751,11 +752,9 @@ export default function InboundsPage() {
                       <div key={idx} style={frame}>
                         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
                           <span className="label">Shipment {idx + 1}</span>
-                          <button style={iconBtn} title="Remove shipment"
+                          <button style={iconBtnDanger} title="Remove shipment"
                             onClick={() => setDraft({ ...draft, shipments: draft.shipments.filter((_, i) => i !== idx) })}>
-                            <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                              <path d="M3 3 L11 11 M11 3 L3 11" stroke="#DC2626" strokeWidth="1.4" strokeLinecap="round" />
-                            </svg>
+                            <TrashIcon />
                           </button>
                         </div>
 
@@ -971,15 +970,16 @@ export default function InboundsPage() {
             )}
 
             {/* Invoices */}
-            <div style={{ marginTop: 32 }}>
-              <div className="flex items-center justify-between flex-wrap gap-y-2" style={{ marginBottom: 10 }}>
-                <span className="label">Invoices</span>
-                {draft.id && (
-                  <button style={btn} disabled={uploading} onClick={() => pickFiles('')}>
+            <div>
+              <SectionHeading
+                action={draft.id ? (
+                  <button style={btnAccent} disabled={uploading} onClick={() => pickFiles('')}>
                     {uploading ? 'Uploading…' : '+ Upload invoice'}
                   </button>
-                )}
-              </div>
+                ) : undefined}
+              >
+                Invoices
+              </SectionHeading>
 
               {!draft.id ? (
                 <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
@@ -990,29 +990,68 @@ export default function InboundsPage() {
                   No invoices uploaded yet.
                 </p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {invoices.map(inv => (
-                    <div key={inv.id} className="flex items-center gap-2 flex-wrap"
-                      style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>
-                      <span style={{ minWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {inv.filename}
-                      </span>
-                      <Select
-                        style={{ width: 190 }}
-                        value={inv.shipment_id ?? ''}
-                        onChange={v => refileInvoice(draft.id!, inv.id, v)}
-                      >
-                        <option value="">Production</option>
-                        {draft.shipments.filter(s => s.id).map((s, i) => (
-                          <option key={s.id} value={s.id!}>
-                            Shipment {i + 1} ({shipModeLabel(s.mode)})
-                          </option>
+                <div style={{ ...frame, overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                    <colgroup>
+                      <col /><col style={{ width: 210 }} />
+                      <col style={{ width: 130 }} /><col style={{ width: 90 }} />
+                      <col style={{ width: 120 }} />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        {[
+                          { l: 'File',        a: 'left'  },
+                          { l: 'Assigned to', a: 'left'  },
+                          { l: 'Uploaded',    a: 'left'  },
+                          { l: 'Size',        a: 'right' },
+                          { l: '',            a: 'right' },
+                        ].map(({ l, a }, i, arr) => (
+                          <th key={i} className="label"
+                            style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: i < arr.length - 1 ? 16 : 0 }}>
+                            {l}
+                          </th>
                         ))}
-                      </Select>
-                      <button style={btn} onClick={() => openInvoice(draft.id!, inv.id)}>Open</button>
-                      <button style={btnDanger} onClick={() => deleteInvoice(draft.id!, inv.id)}>Remove</button>
-                    </div>
-                  ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map(inv => (
+                        <tr key={inv.id}>
+                          <td style={{ ...td, paddingRight: 16, color: '#111110', maxWidth: 260,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {inv.filename}
+                          </td>
+                          <td style={{ ...td, paddingRight: 16 }}>
+                            <Select
+                              value={inv.shipment_id ?? ''}
+                              onChange={v => refileInvoice(draft.id!, inv.id, v)}
+                            >
+                              <option value="">Production</option>
+                              {draft.shipments.filter(sh => sh.id).map((sh, i) => (
+                                <option key={sh.id} value={sh.id!}>
+                                  Shipment {i + 1} ({shipModeLabel(sh.mode)})
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+                          <td style={{ ...td, paddingRight: 16, whiteSpace: 'nowrap' }}>
+                            {fmtDate(inv.uploaded_at.slice(0, 10))}
+                          </td>
+                          <td className="metric" style={{ ...td, paddingRight: 16, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {fmtBytes(inv.size_bytes)}
+                          </td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <div className="flex items-center justify-end gap-2">
+                              <button style={btn} onClick={() => openInvoice(draft.id!, inv.id)}>Open</button>
+                              <button style={iconBtnDanger} title={`Remove ${inv.filename}`}
+                                onClick={() => deleteInvoice(draft.id!, inv.id)}>
+                                <TrashIcon />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1030,7 +1069,7 @@ export default function InboundsPage() {
               <button style={btnLarge} disabled={saving} onClick={save}>
                 {saving ? 'Saving…' : draft.id ? 'Save changes' : 'Create inbound'}
               </button>
-              <button style={btnField} onClick={() => setDraft(null)}>Cancel</button>
+              <button style={btnLargeSecondary} onClick={() => setDraft(null)}>Cancel</button>
             </div>
           </Card>
         </div>
@@ -1042,8 +1081,8 @@ export default function InboundsPage() {
         onClose={() => setPartnerDialog(null)}
         footer={
           <>
-            <button style={btn} onClick={() => setPartnerDialog(null)}>Cancel</button>
-            <button style={btnPrimary} disabled={!partnerDialog?.name.trim()} onClick={submitPartner}>Add</button>
+            <button style={btnLargeSecondary} onClick={() => setPartnerDialog(null)}>Cancel</button>
+            <button style={btnLarge} disabled={!partnerDialog?.name.trim()} onClick={submitPartner}>Add</button>
           </>
         }
       >

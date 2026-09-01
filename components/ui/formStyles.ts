@@ -76,13 +76,34 @@ export const btnAccent: React.CSSProperties = {
   fontWeight: 500,
 }
 
-/** Page-level primary, e.g. "New Inbound" — needs to read as the main action. */
+/**
+ * Height for the page-level buttons. Pinned for the same reason as FIELD_H: a
+ * padding-sized primary and a fixed-height secondary next to it come out
+ * different, which is exactly how Cancel ended up shorter than Save changes.
+ */
+export const BTN_LG_H = 33
+
+/** Page-level primary, e.g. "New inbound" — reads as the main action. */
 export const btnLarge: React.CSSProperties = {
   ...btnPrimary,
   fontSize: '0.8125rem',
   fontWeight: 600,
   letterSpacing: '0.02em',
-  padding: '8px 18px',
+  padding: '0 18px',
+  height: BTN_LG_H,
+  boxSizing: 'border-box',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+}
+
+/** The quieter half of a primary pair, e.g. Cancel beside Save changes. */
+export const btnLargeSecondary: React.CSSProperties = {
+  ...btnLarge,
+  backgroundColor: '#FFFFFF',
+  borderColor: '#E3E2DC',
+  color: '#6B6A64',
+  fontWeight: 500,
 }
 
 export const iconBtn: React.CSSProperties = {
@@ -116,6 +137,16 @@ export const iconBtnDanger: React.CSSProperties = {
  * Column widths shared by the production table and the per-shipment allocation,
  * so the two read as one grid. Both tables pin them with a <colgroup>.
  */
+/** Vertical rhythm around a section heading — matches CardHeader's old mb-8. */
+export const SECTION_GAP = 32
+
+/**
+ * Fixed height of a heading row. Every heading reserves it whether or not it
+ * carries an action button, so the label always sits at the same height and the
+ * gap to the content below is the same everywhere.
+ */
+export const HEADING_ROW_H = BTN_LG_H
+
 export const COL_PRODUCT = 220
 export const COL_CHARGE  = 150
 export const COL_QTY     = 110
@@ -126,4 +157,13 @@ export function fmtEur(v: number) {
 
 export function fmtInt(v: number) {
   return new Intl.NumberFormat('de-DE').format(v)
+}
+
+/** File size for the invoice table. Null when the size was never recorded. */
+export function fmtBytes(v: number | null): string {
+  if (v === null || !Number.isFinite(v) || v < 0) return '—'
+  if (v < 1024) return `${v} B`
+  const kb = v / 1024
+  if (kb < 1024) return `${Math.round(kb)} KB`
+  return `${(kb / 1024).toFixed(1)} MB`
 }

@@ -1,11 +1,10 @@
--- Run in Supabase SQL editor. This is the ONLY inbounds script — it builds the
--- whole schema in one go and is safe to re-run, whatever state the database is
--- in right now (nothing, a half-built version, or the finished one).
+-- Run in Supabase SQL editor. This is the ONLY inbounds script.
 --
--- It DROPS and recreates the inbound tables, so any charges already entered are
--- lost. That is intended at this stage: the data so far is test data.
--- app_config and inbound_scenarios are left alone — they hold the inbound
--- calculator's saved defaults and scenarios.
+-- It CREATES what is missing and touches nothing that already exists, so running
+-- it twice is a no-op rather than a data loss. It used to drop and recreate the
+-- inbound tables, which was fine while everything in them was throwaway; there
+-- is real data now, so that is gone. Future schema changes come as targeted
+-- ALTER scripts instead — this file can no longer straighten out an older shape.
 --
 -- Model: a charge splits into shipments. Part of an order travels by air and the
 -- rest by train, so the mode, the freight cost and the arrival dates belong to a
@@ -16,12 +15,6 @@
 -- freight weeks later — so each carries its own rate. The converted EUR amount
 -- is stored beside the USD one rather than derived on read, otherwise editing a
 -- rate would retroactively change an old charge.
-
-DROP TABLE IF EXISTS inbound_invoices       CASCADE;
-DROP TABLE IF EXISTS inbound_shipment_items CASCADE;
-DROP TABLE IF EXISTS inbound_shipments      CASCADE;
-DROP TABLE IF EXISTS inbound_items          CASCADE;
-DROP TABLE IF EXISTS inbounds               CASCADE;
 
 -- ─── Partners ────────────────────────────────────────────────────────────────
 -- Suppliers and forwarders. One company can be both — Quanzhou Pengxin Bags
@@ -46,7 +39,7 @@ ON CONFLICT (name) DO NOTHING;
 
 -- ─── Charge ──────────────────────────────────────────────────────────────────
 
-CREATE TABLE inbounds (
+CREATE TABLE IF NOT EXISTS inbounds (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   -- A label for the delivery. Deliberately not unique: charge numbers live on
   -- the production positions now, and two deliveries may share a name.
@@ -66,7 +59,7 @@ CREATE INDEX IF NOT EXISTS inbounds_order_date_idx ON inbounds (order_date DESC)
 -- Costs are the TOTAL for the position (that is what an invoice states);
 -- per-unit is derived as total / quantity.
 
-CREATE TABLE inbound_items (
+CREATE TABLE IF NOT EXISTS inbound_items (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inbound_id          UUID NOT NULL REFERENCES inbounds(id) ON DELETE CASCADE,
   product_id          TEXT NOT NULL,          -- matches ids in lib/costs-config.ts
@@ -86,7 +79,7 @@ CREATE INDEX IF NOT EXISTS inbound_items_inbound_idx ON inbound_items (inbound_i
 -- Arrival dates live here because two shipments of the same charge land weeks
 -- apart; the charge shows the span across them.
 
-CREATE TABLE inbound_shipments (
+CREATE TABLE IF NOT EXISTS inbound_shipments (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inbound_id          UUID NOT NULL REFERENCES inbounds(id) ON DELETE CASCADE,
   mode                TEXT NOT NULL,          -- 'air' | 'truck' | 'train' | 'sea'
@@ -104,7 +97,7 @@ CREATE TABLE inbound_shipments (
 CREATE INDEX IF NOT EXISTS inbound_shipments_inbound_idx ON inbound_shipments (inbound_id);
 
 -- How much of each product travels on this shipment.
-CREATE TABLE inbound_shipment_items (
+CREATE TABLE IF NOT EXISTS inbound_shipment_items (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   shipment_id UUID NOT NULL REFERENCES inbound_shipments(id) ON DELETE CASCADE,
   product_id  TEXT NOT NULL,
@@ -120,7 +113,7 @@ CREATE INDEX IF NOT EXISTS inbound_shipment_items_shipment_idx
 -- to that shipment. Files live in the private storage bucket 'inbound-invoices',
 -- which the app creates on the first upload.
 
-CREATE TABLE inbound_invoices (
+CREATE TABLE IF NOT EXISTS inbound_invoices (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inbound_id   UUID NOT NULL REFERENCES inbounds(id) ON DELETE CASCADE,
   shipment_id  UUID REFERENCES inbound_shipments(id) ON DELETE CASCADE,
