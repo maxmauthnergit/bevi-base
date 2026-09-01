@@ -6,8 +6,6 @@
 // rest by train, so the mode, the freight cost and the arrival dates belong to a
 // shipment — not to the charge and not to the product.
 
-import { DEFAULT_PRODUCT_COSTS } from '@/lib/costs-config'
-
 export type ShipMode = 'air' | 'truck' | 'train' | 'sea'
 
 // Labels are what the forwarders quote; the ids stay as they are because they
@@ -103,12 +101,52 @@ export function usdToEur(usd: number, rate: number | null): number | null {
 
 export const INVOICE_BUCKET = 'inbound-invoices'
 
-// The product list every inbound picks from — the same four products the
-// settings page and the order statistics already use.
-export const INBOUND_PRODUCTS = DEFAULT_PRODUCT_COSTS.map(p => ({ id: p.id, name: p.name }))
+// ─── Products ────────────────────────────────────────────────────────────────
+
+export interface InboundProduct {
+  id:      string   // stored in inbound_items.product_id
+  name:    string
+  /**
+   * Which entry in lib/costs-config.ts supplies the production cost. Both bag
+   * colours point at the same one: they are ordered and produced separately but
+   * cost the same, and the cost config cannot be split — it keys its amounts by
+   * `titleKey`, so a second 'full set' entry would silently overwrite the first
+   * and the order statistics would bill against the wrong rate.
+   */
+  costKey: string
+}
+
+/**
+ * What an inbound can be booked against. Deliberately its own list rather than
+ * derived from DEFAULT_PRODUCT_COSTS: the bag is one product for costing and
+ * for Shopify title matching, but two for ordering.
+ */
+export const INBOUND_PRODUCTS: InboundProduct[] = [
+  { id: 'bevi-bag-black', name: 'Bevi Bag Full Set (Black)',    costKey: 'bevi-bag'      },
+  { id: 'bevi-bag-beige', name: 'Bevi Bag Full Set (Beige)',    costKey: 'bevi-bag'      },
+  { id: 'water-bladder',  name: 'Bevi Water Bladder + Tubes',   costKey: 'water-bladder' },
+  { id: 'phone-strap',    name: 'Bevi Phone Strap',             costKey: 'phone-strap'   },
+  { id: 'cleaning-kit',   name: 'Bevi Cleaning Kit',            costKey: 'cleaning-kit'  },
+]
+
+/**
+ * Ids that are no longer offered but may still sit in older rows. Keeps them
+ * readable instead of showing a raw key.
+ */
+const LEGACY_PRODUCT_NAMES: Record<string, string> = {
+  'bevi-bag': 'Bevi Bag Full Set',
+}
 
 export function productName(productId: string) {
-  return INBOUND_PRODUCTS.find(p => p.id === productId)?.name ?? productId
+  return INBOUND_PRODUCTS.find(p => p.id === productId)?.name
+    ?? LEGACY_PRODUCT_NAMES[productId]
+    ?? productId
+}
+
+/** Guards against a rename in costs-config quietly zeroing a production cost. */
+export function unresolvedCostKeys(costIds: string[]): string[] {
+  const known = new Set(costIds)
+  return [...new Set(INBOUND_PRODUCTS.map(p => p.costKey))].filter(k => !known.has(k))
 }
 
 // ─── Totals ──────────────────────────────────────────────────────────────────

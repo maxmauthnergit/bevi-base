@@ -8,7 +8,7 @@
 
 import type { ProductCostConfig } from '@/lib/costs-config'
 import type { ShipMode } from '@/lib/inbounds'
-import { SHIP_MODES } from '@/lib/inbounds'
+import { SHIP_MODES, INBOUND_PRODUCTS } from '@/lib/inbounds'
 
 export interface DayRange { min: number; max: number }
 
@@ -91,18 +91,27 @@ export function productionDaysFor(quantity: number, tiers: CalcConfig['productio
 // Only the 'manufacturing' items count here. The 'ib_shipping' items in
 // costs-config are themselves a per-unit freight estimate and would double-count
 // against the freight figure the calculator carries per mode.
+//
+// Keyed by inbound product, resolved through its costKey — the two bag colours
+// are separate products to order but share one cost entry, so looking up by the
+// product id directly would find nothing and silently bill them at zero.
 export function productionCostByProduct(
   costs: ProductCostConfig[],
   qtyByProduct: Record<string, number>,
 ): Record<string, number> {
-  const out: Record<string, number> = {}
+  const perUnitByCostKey = new Map<string, number>()
   for (const p of costs) {
+    perUnitByCostKey.set(
+      p.id,
+      p.items.filter(it => it.costType === 'manufacturing').reduce((s, it) => s + it.amount, 0),
+    )
+  }
+
+  const out: Record<string, number> = {}
+  for (const p of INBOUND_PRODUCTS) {
     const qty = qtyByProduct[p.id] ?? 0
     if (!qty) continue
-    const perUnit = p.items
-      .filter(it => it.costType === 'manufacturing')
-      .reduce((s, it) => s + it.amount, 0)
-    out[p.id] = perUnit * qty
+    out[p.id] = (perUnitByCostKey.get(p.costKey) ?? 0) * qty
   }
   return out
 }

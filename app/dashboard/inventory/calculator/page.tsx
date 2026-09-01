@@ -48,7 +48,7 @@ export default function InboundCalculatorPage() {
 
   const [orderDate,  setOrderDate]  = useState(todayIso())
   const [quantities, setQuantities] = useState<Record<string, string>>(
-    Object.fromEntries(INBOUND_PRODUCTS.map(p => [p.id, p.id === 'bevi-bag' ? '1000' : ''])),
+    Object.fromEntries(INBOUND_PRODUCTS.map(p => [p.id, p.id === 'bevi-bag-black' ? '1000' : ''])),
   )
   // Empty means "follow the tier for this quantity".
   const [productionDays, setProductionDays] = useState('')
