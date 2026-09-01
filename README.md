@@ -5,27 +5,31 @@ Anbindung an Shopify, Meta Ads, WeShip und PayPal.
 
 ## Lokal starten
 
+Doppelklick auf **`Start Bevi Base.command`** (macOS) bzw. `Start Bevi Base.bat`
+(Windows). Oder im Terminal:
+
 ```bash
-npm install
-cp .env.example .env.local   # Werte eintragen, siehe docs/LOCAL_DEV.md
 npm run dev
 ```
 
-Dann `http://localhost:3000` öffnen. Änderungen erscheinen sofort im Browser —
-ein Deploy in die Cloud ist dafür nicht nötig.
+Mehr ist nicht nötig: der Befehl installiert fehlende Pakete, holt die
+Zugangsdaten aus Vercel, prüft sie und öffnet den Browser. Änderungen erscheinen
+sofort — ein Deploy in die Cloud ist dafür nicht nötig.
 
-Die vollständige Anleitung inklusive Zugangsdaten, Login auf localhost und
-Fehlerbehebung steht in **[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md)**.
+Einzige Voraussetzung ist Node.js 20+. Details, Login-Handhabung und
+Fehlerbehebung stehen in **[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md)**.
 
 ## Scripts
 
 | Befehl | Zweck |
 | --- | --- |
-| `npm run dev` | Dev-Server mit Hot Reload auf Port 3000 |
+| `npm run dev` | Setup + Dev-Server mit Hot Reload, öffnet den Browser |
 | `npm run preview` | Produktions-Build lokal testen (`next build && next start`) |
 | `npm run build` | Produktions-Build erzeugen |
 | `npm run lint` | ESLint |
+| `npm run env:pull` | Zugangsdaten aus Vercel nach `.env.local` holen |
 | `npm run check:env` | Prüft, welche Environment-Variablen fehlen |
+| `npm run setup` | Bootstrap ohne Serverstart (macht `npm run dev` automatisch) |
 
 ## Struktur
 
@@ -35,6 +39,7 @@ components/     UI-Komponenten (Navigation, Charts, Karten)
 lib/            Integrationen (shopify, meta, weship, paypal), Supabase-Clients,
                 Parser für Bank- und WeShip-Dateien, Konfiguration
 supabase/       SQL-Schema
+scripts/        Bootstrap für die lokale Entwicklung
 docs/           Anleitungen
 ```
 

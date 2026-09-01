@@ -1,156 +1,124 @@
 # Bevi Base lokal laufen lassen
 
 Ziel: Änderungen sofort im Browser sehen, ohne vorher in die Cloud zu deployen.
-Der lokale Server läuft auf deinem Rechner unter `http://localhost:3000` und lädt
-jede Änderung automatisch neu (Hot Reload, meist unter einer Sekunde).
+Der Server läuft auf deinem Rechner unter `http://localhost:3000` und lädt jede
+Änderung automatisch neu.
 
 ---
 
-## Einmalig einrichten
+## Start
 
-### 1. Voraussetzungen
+**Doppelklick auf `Start Bevi Base.command`** (macOS) bzw. `Start Bevi Base.bat`
+(Windows) im Projektordner.
 
-Node.js 20 oder neuer (empfohlen: 22). Prüfen mit:
-
-```bash
-node -v
-```
-
-Falls nicht installiert: von [nodejs.org](https://nodejs.org) die LTS-Version holen.
-
-### 2. Projekt holen und Pakete installieren
-
-```bash
-git clone https://github.com/maxmauthnergit/bevi-base.git
-cd bevi-base
-npm install
-```
-
-### 3. Zugangsdaten anlegen (`.env.local`)
-
-Die App braucht dieselben Environment-Variablen wie in der Cloud. Zwei Wege:
-
-**Weg A — aus Vercel ziehen (empfohlen, dauert 30 Sekunden):**
-
-```bash
-npx vercel link          # einmalig: Ordner mit dem Vercel-Projekt verbinden
-npx vercel env pull .env.local
-```
-
-Das schreibt alle Production-Variablen in `.env.local`.
-
-**Weg B — von Hand:**
-
-```bash
-cp .env.example .env.local
-```
-
-Dann `.env.local` öffnen und die Werte eintragen. In `.env.example` steht bei
-jeder Variable, wo du sie findest (Supabase-Dashboard, Shopify-Admin, usw.).
-
-> `.env.local` ist in `.gitignore` — die Datei landet nie im Repo. Genau so soll es sein.
-
-Kontrolle, ob alles da ist:
-
-```bash
-npm run check:env
-```
-
-### 4. Login lokal erlauben (Supabase)
-
-Damit der Google-Login auch von `localhost` funktioniert, muss die lokale
-Adresse in Supabase freigeschaltet sein:
-
-Supabase Dashboard → **Authentication** → **URL Configuration** → unter
-**Redirect URLs** eintragen:
-
-```
-http://localhost:3000/**
-```
-
-Das ist eine einmalige Einstellung und ändert nichts an der Produktion.
-
-**Alternative, wenn du dich lokal gar nicht einloggen willst:** in `.env.local`
-
-```
-DEV_AUTH_BYPASS=true
-```
-
-setzen. Dann überspringt `npm run dev` den Login und `/dashboard` ist direkt
-offen. Das greift ausschließlich im Dev-Modus — in einem `next build` ist
-`NODE_ENV=production`, damit ist der Bypass dort technisch abgeschaltet und kann
-nicht versehentlich live gehen.
-
----
-
-## Täglich: entwickeln
+Oder im Terminal:
 
 ```bash
 npm run dev
 ```
 
-Dann `http://localhost:3000` im Browser öffnen. Vor dem Start läuft automatisch
-der Env-Check und sagt dir, falls etwas fehlt.
+Das ist alles. Der Befehl kümmert sich selbst um den Rest:
 
-Jede gespeicherte Datei erscheint sofort im Browser. Fehler zeigt Next.js als
-Overlay direkt auf der Seite an, mit Verweis auf Datei und Zeile.
+| | |
+| --- | --- |
+| Pakete fehlen oder sind veraltet | installiert sie nach |
+| keine Zugangsdaten vorhanden | holt sie aus Vercel (Login-Fenster beim ersten Mal) |
+| Vercel nicht erreichbar | legt `.env.local` aus der Vorlage an und sagt, was fehlt |
+| Login würde stören | schaltet ihn lokal ab (siehe unten) |
+| Server läuft | öffnet den Browser auf der richtigen Adresse |
 
-Nützliche Varianten:
+Beim allerersten Start dauert das ein bis zwei Minuten (Installation), danach
+wenige Sekunden. Zum Beenden: Fenster schließen oder `Strg+C`.
 
-```bash
-npm run dev -- -p 3001      # anderer Port, falls 3000 belegt ist
-npm run dev -- -H 0.0.0.0   # vom Handy im gleichen WLAN erreichbar
-```
+### Voraussetzung
 
-Für den Handy-Test: mit `-H 0.0.0.0` starten und am Handy
-`http://<deine-lokale-IP>:3000` aufrufen (IP unter macOS: `ipconfig getifaddr en0`).
+Node.js 20 oder neuer — einmalig von [nodejs.org](https://nodejs.org) installieren
+(LTS-Version). Ob es da ist, sagt dir `node -v`; fehlt es, meldet sich der Start
+mit einem entsprechenden Hinweis.
 
 ---
 
-## Vor dem Deploy: Produktions-Build lokal testen
+## Der Login
 
-`npm run dev` ist schnell, aber nicht identisch mit der Cloud. Bevor du deployst,
-lohnt sich der echte Build — der findet TypeScript-Fehler und Build-Probleme, die
-im Dev-Modus durchrutschen:
+Standardmäßig überspringt der lokale Server den Google-Login, damit du sofort
+loslegen kannst. Dafür schreibt das Setup beim ersten Start diese Zeile in
+`.env.local`:
+
+```
+DEV_AUTH_BYPASS=true
+```
+
+Die Flag wirkt ausschließlich im Dev-Modus. In einem `next build` ist
+`NODE_ENV=production`, damit ist sie technisch abgeschaltet und kann nicht
+versehentlich live gehen.
+
+**Wenn du den echten Login lokal testen willst:** Zeile aus `.env.local`
+löschen und im Supabase-Dashboard unter **Authentication → URL Configuration →
+Redirect URLs** einmalig `http://localhost:3000/**` eintragen. Das ändert nichts
+an der Produktion.
+
+---
+
+## Zugangsdaten
+
+Alle Werte liegen in `.env.local` — die Datei ist gitignored und verlässt deinen
+Rechner nicht. Normalerweise musst du sie nie anfassen.
+
+Wenn sich in Vercel etwas geändert hat, holst du den aktuellen Stand mit:
+
+```bash
+npm run env:pull
+```
+
+Ohne Vercel: `.env.local` von Hand ausfüllen. In `.env.example` steht bei jeder
+Variable, wo du sie findest. Was gerade fehlt, zeigt:
+
+```bash
+npm run check:env
+```
+
+Ohne Shopify-, Meta-, WeShip- oder PayPal-Zugangsdaten startet die App trotzdem —
+nur die jeweiligen Seiten zeigen beim Laden einen Fehler. Du kannst also mit dem
+Minimum (nur Supabase) anfangen.
+
+---
+
+## Vor dem Deploy
+
+`npm run dev` ist schnell, aber nicht identisch mit der Cloud. Der echte Build
+findet TypeScript- und Build-Fehler, die im Dev-Modus durchrutschen:
 
 ```bash
 npm run preview
 ```
 
 Das ist `next build && next start` und serviert die App unter
-`http://localhost:3000` genau so, wie sie in der Cloud läuft (kein Hot Reload,
-kein Auth-Bypass). Läuft das durch, läuft auch das Deploy durch.
+`http://localhost:3000` genau so, wie sie in der Cloud läuft — ohne Hot Reload
+und ohne Login-Bypass. Läuft das durch, läuft auch das Deploy durch.
 
-Zusätzlich vor jedem Push:
-
-```bash
-npm run lint
-```
+Dazu noch `npm run lint`.
 
 ---
 
 ## Wichtig zu wissen
 
-**Die Datenbank ist dieselbe.** Lokal verbindest du dich mit demselben Supabase-
-Projekt wie die Cloud-Version. Was du lokal löschst oder hochlädst, ist auch in
-der Produktion gelöscht bzw. hochgeladen. Für risikoreiche Tests (Uploads,
-Löschungen) lieber ein zweites Supabase-Projekt anlegen und dessen URL + Keys in
+**Die Datenbank ist dieselbe.** Lokal hängst du am selben Supabase-Projekt wie
+die Cloud-Version. Was du lokal löschst oder hochlädst, ist auch in der
+Produktion gelöscht bzw. hochgeladen. Für riskante Tests (Uploads, Löschungen)
+lieber ein zweites Supabase-Projekt anlegen und dessen URL + Keys in
 `.env.local` eintragen — die Cloud bleibt davon unberührt.
-
-**Fehlende Integrationen sind kein Problem.** Ohne Shopify-, Meta-, WeShip- oder
-PayPal-Zugangsdaten startet die App trotzdem; nur die jeweiligen Seiten zeigen
-beim Laden einen Fehler. Du kannst also mit dem Minimum (nur Supabase) anfangen.
 
 ---
 
 ## Wenn etwas nicht geht
 
-| Symptom | Ursache / Lösung |
+| Symptom | Lösung |
 | --- | --- |
-| `✗ No .env.local found` | Schritt 3 nachholen. |
-| `✗ .env.local is missing values…` | Die genannten Supabase-Variablen in `.env.local` eintragen. |
-| Login leitet zurück auf `/login` | Redirect-URL in Supabase fehlt → Schritt 4. |
-| `Port 3000 is already in use` | `npm run dev -- -p 3001` |
-| Seite zeigt „Missing … credentials" | Zugangsdaten dieser Integration fehlen in `.env.local` — normal, wenn du sie nicht gesetzt hast. |
-| Nach `git pull` seltsame Fehler | `npm install` (neue Pakete), notfalls `rm -rf .next` und neu starten. |
-| Änderung erscheint nicht im Browser | Hard Reload (Cmd+Shift+R). Hilft das nicht: Dev-Server stoppen, `rm -rf .next`, `npm run dev`. |
+| `Node.js … is too old` | Node 20+ von [nodejs.org](https://nodejs.org) installieren. |
+| `Could not reach Vercel` | Einmal `npm run env:pull` von Hand ausführen, oder `.env.local` selbst ausfüllen. |
+| `.env.local is missing values…` | Die genannten Supabase-Werte eintragen. |
+| Login leitet zurück auf `/login` | `DEV_AUTH_BYPASS=true` in `.env.local` fehlt, oder die Redirect-URL in Supabase ist nicht eingetragen. |
+| `Port 3000 is in use` | Kein Problem — Next.js nimmt automatisch 3001, der Browser öffnet die richtige Adresse. |
+| Seite meldet „Missing … credentials" | Zugangsdaten dieser Integration fehlen in `.env.local` — normal, wenn du sie nicht gesetzt hast. |
+| Browser öffnet sich nicht | Adresse aus der Terminal-Ausgabe selbst aufrufen. `NO_OPEN=1 npm run dev` schaltet das Öffnen dauerhaft ab. |
+| Änderung erscheint nicht | Hard Reload (Cmd+Shift+R). Hilft das nicht: Server stoppen, `rm -rf .next`, neu starten. |

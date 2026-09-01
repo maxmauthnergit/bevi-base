@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "predev": "node scripts/check-env.mjs",
+    "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "next start",
-    "preview": "next build && next start",
+    "preview": "node scripts/setup.mjs && next build && next start",
+    "setup": "node scripts/setup.mjs",
+    "env:pull": "npx --yes vercel@latest env pull .env.local",
     "check:env": "node scripts/check-env.mjs",
     "lint": "eslint"
   },
