@@ -1,6 +1,6 @@
 // ─── Inbounds ────────────────────────────────────────────────────────────────
 // Goods purchases ("Charges") ordered in China and tracked until they arrive at
-// the WeShip warehouse. Schema: supabase/inbounds_v2.sql
+// the WeShip warehouse. Schema: supabase/inbounds.sql
 //
 // A charge splits into shipments: part of an order often travels by air and the
 // rest by train, so the mode, the freight cost and the arrival dates belong to a
