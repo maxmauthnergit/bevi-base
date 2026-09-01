@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
+import { Modal } from '@/components/ui/Modal'
 import { G, inp, btn, btnPrimary, btnDanger, iconBtn, fmtEur, fmtInt } from '@/components/ui/formStyles'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
-  reconcileQuantities, productName,
+  reconcileQuantities, productName, usdToEur,
   type Inbound, type InboundItem, type InboundShipment, type InboundInvoice,
   type Partner, type ShipMode, type DateSpan,
 } from '@/lib/inbounds'
@@ -15,12 +16,13 @@ import { fmtDate, todayIso } from '@/lib/inbound-calc'
 
 // ─── Draft ───────────────────────────────────────────────────────────────────
 // Numbers are held as strings so a cleared field stays cleared instead of
-// snapping back to 0 while typing.
+// snapping back to 0 while typing. Amounts are USD — that is how the suppliers
+// invoice; EUR is derived from the rate of the day that part was paid.
 
 interface DraftItem {
   product_id: string
   quantity:   string
-  cost:       string
+  costUsd:    string
   supplierId: string
 }
 
@@ -28,23 +30,32 @@ interface DraftShipment {
   id:         string | null    // null until saved; invoices can only target saved ones
   mode:       ShipMode
   companyId:  string
-  cost:       string
+  costUsd:    string
+  fx:         string
+  fxDate:     string
   planned:    string
   actual:     string
   qty:        Record<string, string>   // product_id -> quantity on this leg
 }
 
 interface Draft {
-  id:        string | null
-  charge:    string
-  orderDate: string
-  notes:     string
-  items:     DraftItem[]
-  shipments: DraftShipment[]
+  id:           string | null
+  charge:       string
+  orderDate:    string
+  productionFx: string
+  productionFxDate: string
+  notes:        string
+  items:        DraftItem[]
+  shipments:    DraftShipment[]
 }
 
 function blankDraft(): Draft {
-  return { id: null, charge: '', orderDate: todayIso(), notes: '', items: [], shipments: [] }
+  const today = todayIso()
+  return {
+    id: null, charge: '', orderDate: today,
+    productionFx: '', productionFxDate: today,
+    notes: '', items: [], shipments: [],
+  }
 }
 
 function draftFrom(inb: Inbound): Draft {
@@ -52,18 +63,22 @@ function draftFrom(inb: Inbound): Draft {
     id:        inb.id,
     charge:    inb.charge,
     orderDate: inb.order_date,
+    productionFx:     inb.production_fx_usd_eur != null ? String(inb.production_fx_usd_eur) : '',
+    productionFxDate: inb.production_fx_date ?? inb.order_date,
     notes:     inb.notes,
     items: inb.items.map(it => ({
       product_id: it.product_id,
       quantity:   String(it.quantity),
-      cost:       String(it.production_cost_eur),
+      costUsd:    String(it.production_cost_usd),
       supplierId: it.supplier_id ?? '',
     })),
     shipments: inb.shipments.map(sh => ({
       id:        sh.id ?? null,
       mode:      sh.mode,
       companyId: sh.shipping_company_id ?? '',
-      cost:      String(sh.cost_eur),
+      costUsd:   String(sh.cost_usd),
+      fx:        sh.fx_usd_eur != null ? String(sh.fx_usd_eur) : '',
+      fxDate:    sh.fx_date ?? inb.order_date,
       planned:   sh.planned_arrival ?? '',
       actual:    sh.actual_arrival ?? '',
       qty: Object.fromEntries(sh.items.map(si => [si.product_id, String(si.quantity)])),
@@ -71,26 +86,40 @@ function draftFrom(inb: Inbound): Draft {
   }
 }
 
-const toItems = (d: Draft): InboundItem[] => d.items
-  .filter(it => it.product_id)
-  .map(it => ({
+const num = (v: string) => Number(v) || 0
+const fxOf = (v: string) => {
+  const n = Number(v)
+  return v.trim() === '' || !Number.isFinite(n) || n <= 0 ? null : n
+}
+
+const toItems = (d: Draft): InboundItem[] => {
+  const fx = fxOf(d.productionFx)
+  return d.items.filter(it => it.product_id).map(it => ({
     product_id:          it.product_id,
-    quantity:            Number(it.quantity) || 0,
-    production_cost_eur: Number(it.cost) || 0,
+    quantity:            num(it.quantity),
+    production_cost_usd: num(it.costUsd),
+    production_cost_eur: usdToEur(num(it.costUsd), fx) ?? 0,
     supplier_id:         it.supplierId || null,
   }))
+}
 
-const toShipments = (d: Draft): InboundShipment[] => d.shipments.map(sh => ({
-  id:                  sh.id ?? undefined,
-  mode:                sh.mode,
-  shipping_company_id: sh.companyId || null,
-  cost_eur:            Number(sh.cost) || 0,
-  planned_arrival:     sh.planned || null,
-  actual_arrival:      sh.actual || null,
-  items: Object.entries(sh.qty)
-    .map(([product_id, q]) => ({ product_id, quantity: Number(q) || 0 }))
-    .filter(si => si.quantity > 0),
-}))
+const toShipments = (d: Draft): InboundShipment[] => d.shipments.map(sh => {
+  const fx = fxOf(sh.fx)
+  return {
+    id:                  sh.id ?? undefined,
+    mode:                sh.mode,
+    shipping_company_id: sh.companyId || null,
+    cost_usd:            num(sh.costUsd),
+    cost_eur:            usdToEur(num(sh.costUsd), fx) ?? 0,
+    fx_usd_eur:          fx,
+    fx_date:             sh.fxDate || null,
+    planned_arrival:     sh.planned || null,
+    actual_arrival:      sh.actual || null,
+    items: Object.entries(sh.qty)
+      .map(([product_id, q]) => ({ product_id, quantity: num(q) }))
+      .filter(si => si.quantity > 0),
+  }
+})
 
 // ─── Presentation helpers ────────────────────────────────────────────────────
 
@@ -99,17 +128,69 @@ function spanText(span: DateSpan | null): string {
   return span.min === span.max ? fmtDate(span.min) : `${fmtDate(span.min)} – ${fmtDate(span.max)}`
 }
 
+const eurOrDash = (usd: number, fx: number | null) => {
+  const eur = usdToEur(usd, fx)
+  return eur === null ? '—' : fmtEur(eur)
+}
+
 // Every cell needs an explicit colour: the app's inherited default is set on
 // <body> and .metric styles numerals only, so an unstyled cell renders invisibly
 // against the white card.
 const th: React.CSSProperties = { paddingBottom: 10, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '12px 0', verticalAlign: 'top', color: '#6B6A64' }
 
-function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+// Same footprint as `inp`, but for values that are shown rather than entered.
+const readonlyBox: React.CSSProperties = {
+  fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64',
+  border: '1px solid #E3E2DC', borderRadius: 8, padding: '5px 10px',
+  backgroundColor: '#FAFAF7', boxSizing: 'border-box', width: '100%',
+  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+}
+
+const frame: React.CSSProperties = {
+  border: '1px solid #E3E2DC', borderRadius: 12, padding: 16,
+}
+
+/**
+ * FX date + rate + lookup button, shared by Production and every shipment.
+ * Module scope on purpose: declared inside the page it would be a fresh
+ * component type on each render, remounting the inputs and losing focus.
+ */
+function RateRow({
+  fxKey, date, rate, busy, note, onDate, onRate, onFetch,
+}: {
+  fxKey:   string
+  date:    string
+  rate:    string
+  busy:    boolean
+  note?:   string
+  onDate:  (v: string) => void
+  onRate:  (v: string) => void
+  onFetch: () => void
+}) {
   return (
-    <div className="flex items-center justify-between flex-wrap gap-y-2" style={{ marginBottom: 10 }}>
-      <span className="label">{children}</span>
-      {action}
+    <div>
+      <div className="flex gap-3 flex-wrap items-end">
+        <div style={{ width: 165 }}>
+          <Field label="FX date">
+            <DatePicker value={date} onChange={onDate} />
+          </Field>
+        </div>
+        <div style={{ width: 130 }}>
+          <Field label="USD → EUR">
+            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
+              placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
+          </Field>
+        </div>
+        <button style={btn} disabled={busy} onClick={onFetch}>
+          {busy ? 'Fetching…' : 'Fetch rate'}
+        </button>
+      </div>
+      {note && (
+        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginTop: 6 }} key={fxKey}>
+          {note}
+        </p>
+      )}
     </div>
   )
 }
@@ -136,6 +217,16 @@ export default function InboundsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
+  // Rate lookup: which field is loading, and any note to show next to it.
+  const [fxBusy, setFxBusy] = useState<string | null>(null)
+  const [fxNote, setFxNote] = useState<Record<string, string>>({})
+
+  const [partnerDialog, setPartnerDialog] = useState<null | {
+    kind: 'supplier' | 'shipping'
+    name: string
+    apply: (p: Partner) => void
+  }>(null)
+
   const uploadTarget = useRef<string>('')   // '' = production, else shipment id
   const fileRef      = useRef<HTMLInputElement>(null)
 
@@ -149,7 +240,12 @@ export default function InboundsPage() {
       const parJson = await parRes.json()
       if (!inbRes.ok) throw new Error(inbJson.error ?? 'Could not load inbounds')
       setInbounds(inbJson.inbounds)
+
+      // Surfacing this matters: swallowing it once made an empty supplier list
+      // look like a missing seed when the database was actually erroring.
       if (parRes.ok) setPartners(parJson.partners)
+      else throw new Error(parJson.error ?? 'Could not load suppliers')
+
       setError(null)
       return inbJson.inbounds as Inbound[]
     } catch (e) {
@@ -174,31 +270,63 @@ export default function InboundsPage() {
   const actualSpan     = spanText(arrivalSpan(draftShipments, 'actual'))
 
   const checks = draft ? reconcileQuantities(toItems(draft), draftShipments) : []
-  const totals = draft
-    ? inboundTotals({ items: toItems(draft), shipments: draftShipments })
-    : null
+  const totals = draft ? inboundTotals({ items: toItems(draft), shipments: draftShipments }) : null
 
-  async function addPartner(kind: 'supplier' | 'shipping') {
-    const name = prompt(kind === 'supplier' ? 'New supplier name' : 'New shipping company name')
-    if (!name?.trim()) return null
+  const productionFx = draft ? fxOf(draft.productionFx) : null
+
+  /** Looks up the ECB rate for a date and writes it into the given field. */
+  async function fetchRate(key: string, date: string, apply: (rate: string) => void) {
+    if (!date) {
+      setFxNote(n => ({ ...n, [key]: 'Pick a date first' }))
+      return
+    }
+    setFxBusy(key)
+    setFxNote(n => ({ ...n, [key]: '' }))
+    try {
+      const res  = await fetch(`/api/fx?date=${date}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Rate lookup failed')
+      apply(String(json.rate))
+      // The ECB only publishes on business days, so a weekend resolves back to
+      // the previous one. Say so rather than booking a rate from an unseen day.
+      setFxNote(n => ({
+        ...n,
+        [key]: json.date !== date ? `ECB rate of ${fmtDate(json.date)}` : '',
+      }))
+    } catch (e) {
+      setFxNote(n => ({
+        ...n,
+        [key]: `${e instanceof Error ? e.message : 'Lookup failed'} — enter it manually`,
+      }))
+    } finally {
+      setFxBusy(null)
+    }
+  }
+
+  function openPartnerDialog(kind: 'supplier' | 'shipping', apply: (p: Partner) => void) {
+    setPartnerDialog({ kind, name: '', apply })
+  }
+
+  async function submitPartner() {
+    if (!partnerDialog?.name.trim()) return
     try {
       const res = await fetch('/api/partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name,
-          is_supplier: kind === 'supplier',
-          is_shipping: kind === 'shipping',
+          name: partnerDialog.name,
+          is_supplier: partnerDialog.kind === 'supplier',
+          is_shipping: partnerDialog.kind === 'shipping',
         }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not add')
       setPartners(p => [...p.filter(x => x.id !== json.partner.id), json.partner]
         .sort((a, b) => a.name.localeCompare(b.name)))
-      return json.partner as Partner
+      partnerDialog.apply(json.partner as Partner)
+      setPartnerDialog(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not add')
-      return null
     }
   }
 
@@ -211,6 +339,8 @@ export default function InboundsPage() {
         charge:     draft.charge,
         order_date: draft.orderDate,
         notes:      draft.notes,
+        production_fx_usd_eur: productionFx,
+        production_fx_date:    draft.productionFxDate || null,
         items:      toItems(draft),
         shipments:  toShipments(draft),
       }
@@ -399,11 +529,9 @@ export default function InboundsPage() {
                         {fmtEur(t.total)}
                       </td>
                       <td style={{ ...td, paddingRight: 20, whiteSpace: 'nowrap' }}>
-                        {actual ? (
-                          <span style={{ color: '#111110' }}>{spanText(actual)}</span>
-                        ) : (
-                          <span style={{ color: '#9E9D98' }}>pending</span>
-                        )}
+                        {actual
+                          ? <span style={{ color: '#111110' }}>{spanText(actual)}</span>
+                          : <span style={{ color: '#9E9D98' }}>pending</span>}
                         {planned && (
                           <span style={{ display: 'block', fontSize: '0.6875rem', color: '#9E9D98' }}>
                             planned {spanText(planned)}
@@ -451,100 +579,127 @@ export default function InboundsPage() {
               Arrival is taken from the shipments below — with a split charge the legs land weeks apart.
             </p>
 
-            {/* Production */}
+            {/* ─── Production ─────────────────────────────────────────── */}
             <div style={{ marginTop: 32 }}>
-              <SectionTitle>Production</SectionTitle>
-              {draft.items.length === 0 ? (
-                <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
-                  No products yet.
-                </p>
-              ) : (
-                <div style={{ overflowX: 'auto', marginBottom: 10 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
-                    <thead>
-                      <tr>
-                        {['Product', 'Quantity', 'Production costs (EXW)', 'Per unit', 'Supplier', ''].map((l, i) => (
-                          <th key={i} className="label"
-                            style={{ ...th, textAlign: i === 1 || i === 2 || i === 3 ? 'right' : 'left', paddingRight: 14 }}>
-                            {l}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {draft.items.map((it, idx) => {
-                        const qty  = Number(it.quantity) || 0
-                        const unit = qty ? (Number(it.cost) || 0) / qty : null
-                        const patch = (p: Partial<DraftItem>) => setDraft({
-                          ...draft,
-                          items: draft.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
-                        })
-                        return (
-                          <tr key={idx} style={{ borderBottom: idx < draft.items.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
-                            <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
-                              <select style={inp} value={it.product_id}
-                                onChange={e => patch({ product_id: e.target.value })}>
-                                <option value="">Select product…</option>
-                                {INBOUND_PRODUCTS.map(p => (
-                                  <option key={p.id} value={p.id}
-                                    disabled={p.id !== it.product_id && draft.items.some(x => x.product_id === p.id)}>
-                                    {p.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td style={{ ...td, paddingRight: 14, width: 110 }}>
-                              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                value={it.quantity} onChange={e => patch({ quantity: e.target.value })} />
-                            </td>
-                            <td style={{ ...td, paddingRight: 14, width: 140 }}>
-                              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                                value={it.cost} onChange={e => patch({ cost: e.target.value })} />
-                            </td>
-                            <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
-                              {unit === null ? '—' : fmtEur(unit)}
-                            </td>
-                            <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
-                              <select style={inp} value={it.supplierId}
-                                onChange={async e => {
-                                  if (e.target.value === '__add') {
-                                    const p = await addPartner('supplier')
-                                    if (p) patch({ supplierId: p.id })
-                                    return
-                                  }
-                                  patch({ supplierId: e.target.value })
-                                }}>
-                                <option value="">—</option>
-                                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                <option value="__add">+ Add supplier</option>
-                              </select>
-                            </td>
-                            <td style={{ ...td, textAlign: 'right' }}>
-                              <button style={iconBtn} title="Remove product"
-                                onClick={() => setDraft({ ...draft, items: draft.items.filter((_, i) => i !== idx) })}>
-                                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                                  <path d="M3 3 L11 11 M11 3 L3 11" stroke="#DC2626" strokeWidth="1.4" strokeLinecap="round" />
-                                </svg>
-                              </button>
-                            </td>
+              <p className="label" style={{ marginBottom: 10 }}>Production</p>
+              <div style={frame}>
+                <RateRow
+                  fxKey="production"
+                  date={draft.productionFxDate}
+                  rate={draft.productionFx}
+                  busy={fxBusy === 'production'}
+                  note={fxNote['production']}
+                  onDate={v => setDraft({ ...draft, productionFxDate: v })}
+                  onRate={v => setDraft({ ...draft, productionFx: v })}
+                  onFetch={() => fetchRate('production', draft.productionFxDate,
+                    v => setDraft(d => (d ? { ...d, productionFx: v } : d)))}
+                />
+
+                <div style={{ marginTop: 16 }}>
+                  {draft.items.length === 0 ? (
+                    <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
+                      No products yet.
+                    </p>
+                  ) : (
+                    <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                        <thead>
+                          <tr>
+                            {[
+                              { l: 'Product',                  a: 'left'  },
+                              { l: 'Quantity',                 a: 'right' },
+                              { l: 'Production costs (EXW) $', a: 'right' },
+                              { l: '€',                        a: 'right' },
+                              { l: '€ per unit',               a: 'right' },
+                              { l: 'Supplier',                 a: 'left'  },
+                              { l: '',                         a: 'right' },
+                            ].map(({ l, a }, i) => (
+                              <th key={i} className="label"
+                                style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
+                            ))}
                           </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          {draft.items.map((it, idx) => {
+                            const qty     = num(it.quantity)
+                            const usd     = num(it.costUsd)
+                            const eur     = usdToEur(usd, productionFx)
+                            const perUnit = eur !== null && qty ? eur / qty : null
+                            const patch = (p: Partial<DraftItem>) => setDraft({
+                              ...draft,
+                              items: draft.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
+                            })
+                            return (
+                              <tr key={idx} style={{ borderBottom: idx < draft.items.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                                <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
+                                  <select style={inp} value={it.product_id}
+                                    onChange={e => patch({ product_id: e.target.value })}>
+                                    <option value="">Select product…</option>
+                                    {INBOUND_PRODUCTS.map(p => (
+                                      <option key={p.id} value={p.id}
+                                        disabled={p.id !== it.product_id && draft.items.some(x => x.product_id === p.id)}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td style={{ ...td, paddingRight: 14, width: 110 }}>
+                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
+                                    value={it.quantity} onChange={e => patch({ quantity: e.target.value })} />
+                                </td>
+                                <td style={{ ...td, paddingRight: 14, width: 140 }}>
+                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
+                                    value={it.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
+                                </td>
+                                <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
+                                  {eur === null ? '—' : fmtEur(eur)}
+                                </td>
+                                <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
+                                  {perUnit === null ? '—' : fmtEur(perUnit)}
+                                </td>
+                                <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
+                                  <select style={inp} value={it.supplierId}
+                                    onChange={e => {
+                                      if (e.target.value === '__add') {
+                                        openPartnerDialog('supplier', p => patch({ supplierId: p.id }))
+                                        return
+                                      }
+                                      patch({ supplierId: e.target.value })
+                                    }}>
+                                    <option value="">—</option>
+                                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    <option value="__add">+ Add supplier</option>
+                                  </select>
+                                </td>
+                                <td style={{ ...td, textAlign: 'right' }}>
+                                  <button style={iconBtn} title="Remove product"
+                                    onClick={() => setDraft({ ...draft, items: draft.items.filter((_, i) => i !== idx) })}>
+                                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                                      <path d="M3 3 L11 11 M11 3 L3 11" stroke="#DC2626" strokeWidth="1.4" strokeLinecap="round" />
+                                    </svg>
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <button style={btn} onClick={() => setDraft({
+                    ...draft,
+                    items: [...draft.items, { product_id: '', quantity: '', costUsd: '', supplierId: '' }],
+                  })}>
+                    + Add product
+                  </button>
                 </div>
-              )}
-              <button style={btn} onClick={() => setDraft({
-                ...draft,
-                items: [...draft.items, { product_id: '', quantity: '', cost: '', supplierId: '' }],
-              })}>
-                + Add product
-              </button>
+              </div>
             </div>
 
-            {/* IB Shipping */}
+            {/* ─── IB Shipping ────────────────────────────────────────── */}
             <div style={{ marginTop: 32 }}>
-              <SectionTitle>IB Shipping</SectionTitle>
+              <p className="label" style={{ marginBottom: 10 }}>IB Shipping</p>
+
               {draft.shipments.length === 0 ? (
                 <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
                   No shipments yet. Add one per leg — a charge is often split across air and train.
@@ -556,8 +711,9 @@ export default function InboundsPage() {
                       ...draft,
                       shipments: draft.shipments.map((x, i) => (i === idx ? { ...x, ...p } : x)),
                     })
+                    const fx = fxOf(sh.fx)
                     return (
-                      <div key={idx} style={{ border: '1px solid #E3E2DC', borderRadius: 12, padding: 16 }}>
+                      <div key={idx} style={frame}>
                         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
                           <span className="label">Shipment {idx + 1}</span>
                           <button style={iconBtn} title="Remove shipment"
@@ -577,10 +733,9 @@ export default function InboundsPage() {
                           </Field>
                           <Field label="Shipping company">
                             <select style={inp} value={sh.companyId}
-                              onChange={async e => {
+                              onChange={e => {
                                 if (e.target.value === '__add') {
-                                  const p = await addPartner('shipping')
-                                  if (p) patch({ companyId: p.id })
+                                  openPartnerDialog('shipping', p => patch({ companyId: p.id }))
                                   return
                                 }
                                 patch({ companyId: e.target.value })
@@ -590,37 +745,75 @@ export default function InboundsPage() {
                               <option value="__add">+ Add shipping company</option>
                             </select>
                           </Field>
-                          <Field label="Price €">
+                          <Field label="Shipping costs $">
                             <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                              value={sh.cost} onChange={e => patch({ cost: e.target.value })} />
+                              value={sh.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
                           </Field>
-                          <Field label="Planned arrival">
+                          <Field label="Shipping costs €">
+                            <div className="metric" style={{ ...readonlyBox, textAlign: 'right' }}>
+                              {eurOrDash(num(sh.costUsd), fx)}
+                            </div>
+                          </Field>
+                          <Field label="Planned arrival WeShip">
                             <DatePicker value={sh.planned} onChange={v => patch({ planned: v })} />
                           </Field>
-                          <Field label="Actual arrival">
+                          <Field label="Actual arrival WeShip">
                             <DatePicker value={sh.actual} onChange={v => patch({ actual: v })} align="right" />
                           </Field>
                         </div>
 
-                        {/* Quantity allocation */}
                         <div style={{ marginTop: 14 }}>
+                          <RateRow
+                            fxKey={`ship-${idx}`}
+                            date={sh.fxDate}
+                            rate={sh.fx}
+                            busy={fxBusy === `ship-${idx}`}
+                            note={fxNote[`ship-${idx}`]}
+                            onDate={v => patch({ fxDate: v })}
+                            onRate={v => patch({ fx: v })}
+                            onFetch={() => fetchRate(`ship-${idx}`, sh.fxDate, v => setDraft(d => (d ? {
+                              ...d,
+                              shipments: d.shipments.map((x, i) => (i === idx ? { ...x, fx: v } : x)),
+                            } : d)))}
+                          />
+                        </div>
+
+                        {/* Same column widths as Production, so the allocation
+                            reads as a continuation of the rows above. */}
+                        <div style={{ marginTop: 18 }}>
                           <span className="label" style={{ display: 'block', marginBottom: 6 }}>Products on this shipment</span>
                           {draft.items.filter(it => it.product_id).length === 0 ? (
                             <p style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                               Add products under Production first.
                             </p>
                           ) : (
-                            <div className="flex flex-wrap gap-3">
-                              {draft.items.filter(it => it.product_id).map(it => (
-                                <div key={it.product_id} style={{ width: 190 }}>
-                                  <Field label={productName(it.product_id)}>
-                                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                      placeholder="0"
-                                      value={sh.qty[it.product_id] ?? ''}
-                                      onChange={e => patch({ qty: { ...sh.qty, [it.product_id]: e.target.value } })} />
-                                  </Field>
-                                </div>
-                              ))}
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                                <thead>
+                                  <tr>
+                                    {[{ l: 'Product', a: 'left' }, { l: 'Quantity', a: 'right' }].map(({ l, a }, i) => (
+                                      <th key={i} className="label"
+                                        style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {draft.items.filter(it => it.product_id).map((it, i, arr) => (
+                                    <tr key={it.product_id}
+                                      style={{ borderBottom: i < arr.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
+                                      <td style={{ ...td, paddingRight: 14, minWidth: 180, width: 180 }}>
+                                        <div style={readonlyBox}>{productName(it.product_id)}</div>
+                                      </td>
+                                      <td style={{ ...td, paddingRight: 14, width: 110 }}>
+                                        <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
+                                          placeholder="0"
+                                          value={sh.qty[it.product_id] ?? ''}
+                                          onChange={e => patch({ qty: { ...sh.qty, [it.product_id]: e.target.value } })} />
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
                           )}
                         </div>
@@ -632,7 +825,8 @@ export default function InboundsPage() {
               <button style={btn} onClick={() => setDraft({
                 ...draft,
                 shipments: [...draft.shipments, {
-                  id: null, mode: 'sea', companyId: '', cost: '', planned: '', actual: '', qty: {},
+                  id: null, mode: 'sea', companyId: '', costUsd: '',
+                  fx: '', fxDate: draft.orderDate, planned: '', actual: '', qty: {},
                 }],
               })}>
                 + Add IB shipping
@@ -662,15 +856,14 @@ export default function InboundsPage() {
 
             {/* Invoices */}
             <div style={{ marginTop: 32 }}>
-              <SectionTitle
-                action={draft.id ? (
+              <div className="flex items-center justify-between flex-wrap gap-y-2" style={{ marginBottom: 10 }}>
+                <span className="label">Invoices</span>
+                {draft.id && (
                   <button style={btn} disabled={uploading} onClick={() => pickFiles('')}>
                     {uploading ? 'Uploading…' : '+ Upload invoice'}
                   </button>
-                ) : undefined}
-              >
-                Invoices
-              </SectionTitle>
+                )}
+              </div>
 
               {!draft.id ? (
                 <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
@@ -726,6 +919,28 @@ export default function InboundsPage() {
           </Card>
         </div>
       )}
+
+      <Modal
+        open={!!partnerDialog}
+        title={partnerDialog?.kind === 'shipping' ? 'Add shipping company' : 'Add supplier'}
+        onClose={() => setPartnerDialog(null)}
+        footer={
+          <>
+            <button style={btn} onClick={() => setPartnerDialog(null)}>Cancel</button>
+            <button style={btnPrimary} disabled={!partnerDialog?.name.trim()} onClick={submitPartner}>Add</button>
+          </>
+        }
+      >
+        <Field label="Name">
+          <input
+            style={inp}
+            value={partnerDialog?.name ?? ''}
+            placeholder={partnerDialog?.kind === 'shipping' ? 'e.g. Shenzhen Amanda' : 'e.g. Quanzhou Pengxin Bags'}
+            onChange={e => setPartnerDialog(d => (d ? { ...d, name: e.target.value } : d))}
+            onKeyDown={e => { if (e.key === 'Enter') submitPartner() }}
+          />
+        </Field>
+      </Modal>
     </main>
   )
 }

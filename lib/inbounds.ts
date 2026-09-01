@@ -28,11 +28,16 @@ export interface Partner {
   is_shipping: boolean
 }
 
-/** A production position: what was made, how much of it, and what it cost EXW. */
+/**
+ * A production position: what was made, how much of it, and what it cost EXW.
+ * Suppliers invoice in USD; the EUR figure is the converted one and is stored
+ * so it stays fixed once the charge is done.
+ */
 export interface InboundItem {
   product_id:          string
   quantity:            number
-  production_cost_eur: number      // total for the position, not per unit
+  production_cost_usd: number      // total for the position, not per unit
+  production_cost_eur: number      // usd × the charge's production rate
   supplier_id:         string | null
 }
 
@@ -46,7 +51,10 @@ export interface InboundShipment {
   id?:                  string
   mode:                 ShipMode
   shipping_company_id:  string | null
-  cost_eur:             number
+  cost_usd:             number
+  cost_eur:             number      // usd × this shipment's rate
+  fx_usd_eur:           number | null
+  fx_date:              string | null
   planned_arrival:      string | null
   actual_arrival:       string | null
   items:                ShipmentItem[]
@@ -66,10 +74,27 @@ export interface Inbound {
   charge:     string
   order_date: string            // YYYY-MM-DD
   notes:      string
+  // One rate for the whole production section — it is paid in one go at
+  // ordering. Freight is paid later and carries its own rate per shipment.
+  production_fx_usd_eur: number | null
+  production_fx_date:    string | null
   created_at?: string
   items:      InboundItem[]
   shipments:  InboundShipment[]
   invoices:   InboundInvoice[]
+}
+
+// ─── Currency ────────────────────────────────────────────────────────────────
+
+/**
+ * Converts an invoiced USD amount at a given rate, rounded to cents. A missing
+ * or zero rate yields null rather than 0, so the UI can show "rate missing"
+ * instead of silently claiming the position is free.
+ */
+export function usdToEur(usd: number, rate: number | null): number | null {
+  if (!rate || !Number.isFinite(rate) || rate <= 0) return null
+  if (!Number.isFinite(usd)) return null
+  return Math.round(usd * rate * 100) / 100
 }
 
 export const INVOICE_BUCKET = 'inbound-invoices'

@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
-import type { Inbound, InboundItem, InboundShipment, ShipMode } from '@/lib/inbounds'
+import { usdToEur, type Inbound, type InboundItem, type InboundShipment, type ShipMode } from '@/lib/inbounds'
 
 const SELECT = `
   id, charge, order_date, notes, created_at,
-  inbound_items ( product_id, quantity, production_cost_eur, supplier_id, position ),
+  production_fx_usd_eur, production_fx_date,
+  inbound_items (
+    product_id, quantity, production_cost_usd, production_cost_eur, supplier_id, position
+  ),
   inbound_shipments (
-    id, mode, shipping_company_id, cost_eur, planned_arrival, actual_arrival, position,
+    id, mode, shipping_company_id, cost_usd, cost_eur, fx_usd_eur, fx_date,
+    planned_arrival, actual_arrival, position,
     inbound_shipment_items ( product_id, quantity )
   ),
   inbound_invoices ( id, shipment_id, filename, content_type, size_bytes, uploaded_at )
@@ -15,10 +19,15 @@ const SELECT = `
 
 type Num = number | string
 
-interface RawItem     { product_id: string; quantity: Num; production_cost_eur: Num; supplier_id: string | null; position: Num }
+interface RawItem {
+  product_id: string; quantity: Num
+  production_cost_usd: Num; production_cost_eur: Num
+  supplier_id: string | null; position: Num
+}
 interface RawShipItem { product_id: string; quantity: Num }
 interface RawShipment {
-  id: string; mode: string; shipping_company_id: string | null; cost_eur: Num
+  id: string; mode: string; shipping_company_id: string | null
+  cost_usd: Num; cost_eur: Num; fx_usd_eur: Num | null; fx_date: string | null
   planned_arrival: string | null; actual_arrival: string | null; position: Num
   inbound_shipment_items: RawShipItem[]
 }
@@ -26,6 +35,8 @@ interface RawShipment {
 // PostgREST hands numeric columns back as numbers, but be explicit — a string
 // slipping through would turn every sum into concatenation.
 const n = (v: Num) => Number(v) || 0
+// A rate must stay distinguishable from "not set": 0 would read as free.
+const rate = (v: Num | null) => (v === null || v === '' ? null : Number(v) || null)
 
 function shapeRow(row: Record<string, unknown>): Inbound {
   const items     = (row.inbound_items     as RawItem[]     ?? [])
@@ -37,11 +48,14 @@ function shapeRow(row: Record<string, unknown>): Inbound {
     order_date: row.order_date as string,
     notes:      row.notes      as string,
     created_at: row.created_at as string,
+    production_fx_usd_eur: rate(row.production_fx_usd_eur as Num | null),
+    production_fx_date:    (row.production_fx_date as string | null) ?? null,
     items: [...items]
       .sort((a, b) => n(a.position) - n(b.position))
       .map(it => ({
         product_id:          it.product_id,
         quantity:            n(it.quantity),
+        production_cost_usd: n(it.production_cost_usd),
         production_cost_eur: n(it.production_cost_eur),
         supplier_id:         it.supplier_id,
       })),
@@ -51,7 +65,10 @@ function shapeRow(row: Record<string, unknown>): Inbound {
         id:                  sh.id,
         mode:                sh.mode as ShipMode,
         shipping_company_id: sh.shipping_company_id,
+        cost_usd:            n(sh.cost_usd),
         cost_eur:            n(sh.cost_eur),
+        fx_usd_eur:          rate(sh.fx_usd_eur),
+        fx_date:             sh.fx_date,
         planned_arrival:     sh.planned_arrival,
         actual_arrival:      sh.actual_arrival,
         items: (sh.inbound_shipment_items ?? []).map(si => ({
@@ -78,8 +95,20 @@ export interface InboundPayload {
   charge:     string
   order_date: string
   notes?:     string
+  production_fx_usd_eur?: number | null
+  production_fx_date?:    string | null
   items?:     Partial<InboundItem>[]
   shipments?: Partial<InboundShipment>[]
+}
+
+// EUR is always USD × rate, computed here rather than trusted from the client,
+// so the stored figure cannot drift from the amount and rate stored beside it.
+const toEur = (usd: unknown, fx: unknown) =>
+  usdToEur(Number(usd) || 0, fx === null || fx === undefined ? null : Number(fx)) ?? 0
+
+const fxOrNull = (v: unknown) => {
+  const num = Number(v)
+  return v === null || v === undefined || v === '' || !Number.isFinite(num) || num <= 0 ? null : num
 }
 
 /**
@@ -96,6 +125,7 @@ export async function writeChildren(
     const { error } = await db.from('inbound_items').delete().eq('inbound_id', inboundId)
     if (error) return error.message
 
+    const productionFx = fxOrNull(body.production_fx_usd_eur)
     const items = body.items.filter(it => it.product_id)
     if (items.length > 0) {
       const { error: insErr } = await db.from('inbound_items').insert(
@@ -103,7 +133,8 @@ export async function writeChildren(
           inbound_id:          inboundId,
           product_id:          it.product_id,
           quantity:            Number(it.quantity) || 0,
-          production_cost_eur: Number(it.production_cost_eur) || 0,
+          production_cost_usd: Number(it.production_cost_usd) || 0,
+          production_cost_eur: toEur(it.production_cost_usd, productionFx),
           supplier_id:         it.supplier_id || null,
           position:            i,
         })),
@@ -127,11 +158,15 @@ export async function writeChildren(
     if (delErr) return delErr.message
 
     for (const [i, sh] of shipments.entries()) {
+      const fx  = fxOrNull(sh.fx_usd_eur)
       const row = {
         inbound_id:          inboundId,
         mode:                sh.mode,
         shipping_company_id: sh.shipping_company_id || null,
-        cost_eur:            Number(sh.cost_eur) || 0,
+        cost_usd:            Number(sh.cost_usd) || 0,
+        cost_eur:            toEur(sh.cost_usd, fx),
+        fx_usd_eur:          fx,
+        fx_date:             sh.fx_date || null,
         planned_arrival:     sh.planned_arrival || null,
         actual_arrival:      sh.actual_arrival  || null,
         position:            i,
@@ -179,7 +214,13 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await db
     .from('inbounds')
-    .insert({ charge: body.charge.trim(), order_date: body.order_date, notes: body.notes ?? '' })
+    .insert({
+      charge:     body.charge.trim(),
+      order_date: body.order_date,
+      notes:      body.notes ?? '',
+      production_fx_usd_eur: fxOrNull(body.production_fx_usd_eur),
+      production_fx_date:    body.production_fx_date || null,
+    })
     .select('id')
     .single()
 

@@ -168,10 +168,15 @@ export default function InboundCalculatorPage() {
 
       if (picked.length === 0) throw new Error('Enter a quantity for at least one product')
 
+      // Inbounds record what was invoiced in USD plus the rate used, so the
+      // calculator hands over its own rate rather than only the converted sum.
+      const rate = config.usdEur
       const items = picked.map(p => ({
         product_id: p.id,
         quantity: qtyByProduct[p.id],
-        production_cost_eur: Math.round((prodByProduct[p.id] ?? 0) * 100) / 100,
+        production_cost_usd: rate
+          ? Math.round(((prodByProduct[p.id] ?? 0) / rate) * 100) / 100
+          : 0,
         supplier_id: null,
       }))
 
@@ -181,7 +186,9 @@ export default function InboundCalculatorPage() {
       const shipment = {
         mode: r.mode,
         shipping_company_id: null,
-        cost_eur: Math.round(r.costEur * 100) / 100,
+        cost_usd: Math.round(r.costUsd * 100) / 100,
+        fx_usd_eur: rate,
+        fx_date: effectiveOrderDate,
         planned_arrival: r.readyAtWeship.min,
         actual_arrival: null,
         items: picked.map(p => ({ product_id: p.id, quantity: qtyByProduct[p.id] })),
@@ -193,6 +200,8 @@ export default function InboundCalculatorPage() {
         body: JSON.stringify({
           charge: chargeNo,
           order_date: effectiveOrderDate,
+          production_fx_usd_eur: rate,
+          production_fx_date: effectiveOrderDate,
           notes: `Planned with the Inbound Calculator (${r.label}, ${r.totalDays.min}–${r.totalDays.max} days, `
                + `ready ${r.readyAtWeship.min} to ${r.readyAtWeship.max}).`,
           items,

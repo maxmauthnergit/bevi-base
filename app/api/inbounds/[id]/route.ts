@@ -3,6 +3,11 @@ import { createServerClient } from '@/lib/supabase'
 import { INVOICE_BUCKET } from '@/lib/inbounds'
 import { writeChildren, type InboundPayload } from '../route'
 
+const fxOrNull = (v: unknown) => {
+  const num = Number(v)
+  return v === null || v === undefined || v === '' || !Number.isFinite(num) || num <= 0 ? null : num
+}
+
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params
   const body   = await req.json() as InboundPayload
@@ -18,6 +23,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       charge:     body.charge.trim(),
       order_date: body.order_date,
       notes:      body.notes ?? '',
+      production_fx_usd_eur: fxOrNull(body.production_fx_usd_eur),
+      production_fx_date:    body.production_fx_date || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
