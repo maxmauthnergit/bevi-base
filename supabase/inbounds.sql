@@ -35,9 +35,13 @@ CREATE TABLE IF NOT EXISTS partners (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Roles follow lib/costs-config.ts: the three below only manufacture.
 INSERT INTO partners (name, is_supplier, is_shipping) VALUES
   ('Quanzhou Pengxin Bags', TRUE,  TRUE),
-  ('Shenzhen Amanda',       FALSE, TRUE)
+  ('Shenzhen Amanda',       FALSE, TRUE),
+  ('Dongguan Webbing',      TRUE,  FALSE),
+  ('Langhai Printing',      TRUE,  FALSE),
+  ('Licheng Plastic',       TRUE,  FALSE)
 ON CONFLICT (name) DO NOTHING;
 
 -- ─── Charge ──────────────────────────────────────────────────────────────────

@@ -10,11 +10,14 @@ import { DEFAULT_PRODUCT_COSTS } from '@/lib/costs-config'
 
 export type ShipMode = 'air' | 'truck' | 'train' | 'sea'
 
+// Labels are what the forwarders quote; the ids stay as they are because they
+// are already stored in inbound_shipments.mode and keyed into the calculator
+// config in app_config — renaming them would need a data migration for nothing.
 export const SHIP_MODES: { id: ShipMode; label: string }[] = [
-  { id: 'air',   label: 'Air'   },
-  { id: 'truck', label: 'Truck' },
-  { id: 'train', label: 'Train' },
-  { id: 'sea',   label: 'Sea'   },
+  { id: 'air',   label: 'Air'  },
+  { id: 'truck', label: 'Road' },
+  { id: 'train', label: 'Rail' },
+  { id: 'sea',   label: 'Sea'  },
 ]
 
 export function shipModeLabel(mode: string | null): string {

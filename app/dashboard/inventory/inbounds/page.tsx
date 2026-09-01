@@ -5,7 +5,11 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
-import { G, inp, btn, btnPrimary, btnDanger, iconBtn, fmtEur, fmtInt } from '@/components/ui/formStyles'
+import {
+  G, inp, btn, btnPrimary, btnDanger, btnField, btnAccent, btnLarge, iconBtn, iconBtnDanger,
+  COL_PRODUCT, COL_QTY, fmtEur, fmtInt,
+} from '@/components/ui/formStyles'
+import { Select } from '@/components/ui/Select'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
   reconcileQuantities, productName, usdToEur,
@@ -182,7 +186,7 @@ function RateRow({
               placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
           </Field>
         </div>
-        <button style={btn} disabled={busy} onClick={onFetch}>
+        <button style={btnField} disabled={busy} onClick={onFetch}>
           {busy ? 'Fetching…' : 'Fetch rate'}
         </button>
       </div>
@@ -192,6 +196,17 @@ function RateRow({
         </p>
       )}
     </div>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 3.5 H11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M5.5 3.5 V2.4 H8.5 V3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M3.6 3.5 L4.2 11.4 H9.8 L10.4 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M6 5.6 V9.4 M8 5.6 V9.4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+    </svg>
   )
 }
 
@@ -468,7 +483,7 @@ export default function InboundsPage() {
       <Card>
         <CardHeader
           label="Inbounds"
-          action={<button style={btnPrimary} onClick={() => setDraft(blankDraft())}>New Inbound</button>}
+          action={<button style={btnLarge} onClick={() => setDraft(blankDraft())}>New Inbound</button>}
         />
 
         {loading ? (
@@ -595,7 +610,7 @@ export default function InboundsPage() {
                     v => setDraft(d => (d ? { ...d, productionFx: v } : d)))}
                 />
 
-                <div style={{ marginTop: 16 }}>
+                <div style={{ marginTop: 28 }}>
                   {draft.items.length === 0 ? (
                     <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
                       No products yet.
@@ -603,6 +618,15 @@ export default function InboundsPage() {
                   ) : (
                     <div style={{ overflowX: 'auto', marginBottom: 10 }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                        {/* Widths are pinned so the per-shipment allocation below
+                            lines up column for column with these rows. */}
+                        <colgroup>
+                          <col style={{ width: COL_PRODUCT }} />
+                          <col style={{ width: COL_QTY }} />
+                          <col style={{ width: 150 }} />
+                          <col /><col /><col />
+                          <col style={{ width: 56 }} />
+                        </colgroup>
                         <thead>
                           <tr>
                             {[
@@ -630,10 +654,9 @@ export default function InboundsPage() {
                               items: draft.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
                             })
                             return (
-                              <tr key={idx} style={{ borderBottom: idx < draft.items.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
-                                <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
-                                  <select style={inp} value={it.product_id}
-                                    onChange={e => patch({ product_id: e.target.value })}>
+                              <tr key={idx}>
+                                <td style={{ ...td, paddingRight: 14 }}>
+                                  <Select value={it.product_id} onChange={v => patch({ product_id: v })}>
                                     <option value="">Select product…</option>
                                     {INBOUND_PRODUCTS.map(p => (
                                       <option key={p.id} value={p.id}
@@ -641,13 +664,13 @@ export default function InboundsPage() {
                                         {p.name}
                                       </option>
                                     ))}
-                                  </select>
+                                  </Select>
                                 </td>
-                                <td style={{ ...td, paddingRight: 14, width: 110 }}>
+                                <td style={{ ...td, paddingRight: 14 }}>
                                   <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
                                     value={it.quantity} onChange={e => patch({ quantity: e.target.value })} />
                                 </td>
-                                <td style={{ ...td, paddingRight: 14, width: 140 }}>
+                                <td style={{ ...td, paddingRight: 14 }}>
                                   <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
                                     value={it.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
                                 </td>
@@ -657,26 +680,23 @@ export default function InboundsPage() {
                                 <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
                                   {perUnit === null ? '—' : fmtEur(perUnit)}
                                 </td>
-                                <td style={{ ...td, paddingRight: 14, minWidth: 180 }}>
-                                  <select style={inp} value={it.supplierId}
-                                    onChange={e => {
-                                      if (e.target.value === '__add') {
-                                        openPartnerDialog('supplier', p => patch({ supplierId: p.id }))
-                                        return
-                                      }
-                                      patch({ supplierId: e.target.value })
-                                    }}>
+                                <td style={{ ...td, paddingRight: 14 }}>
+                                  <Select value={it.supplierId} onChange={v => {
+                                    if (v === '__add') {
+                                      openPartnerDialog('supplier', p => patch({ supplierId: p.id }))
+                                      return
+                                    }
+                                    patch({ supplierId: v })
+                                  }}>
                                     <option value="">—</option>
                                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                     <option value="__add">+ Add supplier</option>
-                                  </select>
+                                  </Select>
                                 </td>
                                 <td style={{ ...td, textAlign: 'right' }}>
-                                  <button style={iconBtn} title="Remove product"
+                                  <button style={iconBtnDanger} title="Remove product"
                                     onClick={() => setDraft({ ...draft, items: draft.items.filter((_, i) => i !== idx) })}>
-                                    <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                                      <path d="M3 3 L11 11 M11 3 L3 11" stroke="#DC2626" strokeWidth="1.4" strokeLinecap="round" />
-                                    </svg>
+                                    <TrashIcon />
                                   </button>
                                 </td>
                               </tr>
@@ -686,7 +706,7 @@ export default function InboundsPage() {
                       </table>
                     </div>
                   )}
-                  <button style={btn} onClick={() => setDraft({
+                  <button style={btnAccent} onClick={() => setDraft({
                     ...draft,
                     items: [...draft.items, { product_id: '', quantity: '', costUsd: '', supplierId: '' }],
                   })}>
@@ -724,26 +744,38 @@ export default function InboundsPage() {
                           </button>
                         </div>
 
-                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                          <Field label="Mode">
-                            <select style={inp} value={sh.mode}
-                              onChange={e => patch({ mode: e.target.value as ShipMode })}>
+                        <RateRow
+                          fxKey={`ship-${idx}`}
+                          date={sh.fxDate}
+                          rate={sh.fx}
+                          busy={fxBusy === `ship-${idx}`}
+                          note={fxNote[`ship-${idx}`]}
+                          onDate={v => patch({ fxDate: v })}
+                          onRate={v => patch({ fx: v })}
+                          onFetch={() => fetchRate(`ship-${idx}`, sh.fxDate, v => setDraft(d => (d ? {
+                            ...d,
+                            shipments: d.shipments.map((x, i) => (i === idx ? { ...x, fx: v } : x)),
+                          } : d)))}
+                        />
+
+                        <div className="grid gap-3" style={{ marginTop: 28, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+                          <Field label="Type">
+                            <Select value={sh.mode} onChange={v => patch({ mode: v as ShipMode })}>
                               {SHIP_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                            </select>
+                            </Select>
                           </Field>
                           <Field label="Shipping company">
-                            <select style={inp} value={sh.companyId}
-                              onChange={e => {
-                                if (e.target.value === '__add') {
-                                  openPartnerDialog('shipping', p => patch({ companyId: p.id }))
-                                  return
-                                }
-                                patch({ companyId: e.target.value })
-                              }}>
+                            <Select value={sh.companyId} onChange={v => {
+                              if (v === '__add') {
+                                openPartnerDialog('shipping', p => patch({ companyId: p.id }))
+                                return
+                              }
+                              patch({ companyId: v })
+                            }}>
                               <option value="">—</option>
                               {carriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                               <option value="__add">+ Add shipping company</option>
-                            </select>
+                            </Select>
                           </Field>
                           <Field label="Shipping costs $">
                             <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
@@ -762,26 +794,10 @@ export default function InboundsPage() {
                           </Field>
                         </div>
 
-                        <div style={{ marginTop: 14 }}>
-                          <RateRow
-                            fxKey={`ship-${idx}`}
-                            date={sh.fxDate}
-                            rate={sh.fx}
-                            busy={fxBusy === `ship-${idx}`}
-                            note={fxNote[`ship-${idx}`]}
-                            onDate={v => patch({ fxDate: v })}
-                            onRate={v => patch({ fx: v })}
-                            onFetch={() => fetchRate(`ship-${idx}`, sh.fxDate, v => setDraft(d => (d ? {
-                              ...d,
-                              shipments: d.shipments.map((x, i) => (i === idx ? { ...x, fx: v } : x)),
-                            } : d)))}
-                          />
-                        </div>
-
                         {/* Same column widths as Production, so the allocation
                             reads as a continuation of the rows above. */}
-                        <div style={{ marginTop: 18 }}>
-                          <span className="label" style={{ display: 'block', marginBottom: 6 }}>Products on this shipment</span>
+                        <div style={{ marginTop: 28 }}>
+                          <span className="label" style={{ display: 'block', marginBottom: 10 }}>Products on this shipment</span>
                           {draft.items.filter(it => it.product_id).length === 0 ? (
                             <p style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>
                               Add products under Production first.
@@ -789,6 +805,12 @@ export default function InboundsPage() {
                           ) : (
                             <div style={{ overflowX: 'auto' }}>
                               <table style={{ borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                                {/* Same widths as the production table above, so
+                                    the two read as one continuous grid. */}
+                                <colgroup>
+                                  <col style={{ width: COL_PRODUCT }} />
+                                  <col style={{ width: COL_QTY }} />
+                                </colgroup>
                                 <thead>
                                   <tr>
                                     {[{ l: 'Product', a: 'left' }, { l: 'Quantity', a: 'right' }].map(({ l, a }, i) => (
@@ -798,13 +820,12 @@ export default function InboundsPage() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {draft.items.filter(it => it.product_id).map((it, i, arr) => (
-                                    <tr key={it.product_id}
-                                      style={{ borderBottom: i < arr.length - 1 ? '1px solid #F0EFE9' : 'none' }}>
-                                      <td style={{ ...td, paddingRight: 14, minWidth: 180, width: 180 }}>
+                                  {draft.items.filter(it => it.product_id).map(it => (
+                                    <tr key={it.product_id}>
+                                      <td style={{ ...td, paddingRight: 14 }}>
                                         <div style={readonlyBox}>{productName(it.product_id)}</div>
                                       </td>
-                                      <td style={{ ...td, paddingRight: 14, width: 110 }}>
+                                      <td style={{ ...td, paddingRight: 14 }}>
                                         <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
                                           placeholder="0"
                                           value={sh.qty[it.product_id] ?? ''}
@@ -822,7 +843,7 @@ export default function InboundsPage() {
                   })}
                 </div>
               )}
-              <button style={btn} onClick={() => setDraft({
+              <button style={btnAccent} onClick={() => setDraft({
                 ...draft,
                 shipments: [...draft.shipments, {
                   id: null, mode: 'sea', companyId: '', costUsd: '',
@@ -881,10 +902,10 @@ export default function InboundsPage() {
                       <span style={{ minWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {inv.filename}
                       </span>
-                      <select
-                        style={{ ...inp, width: 190 }}
+                      <Select
+                        style={{ width: 190 }}
                         value={inv.shipment_id ?? ''}
-                        onChange={e => refileInvoice(draft.id!, inv.id, e.target.value)}
+                        onChange={v => refileInvoice(draft.id!, inv.id, v)}
                       >
                         <option value="">Production</option>
                         {draft.shipments.filter(s => s.id).map((s, i) => (
@@ -892,7 +913,7 @@ export default function InboundsPage() {
                             Shipment {i + 1} ({shipModeLabel(s.mode)})
                           </option>
                         ))}
-                      </select>
+                      </Select>
                       <button style={btn} onClick={() => openInvoice(draft.id!, inv.id)}>Open</button>
                       <button style={btnDanger} onClick={() => deleteInvoice(draft.id!, inv.id)}>Remove</button>
                     </div>
