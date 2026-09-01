@@ -6,7 +6,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { G, inp, btn, btnPrimary, btnDanger, fmtEur, fmtInt } from '@/components/ui/formStyles'
 import { DEFAULT_PRODUCT_COSTS, type ProductCostConfig } from '@/lib/costs-config'
-import { INBOUND_PRODUCTS, allocateByQuantity, type ShipMode, type InboundItem } from '@/lib/inbounds'
+import { INBOUND_PRODUCTS, type ShipMode } from '@/lib/inbounds'
 import {
   DEFAULT_CALC_CONFIG, calculateAll, productionDaysFor, productionCostByProduct,
   fmtDate, todayIso, daysBetween,
@@ -157,39 +157,46 @@ export default function InboundCalculatorPage() {
 
   async function createInbound(r: ModeResult) {
     if (!chargeNo.trim()) {
-      setError('Enter a Charge # before creating an inbound')
+      setError('Enter a Charge before creating an inbound')
       return
     }
     setCreating(r.mode)
     setError(null)
     try {
       const prodByProduct = productionCostByProduct(costs, qtyByProduct)
-      const base: InboundItem[] = INBOUND_PRODUCTS
-        .filter(p => qtyByProduct[p.id] > 0)
-        .map(p => ({
-          product_id: p.id,
-          quantity: qtyByProduct[p.id],
-          production_cost_eur: Math.round((prodByProduct[p.id] ?? 0) * 100) / 100,
-          shipping_cost_eur: 0,
-        }))
+      const picked = INBOUND_PRODUCTS.filter(p => qtyByProduct[p.id] > 0)
 
-      if (base.length === 0) throw new Error('Enter a quantity for at least one product')
+      if (picked.length === 0) throw new Error('Enter a quantity for at least one product')
 
-      // One freight figure per mode, split across the positions by quantity.
-      const shares = allocateByQuantity(base, Math.round(r.costEur * 100) / 100)
-      const items  = base.map((it, i) => ({ ...it, shipping_cost_eur: shares[i] }))
+      const items = picked.map(p => ({
+        product_id: p.id,
+        quantity: qtyByProduct[p.id],
+        production_cost_eur: Math.round((prodByProduct[p.id] ?? 0) * 100) / 100,
+        supplier_id: null,
+      }))
+
+      // The calculator plans a single leg, so the charge starts with one
+      // shipment carrying everything. Splitting it across modes happens in the
+      // inbound editor, where the real quotes land.
+      const shipment = {
+        mode: r.mode,
+        shipping_company_id: null,
+        cost_eur: Math.round(r.costEur * 100) / 100,
+        planned_arrival: r.readyAtWeship.min,
+        actual_arrival: null,
+        items: picked.map(p => ({ product_id: p.id, quantity: qtyByProduct[p.id] })),
+      }
 
       const res = await fetch('/api/inbounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          charge_no: chargeNo,
+          charge: chargeNo,
           order_date: effectiveOrderDate,
-          shipping_mode: r.mode,
-          planned_weship_date_min: r.readyAtWeship.min,
-          planned_weship_date_max: r.readyAtWeship.max,
-          notes: `Planned with the Inbound Calculator (${r.label}, ${r.totalDays.min}–${r.totalDays.max} days).`,
+          notes: `Planned with the Inbound Calculator (${r.label}, ${r.totalDays.min}–${r.totalDays.max} days, `
+               + `ready ${r.readyAtWeship.min} to ${r.readyAtWeship.max}).`,
           items,
+          shipments: [shipment],
         }),
       })
       const json = await res.json()
@@ -458,7 +465,7 @@ export default function InboundCalculatorPage() {
         <p className="label" style={{ marginBottom: 10 }}>Create as inbound</p>
         <div className="flex gap-2 flex-wrap items-end">
           <div style={{ width: 200 }}>
-            <Field label="Charge #">
+            <Field label="Charge">
               <input style={inp} value={chargeNo} onChange={e => setChargeNo(e.target.value)} placeholder="e.g. IB-2026-03" />
             </Field>
           </div>

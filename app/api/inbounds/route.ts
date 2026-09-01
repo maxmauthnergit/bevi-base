@@ -1,104 +1,202 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
-import type { Inbound, InboundItem } from '@/lib/inbounds'
+import type { Inbound, InboundItem, InboundShipment, ShipMode } from '@/lib/inbounds'
 
-const ITEM_COLS = 'product_id, quantity, production_cost_eur, shipping_cost_eur'
+const SELECT = `
+  id, charge, order_date, notes, created_at,
+  inbound_items ( product_id, quantity, production_cost_eur, supplier_id, position ),
+  inbound_shipments (
+    id, mode, shipping_company_id, cost_eur, planned_arrival, actual_arrival, position,
+    inbound_shipment_items ( product_id, quantity )
+  ),
+  inbound_invoices ( id, shipment_id, filename, content_type, size_bytes, uploaded_at )
+`
 
-interface ItemRow {
-  product_id:          string
-  quantity:            number | string
-  production_cost_eur: number | string
-  shipping_cost_eur:   number | string
+type Num = number | string
+
+interface RawItem     { product_id: string; quantity: Num; production_cost_eur: Num; supplier_id: string | null; position: Num }
+interface RawShipItem { product_id: string; quantity: Num }
+interface RawShipment {
+  id: string; mode: string; shipping_company_id: string | null; cost_eur: Num
+  planned_arrival: string | null; actual_arrival: string | null; position: Num
+  inbound_shipment_items: RawShipItem[]
 }
 
 // PostgREST hands numeric columns back as numbers, but be explicit — a string
 // slipping through would turn every sum into concatenation.
-function normalizeItem(row: ItemRow): InboundItem {
+const n = (v: Num) => Number(v) || 0
+
+function shapeRow(row: Record<string, unknown>): Inbound {
+  const items     = (row.inbound_items     as RawItem[]     ?? [])
+  const shipments = (row.inbound_shipments as RawShipment[] ?? [])
+
   return {
-    product_id:          row.product_id,
-    quantity:            Number(row.quantity) || 0,
-    production_cost_eur: Number(row.production_cost_eur) || 0,
-    shipping_cost_eur:   Number(row.shipping_cost_eur) || 0,
+    id:         row.id         as string,
+    charge:     row.charge     as string,
+    order_date: row.order_date as string,
+    notes:      row.notes      as string,
+    created_at: row.created_at as string,
+    items: [...items]
+      .sort((a, b) => n(a.position) - n(b.position))
+      .map(it => ({
+        product_id:          it.product_id,
+        quantity:            n(it.quantity),
+        production_cost_eur: n(it.production_cost_eur),
+        supplier_id:         it.supplier_id,
+      })),
+    shipments: [...shipments]
+      .sort((a, b) => n(a.position) - n(b.position))
+      .map(sh => ({
+        id:                  sh.id,
+        mode:                sh.mode as ShipMode,
+        shipping_company_id: sh.shipping_company_id,
+        cost_eur:            n(sh.cost_eur),
+        planned_arrival:     sh.planned_arrival,
+        actual_arrival:      sh.actual_arrival,
+        items: (sh.inbound_shipment_items ?? []).map(si => ({
+          product_id: si.product_id,
+          quantity:   n(si.quantity),
+        })),
+      })),
+    invoices: (row.inbound_invoices as Inbound['invoices'] ?? []),
   }
 }
 
 export async function GET() {
   const db = createServerClient()
-
   const { data, error } = await db
     .from('inbounds')
-    .select(`id, charge_no, order_date, shipping_mode, weship_arrival_date,
-             planned_weship_date_min, planned_weship_date_max,
-             production_invoice_path, shipping_invoice_path, notes, created_at,
-             inbound_items ( ${ITEM_COLS} )`)
+    .select(SELECT)
     .order('order_date', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const inbounds: Inbound[] = (data ?? []).map((row) => {
-    const { inbound_items, ...rest } = row as typeof row & { inbound_items: ItemRow[] }
-    return { ...rest, items: (inbound_items ?? []).map(normalizeItem) } as Inbound
-  })
-
-  return NextResponse.json({ inbounds })
+  return NextResponse.json({ inbounds: (data ?? []).map(r => shapeRow(r as Record<string, unknown>)) })
 }
 
 export interface InboundPayload {
-  charge_no:               string
-  order_date:              string
-  shipping_mode?:          string | null
-  weship_arrival_date?:    string | null
-  planned_weship_date_min?: string | null
-  planned_weship_date_max?: string | null
-  notes?:                  string
-  items?:                  ItemRow[]
+  charge:     string
+  order_date: string
+  notes?:     string
+  items?:     Partial<InboundItem>[]
+  shipments?: Partial<InboundShipment>[]
+}
+
+/**
+ * Writes the production positions and the shipments of one charge. Both are
+ * replaced wholesale — the editor always submits the full set, and a diff would
+ * only add ways for the two sides to drift apart.
+ */
+export async function writeChildren(
+  db: SupabaseClient,
+  inboundId: string,
+  body: InboundPayload,
+): Promise<string | null> {
+  if (body.items) {
+    const { error } = await db.from('inbound_items').delete().eq('inbound_id', inboundId)
+    if (error) return error.message
+
+    const items = body.items.filter(it => it.product_id)
+    if (items.length > 0) {
+      const { error: insErr } = await db.from('inbound_items').insert(
+        items.map((it, i) => ({
+          inbound_id:          inboundId,
+          product_id:          it.product_id,
+          quantity:            Number(it.quantity) || 0,
+          production_cost_eur: Number(it.production_cost_eur) || 0,
+          supplier_id:         it.supplier_id || null,
+          position:            i,
+        })),
+      )
+      if (insErr) return insErr.message
+    }
+  }
+
+  if (body.shipments) {
+    const shipments = body.shipments.filter(sh => sh.mode)
+
+    // Shipments are updated in place rather than replaced: invoices reference
+    // them, and deleting a row would cascade the invoice away with it. Only
+    // shipments the editor no longer sends are actually removed.
+    const keptIds = shipments.map(sh => sh.id).filter((id): id is string => !!id)
+    const { error: delErr } = keptIds.length > 0
+      ? await db.from('inbound_shipments').delete()
+          .eq('inbound_id', inboundId)
+          .not('id', 'in', `(${keptIds.join(',')})`)
+      : await db.from('inbound_shipments').delete().eq('inbound_id', inboundId)
+    if (delErr) return delErr.message
+
+    for (const [i, sh] of shipments.entries()) {
+      const row = {
+        inbound_id:          inboundId,
+        mode:                sh.mode,
+        shipping_company_id: sh.shipping_company_id || null,
+        cost_eur:            Number(sh.cost_eur) || 0,
+        planned_arrival:     sh.planned_arrival || null,
+        actual_arrival:      sh.actual_arrival  || null,
+        position:            i,
+      }
+
+      let shipmentId = sh.id
+      if (shipmentId) {
+        const { error } = await db.from('inbound_shipments').update(row).eq('id', shipmentId)
+        if (error) return error.message
+      } else {
+        const { data, error } = await db.from('inbound_shipments').insert(row).select('id').single()
+        if (error) return error.message
+        shipmentId = data.id
+      }
+
+      // Nothing references the allocation lines, so those can be replaced.
+      const { error: liDelErr } = await db
+        .from('inbound_shipment_items').delete().eq('shipment_id', shipmentId)
+      if (liDelErr) return liDelErr.message
+
+      const lines = (sh.items ?? []).filter(si => si.product_id && Number(si.quantity) > 0)
+      if (lines.length > 0) {
+        const { error: liErr } = await db.from('inbound_shipment_items').insert(
+          lines.map(si => ({
+            shipment_id: shipmentId,
+            product_id:  si.product_id,
+            quantity:    Number(si.quantity) || 0,
+          })),
+        )
+        if (liErr) return liErr.message
+      }
+    }
+  }
+
+  return null
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json() as InboundPayload
 
-  if (!body.charge_no?.trim()) return NextResponse.json({ error: 'charge_no is required' }, { status: 422 })
-  if (!body.order_date)        return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
+  if (!body.charge?.trim()) return NextResponse.json({ error: 'charge is required' }, { status: 422 })
+  if (!body.order_date)     return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
 
   const db = createServerClient()
 
   const { data, error } = await db
     .from('inbounds')
-    .insert({
-      charge_no:               body.charge_no.trim(),
-      order_date:              body.order_date,
-      shipping_mode:           body.shipping_mode ?? null,
-      weship_arrival_date:     body.weship_arrival_date || null,
-      planned_weship_date_min: body.planned_weship_date_min || null,
-      planned_weship_date_max: body.planned_weship_date_max || null,
-      notes:                   body.notes ?? '',
-    })
+    .insert({ charge: body.charge.trim(), order_date: body.order_date, notes: body.notes ?? '' })
     .select('id')
     .single()
 
   if (error) {
-    // 23505 = unique_violation on charge_no
-    const status = error.code === '23505' ? 409 : 500
-    const message = status === 409 ? `Charge # "${body.charge_no.trim()}" already exists` : error.message
-    return NextResponse.json({ error: message }, { status })
+    // 23505 = unique_violation on charge
+    const conflict = error.code === '23505'
+    return NextResponse.json(
+      { error: conflict ? `Charge "${body.charge.trim()}" already exists` : error.message },
+      { status: conflict ? 409 : 500 },
+    )
   }
 
-  const items = (body.items ?? []).filter(it => it.product_id)
-  if (items.length > 0) {
-    const { error: itemErr } = await db.from('inbound_items').insert(
-      items.map(it => ({
-        inbound_id:          data.id,
-        product_id:          it.product_id,
-        quantity:            Number(it.quantity) || 0,
-        production_cost_eur: Number(it.production_cost_eur) || 0,
-        shipping_cost_eur:   Number(it.shipping_cost_eur) || 0,
-      })),
-    )
-    if (itemErr) {
-      // Don't leave a header row behind with no positions.
-      await db.from('inbounds').delete().eq('id', data.id)
-      return NextResponse.json({ error: itemErr.message }, { status: 500 })
-    }
+  const childErr = await writeChildren(db, data.id, body)
+  if (childErr) {
+    // Don't leave a header row behind with no positions.
+    await db.from('inbounds').delete().eq('id', data.id)
+    return NextResponse.json({ error: childErr }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, id: data.id })

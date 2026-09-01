@@ -48,8 +48,8 @@ export function Sidebar() {
   const router   = useRouter()
   const active   = resolveActive(pathname)
 
-  // Explicit open/closed state per group. Undefined means "follow the route",
-  // so the group holding the current page starts open but can still be collapsed.
+  // Explicit open/closed state per group. Undefined means "not touched yet",
+  // and groups start expanded so every page is one click away.
   const [manuallyOpen, setManuallyOpen] = useState<Record<string, boolean | undefined>>({})
 
   async function signOut() {
@@ -127,7 +127,7 @@ export function Sidebar() {
           }
 
           const holdsActive = active.groupId === node.id
-          const open        = manuallyOpen[node.id] ?? holdsActive
+          const open        = manuallyOpen[node.id] ?? true
 
           return (
             <div key={node.id} className="flex flex-col">

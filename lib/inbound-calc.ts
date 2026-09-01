@@ -68,10 +68,12 @@ export function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+// en-GB to match how dates already read everywhere else in the app
+// (components/ui/calendar-styles.ts, lib/date-range.ts).
 export function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   const [y, m, d] = iso.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('de-DE', {
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC',
   })
 }

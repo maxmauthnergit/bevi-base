@@ -1,6 +1,10 @@
 // ─── Inbounds ────────────────────────────────────────────────────────────────
-// Goods purchases ("Charges") ordered in China and tracked until they arrive
-// at the WeShip warehouse. Schema: supabase/inbounds.sql
+// Goods purchases ("Charges") ordered in China and tracked until they arrive at
+// the WeShip warehouse. Schema: supabase/inbounds_v2.sql
+//
+// A charge splits into shipments: part of an order often travels by air and the
+// rest by train, so the mode, the freight cost and the arrival dates belong to a
+// shipment — not to the charge and not to the product.
 
 import { DEFAULT_PRODUCT_COSTS } from '@/lib/costs-config'
 
@@ -13,82 +17,152 @@ export const SHIP_MODES: { id: ShipMode; label: string }[] = [
   { id: 'sea',   label: 'Sea'   },
 ]
 
+export function shipModeLabel(mode: string | null): string {
+  return SHIP_MODES.find(m => m.id === mode)?.label ?? '—'
+}
+
+export interface Partner {
+  id:          string
+  name:        string
+  is_supplier: boolean
+  is_shipping: boolean
+}
+
+/** A production position: what was made, how much of it, and what it cost EXW. */
 export interface InboundItem {
   product_id:          string
   quantity:            number
-  production_cost_eur: number
-  shipping_cost_eur:   number
+  production_cost_eur: number      // total for the position, not per unit
+  supplier_id:         string | null
+}
+
+/** How much of one product travels on a given shipment. */
+export interface ShipmentItem {
+  product_id: string
+  quantity:   number
+}
+
+export interface InboundShipment {
+  id?:                  string
+  mode:                 ShipMode
+  shipping_company_id:  string | null
+  cost_eur:             number
+  planned_arrival:      string | null
+  actual_arrival:       string | null
+  items:                ShipmentItem[]
+}
+
+export interface InboundInvoice {
+  id:           string
+  shipment_id:  string | null   // null = belongs to production
+  filename:     string
+  content_type: string | null
+  size_bytes:   number | null
+  uploaded_at:  string
 }
 
 export interface Inbound {
-  id:                       string
-  charge_no:                string
-  order_date:               string          // YYYY-MM-DD
-  shipping_mode:            ShipMode | null
-  weship_arrival_date:      string | null
-  planned_weship_date_min:  string | null
-  planned_weship_date_max:  string | null
-  production_invoice_path:  string | null
-  shipping_invoice_path:    string | null
-  notes:                    string
-  created_at?:              string
-  items:                    InboundItem[]
+  id:         string
+  charge:     string
+  order_date: string            // YYYY-MM-DD
+  notes:      string
+  created_at?: string
+  items:      InboundItem[]
+  shipments:  InboundShipment[]
+  invoices:   InboundInvoice[]
 }
-
-export type InvoiceKind = 'production' | 'shipping'
 
 export const INVOICE_BUCKET = 'inbound-invoices'
 
-// The product list every inbound picks from — same four products the settings
-// page and the order statistics already use.
+// The product list every inbound picks from — the same four products the
+// settings page and the order statistics already use.
 export const INBOUND_PRODUCTS = DEFAULT_PRODUCT_COSTS.map(p => ({ id: p.id, name: p.name }))
 
 export function productName(productId: string) {
   return INBOUND_PRODUCTS.find(p => p.id === productId)?.name ?? productId
 }
 
+// ─── Totals ──────────────────────────────────────────────────────────────────
+
 export interface InboundTotals {
   quantity:   number
   production: number
   shipping:   number
-  total:      number
+  total:      number   // production & IB shipping, DDP
 }
 
-export function inboundTotals(items: InboundItem[]): InboundTotals {
-  const production = items.reduce((s, it) => s + it.production_cost_eur, 0)
-  const shipping   = items.reduce((s, it) => s + it.shipping_cost_eur, 0)
+export function inboundTotals(inbound: Pick<Inbound, 'items' | 'shipments'>): InboundTotals {
+  const production = inbound.items.reduce((s, it) => s + it.production_cost_eur, 0)
+  const shipping   = inbound.shipments.reduce((s, sh) => s + sh.cost_eur, 0)
   return {
-    quantity: items.reduce((s, it) => s + it.quantity, 0),
+    quantity: inbound.items.reduce((s, it) => s + it.quantity, 0),
     production,
     shipping,
     total: production + shipping,
   }
 }
 
-// Per-unit landed cost of a position. Returns null for a zero quantity rather
-// than dividing by zero — callers render a dash.
-export function unitCost(item: InboundItem): number | null {
-  if (!item.quantity) return null
-  return (item.production_cost_eur + item.shipping_cost_eur) / item.quantity
+/** Per-unit landed cost across the whole charge; null while nothing is ordered. */
+export function landedPerUnit(inbound: Pick<Inbound, 'items' | 'shipments'>): number | null {
+  const t = inboundTotals(inbound)
+  return t.quantity ? t.total / t.quantity : null
 }
 
-// You get ONE freight invoice per charge, not one per product. This spreads a
-// single total across the positions by quantity; the last position absorbs the
-// rounding remainder so the parts always add back up to the total.
-export function allocateByQuantity(items: InboundItem[], totalEur: number): number[] {
-  const totalQty = items.reduce((s, it) => s + it.quantity, 0)
-  if (!totalQty) return items.map(() => 0)
+// ─── Arrival span ────────────────────────────────────────────────────────────
 
-  const out: number[] = []
-  let assigned = 0
-  items.forEach((it, i) => {
-    if (i === items.length - 1) {
-      out.push(Math.round((totalEur - assigned) * 100) / 100)
-      return
+export interface DateSpan { min: string; max: string }
+
+/**
+ * Earliest and latest arrival across a charge's shipments, since two legs of the
+ * same charge land weeks apart. `kind: 'actual'` reports what has landed,
+ * `'planned'` what is scheduled. Returns null when no shipment carries that date.
+ */
+export function arrivalSpan(
+  shipments: Pick<InboundShipment, 'planned_arrival' | 'actual_arrival'>[],
+  kind: 'planned' | 'actual',
+): DateSpan | null {
+  const dates = shipments
+    .map(s => (kind === 'actual' ? s.actual_arrival : s.planned_arrival))
+    .filter((d): d is string => !!d)
+    .sort()
+
+  if (dates.length === 0) return null
+  return { min: dates[0], max: dates[dates.length - 1] }
+}
+
+/** True once every shipment has an actual arrival date. */
+export function fullyArrived(shipments: Pick<InboundShipment, 'actual_arrival'>[]): boolean {
+  return shipments.length > 0 && shipments.every(s => !!s.actual_arrival)
+}
+
+// ─── Quantity reconciliation ─────────────────────────────────────────────────
+
+export interface QuantityCheck {
+  product_id: string
+  ordered:    number   // from the production positions
+  shipped:    number   // summed across all shipments
+  diff:       number   // shipped - ordered; 0 means it adds up
+}
+
+/**
+ * Compares what was produced against what the shipments carry. Surfaced as a
+ * hint rather than a hard rule — a charge gets filled in over weeks, so it has
+ * to be saveable while the numbers still disagree.
+ */
+export function reconcileQuantities(
+  items: Pick<InboundItem, 'product_id' | 'quantity'>[],
+  shipments: Pick<InboundShipment, 'items'>[],
+): QuantityCheck[] {
+  return items.map(it => {
+    const shipped = shipments.reduce(
+      (s, sh) => s + (sh.items.find(si => si.product_id === it.product_id)?.quantity ?? 0),
+      0,
+    )
+    return {
+      product_id: it.product_id,
+      ordered: it.quantity,
+      shipped,
+      diff: shipped - it.quantity,
     }
-    const share = Math.round((totalEur * it.quantity / totalQty) * 100) / 100
-    assigned += share
-    out.push(share)
   })
-  return out
 }
