@@ -48,7 +48,9 @@ ON CONFLICT (name) DO NOTHING;
 
 CREATE TABLE inbounds (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  charge     TEXT NOT NULL UNIQUE,
+  -- A label for the delivery. Deliberately not unique: charge numbers live on
+  -- the production positions now, and two deliveries may share a name.
+  name       TEXT NOT NULL,
   order_date DATE NOT NULL,
   -- One rate for the whole production section: it is paid in one go at ordering.
   production_fx_usd_eur DECIMAL(12,6),
@@ -68,6 +70,8 @@ CREATE TABLE inbound_items (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inbound_id          UUID NOT NULL REFERENCES inbounds(id) ON DELETE CASCADE,
   product_id          TEXT NOT NULL,          -- matches ids in lib/costs-config.ts
+  charge              TEXT NOT NULL DEFAULT '',  -- free text; products of one
+                                                 -- delivery can share a charge
   quantity            INTEGER       NOT NULL DEFAULT 0,
   production_cost_usd DECIMAL(12,2) NOT NULL DEFAULT 0,   -- EXW, as invoiced
   production_cost_eur DECIMAL(12,2) NOT NULL DEFAULT 0,   -- usd × production rate

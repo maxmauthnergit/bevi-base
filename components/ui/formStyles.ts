@@ -58,6 +58,7 @@ export const btnField: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  fontWeight: 500,   // same weight as btnAccent, so the two read as one family
 }
 
 /** "Add …" actions. Coloured, but the dark primary stays the strongest action. */
@@ -116,6 +117,7 @@ export const iconBtnDanger: React.CSSProperties = {
  * so the two read as one grid. Both tables pin them with a <colgroup>.
  */
 export const COL_PRODUCT = 220
+export const COL_CHARGE  = 150
 export const COL_QTY     = 110
 
 export function fmtEur(v: number) {

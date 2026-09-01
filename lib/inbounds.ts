@@ -38,6 +38,7 @@ export interface Partner {
  */
 export interface InboundItem {
   product_id:          string
+  charge:              string      // free text, optional; may repeat
   quantity:            number
   production_cost_usd: number      // total for the position, not per unit
   production_cost_eur: number      // usd × the charge's production rate
@@ -74,7 +75,7 @@ export interface InboundInvoice {
 
 export interface Inbound {
   id:         string
-  charge:     string
+  name:       string            // label for the delivery; not unique
   order_date: string            // YYYY-MM-DD
   notes:      string
   // One rate for the whole production section — it is paid in one go at
@@ -134,6 +135,82 @@ export function inboundTotals(inbound: Pick<Inbound, 'items' | 'shipments'>): In
 export function landedPerUnit(inbound: Pick<Inbound, 'items' | 'shipments'>): number | null {
   const t = inboundTotals(inbound)
   return t.quantity ? t.total / t.quantity : null
+}
+
+// ─── Per-product cost summary ────────────────────────────────────────────────
+
+export interface ProductCost {
+  product_id:        string
+  quantity:          number
+  productionEur:     number
+  shippingEur:       number
+  productionPerUnit: number | null
+  shippingPerUnit:   number | null
+  landedPerUnit:     number | null
+}
+
+export interface CostSummary {
+  products:    ProductCost[]
+  /**
+   * Freight that could not be attributed to a product: a shipment with no
+   * quantities allocated yet, or an allocation that does not cover everything.
+   * Reported rather than swallowed, so the rows always add up to the DDP total.
+   */
+  unallocated: number
+  total:       number
+}
+
+/**
+ * Splits each shipment's freight across the products it carries, by quantity —
+ * the same basis as the "distribute by quantity" action, and the only one the
+ * data supports (there is no weight or volume anywhere).
+ *
+ * Per-unit figures use the PRODUCED quantity as the denominator, so production
+ * and shipping per unit share a base and add up to the landed cost.
+ */
+export function perProductSummary(inbound: Pick<Inbound, 'items' | 'shipments'>): CostSummary {
+  const share: Record<string, number> = {}
+  let unallocated = 0
+
+  for (const sh of inbound.shipments) {
+    const qtyOnShipment = sh.items.reduce((s, li) => s + li.quantity, 0)
+    if (qtyOnShipment <= 0) {
+      // Nothing allocated on this leg — its freight belongs to no product yet.
+      unallocated += sh.cost_eur
+      continue
+    }
+    for (const li of sh.items) {
+      share[li.product_id] = (share[li.product_id] ?? 0) + sh.cost_eur * li.quantity / qtyOnShipment
+    }
+  }
+
+  const products: ProductCost[] = inbound.items.map(it => {
+    const shippingEur = share[it.product_id] ?? 0
+    const per = (v: number) => (it.quantity > 0 ? v / it.quantity : null)
+    const productionPerUnit = per(it.production_cost_eur)
+    const shippingPerUnit   = per(shippingEur)
+    return {
+      product_id:    it.product_id,
+      quantity:      it.quantity,
+      productionEur: it.production_cost_eur,
+      shippingEur,
+      productionPerUnit,
+      shippingPerUnit,
+      landedPerUnit: productionPerUnit === null || shippingPerUnit === null
+        ? null
+        : productionPerUnit + shippingPerUnit,
+    }
+  })
+
+  // Freight attributed to a product that carries no production position of its
+  // own would otherwise vanish from the table.
+  const known = new Set(inbound.items.map(it => it.product_id))
+  for (const [productId, value] of Object.entries(share)) {
+    if (!known.has(productId)) unallocated += value
+  }
+
+  const t = inboundTotals(inbound)
+  return { products, unallocated, total: t.total }
 }
 
 // ─── Arrival span ────────────────────────────────────────────────────────────

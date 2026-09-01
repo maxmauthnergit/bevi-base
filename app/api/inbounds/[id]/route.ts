@@ -12,15 +12,15 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const { id } = await ctx.params
   const body   = await req.json() as InboundPayload
 
-  if (!body.charge?.trim()) return NextResponse.json({ error: 'charge is required' }, { status: 422 })
-  if (!body.order_date)     return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
+  if (!body.name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 422 })
+  if (!body.order_date)   return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
 
   const db = createServerClient()
 
   const { error } = await db
     .from('inbounds')
     .update({
-      charge:     body.charge.trim(),
+      name:       body.name.trim(),
       order_date: body.order_date,
       notes:      body.notes ?? '',
       production_fx_usd_eur: fxOrNull(body.production_fx_usd_eur),
@@ -29,13 +29,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     })
     .eq('id', id)
 
-  if (error) {
-    const conflict = error.code === '23505'
-    return NextResponse.json(
-      { error: conflict ? `Charge "${body.charge.trim()}" already exists` : error.message },
-      { status: conflict ? 409 : 500 },
-    )
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const childErr = await writeChildren(db, id, body)
   if (childErr) return NextResponse.json({ error: childErr }, { status: 500 })

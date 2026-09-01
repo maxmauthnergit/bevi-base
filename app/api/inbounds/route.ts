@@ -4,10 +4,10 @@ import { createServerClient } from '@/lib/supabase'
 import { usdToEur, type Inbound, type InboundItem, type InboundShipment, type ShipMode } from '@/lib/inbounds'
 
 const SELECT = `
-  id, charge, order_date, notes, created_at,
+  id, name, order_date, notes, created_at,
   production_fx_usd_eur, production_fx_date,
   inbound_items (
-    product_id, quantity, production_cost_usd, production_cost_eur, supplier_id, position
+    product_id, charge, quantity, production_cost_usd, production_cost_eur, supplier_id, position
   ),
   inbound_shipments (
     id, mode, shipping_company_id, cost_usd, cost_eur, fx_usd_eur, fx_date,
@@ -20,7 +20,7 @@ const SELECT = `
 type Num = number | string
 
 interface RawItem {
-  product_id: string; quantity: Num
+  product_id: string; charge: string | null; quantity: Num
   production_cost_usd: Num; production_cost_eur: Num
   supplier_id: string | null; position: Num
 }
@@ -44,7 +44,7 @@ function shapeRow(row: Record<string, unknown>): Inbound {
 
   return {
     id:         row.id         as string,
-    charge:     row.charge     as string,
+    name:       row.name       as string,
     order_date: row.order_date as string,
     notes:      row.notes      as string,
     created_at: row.created_at as string,
@@ -54,6 +54,7 @@ function shapeRow(row: Record<string, unknown>): Inbound {
       .sort((a, b) => n(a.position) - n(b.position))
       .map(it => ({
         product_id:          it.product_id,
+        charge:              it.charge ?? '',
         quantity:            n(it.quantity),
         production_cost_usd: n(it.production_cost_usd),
         production_cost_eur: n(it.production_cost_eur),
@@ -92,7 +93,7 @@ export async function GET() {
 }
 
 export interface InboundPayload {
-  charge:     string
+  name:       string
   order_date: string
   notes?:     string
   production_fx_usd_eur?: number | null
@@ -132,6 +133,7 @@ export async function writeChildren(
         items.map((it, i) => ({
           inbound_id:          inboundId,
           product_id:          it.product_id,
+          charge:              it.charge ?? '',
           quantity:            Number(it.quantity) || 0,
           production_cost_usd: Number(it.production_cost_usd) || 0,
           production_cost_eur: toEur(it.production_cost_usd, productionFx),
@@ -207,15 +209,15 @@ export async function writeChildren(
 export async function POST(req: NextRequest) {
   const body = await req.json() as InboundPayload
 
-  if (!body.charge?.trim()) return NextResponse.json({ error: 'charge is required' }, { status: 422 })
-  if (!body.order_date)     return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
+  if (!body.name?.trim()) return NextResponse.json({ error: 'name is required' }, { status: 422 })
+  if (!body.order_date)   return NextResponse.json({ error: 'order_date is required' }, { status: 422 })
 
   const db = createServerClient()
 
   const { data, error } = await db
     .from('inbounds')
     .insert({
-      charge:     body.charge.trim(),
+      name:       body.name.trim(),
       order_date: body.order_date,
       notes:      body.notes ?? '',
       production_fx_usd_eur: fxOrNull(body.production_fx_usd_eur),
@@ -224,14 +226,7 @@ export async function POST(req: NextRequest) {
     .select('id')
     .single()
 
-  if (error) {
-    // 23505 = unique_violation on charge
-    const conflict = error.code === '23505'
-    return NextResponse.json(
-      { error: conflict ? `Charge "${body.charge.trim()}" already exists` : error.message },
-      { status: conflict ? 409 : 500 },
-    )
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const childErr = await writeChildren(db, data.id, body)
   if (childErr) {

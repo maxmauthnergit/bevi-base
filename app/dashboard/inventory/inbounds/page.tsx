@@ -7,12 +7,13 @@ import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
   G, inp, btn, btnPrimary, btnDanger, btnField, btnAccent, btnLarge, iconBtn, iconBtnDanger,
-  COL_PRODUCT, COL_QTY, fmtEur, fmtInt,
+  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
+import { Field } from '@/components/ui/Field'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
-  reconcileQuantities, productName, usdToEur,
+  reconcileQuantities, productName, usdToEur, perProductSummary,
   type Inbound, type InboundItem, type InboundShipment, type InboundInvoice,
   type Partner, type ShipMode, type DateSpan,
 } from '@/lib/inbounds'
@@ -25,6 +26,7 @@ import { fmtDate, todayIso } from '@/lib/inbound-calc'
 
 interface DraftItem {
   product_id: string
+  charge:     string
   quantity:   string
   costUsd:    string
   supplierId: string
@@ -44,7 +46,7 @@ interface DraftShipment {
 
 interface Draft {
   id:           string | null
-  charge:       string
+  name:         string
   orderDate:    string
   productionFx: string
   productionFxDate: string
@@ -56,7 +58,7 @@ interface Draft {
 function blankDraft(): Draft {
   const today = todayIso()
   return {
-    id: null, charge: '', orderDate: today,
+    id: null, name: '', orderDate: today,
     productionFx: '', productionFxDate: today,
     notes: '', items: [], shipments: [],
   }
@@ -65,13 +67,14 @@ function blankDraft(): Draft {
 function draftFrom(inb: Inbound): Draft {
   return {
     id:        inb.id,
-    charge:    inb.charge,
+    name:      inb.name,
     orderDate: inb.order_date,
     productionFx:     inb.production_fx_usd_eur != null ? String(inb.production_fx_usd_eur) : '',
     productionFxDate: inb.production_fx_date ?? inb.order_date,
     notes:     inb.notes,
     items: inb.items.map(it => ({
       product_id: it.product_id,
+      charge:     it.charge,
       quantity:   String(it.quantity),
       costUsd:    String(it.production_cost_usd),
       supplierId: it.supplier_id ?? '',
@@ -100,6 +103,7 @@ const toItems = (d: Draft): InboundItem[] => {
   const fx = fxOf(d.productionFx)
   return d.items.filter(it => it.product_id).map(it => ({
     product_id:          it.product_id,
+    charge:              it.charge,
     quantity:            num(it.quantity),
     production_cost_usd: num(it.costUsd),
     production_cost_eur: usdToEur(num(it.costUsd), fx) ?? 0,
@@ -151,8 +155,10 @@ const readonlyBox: React.CSSProperties = {
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 }
 
+// Filled panel, matching the section blocks on the settings page
+// (app/dashboard/settings/page.tsx:187) — reads as an area rather than a box.
 const frame: React.CSSProperties = {
-  border: '1px solid #E3E2DC', borderRadius: 12, padding: 16,
+  backgroundColor: '#F5F4F0', borderRadius: 12, padding: '16px 18px',
 }
 
 /**
@@ -207,15 +213,6 @@ function TrashIcon() {
       <path d="M3.6 3.5 L4.2 11.4 H9.8 L10.4 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       <path d="M6 5.6 V9.4 M8 5.6 V9.4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
     </svg>
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span className="label" style={{ display: 'block', marginBottom: 5 }}>{label}</span>
-      {children}
-    </label>
   )
 }
 
@@ -284,8 +281,10 @@ export default function InboundsPage() {
   const plannedSpan    = spanText(arrivalSpan(draftShipments, 'planned'))
   const actualSpan     = spanText(arrivalSpan(draftShipments, 'actual'))
 
-  const checks = draft ? reconcileQuantities(toItems(draft), draftShipments) : []
-  const totals = draft ? inboundTotals({ items: toItems(draft), shipments: draftShipments }) : null
+  const draftItems = draft ? toItems(draft) : []
+  const checks     = draft ? reconcileQuantities(draftItems, draftShipments) : []
+  const totals     = draft ? inboundTotals({ items: draftItems, shipments: draftShipments }) : null
+  const summary    = perProductSummary({ items: draftItems, shipments: draftShipments })
 
   const productionFx = draft ? fxOf(draft.productionFx) : null
 
@@ -351,7 +350,7 @@ export default function InboundsPage() {
     setError(null)
     try {
       const payload = {
-        charge:     draft.charge,
+        name:       draft.name,
         order_date: draft.orderDate,
         notes:      draft.notes,
         production_fx_usd_eur: productionFx,
@@ -385,8 +384,8 @@ export default function InboundsPage() {
     }
   }
 
-  async function remove(id: string, charge: string) {
-    if (!confirm(`Delete inbound "${charge}"? This also removes its uploaded invoices.`)) return
+  async function remove(id: string, name: string) {
+    if (!confirm(`Delete inbound "${name}"? This also removes its uploaded invoices.`)) return
     setDeleting(id)
     try {
       const res  = await fetch(`/api/inbounds/${id}`, { method: 'DELETE' })
@@ -483,7 +482,7 @@ export default function InboundsPage() {
       <Card>
         <CardHeader
           label="Inbounds"
-          action={<button style={btnLarge} onClick={() => setDraft(blankDraft())}>New Inbound</button>}
+          action={<button style={btnLarge} onClick={() => setDraft(blankDraft())}>New inbound</button>}
         />
 
         {loading ? (
@@ -500,7 +499,7 @@ export default function InboundsPage() {
               <thead>
                 <tr>
                   {[
-                    { label: 'Charge',         align: 'left'  },
+                    { label: 'Name',           align: 'left'  },
                     { label: 'Order Date',     align: 'left'  },
                     { label: 'Products',       align: 'left'  },
                     { label: 'Shipments',      align: 'left'  },
@@ -509,7 +508,11 @@ export default function InboundsPage() {
                     { label: '',               align: 'right' },
                   ].map(({ label, align }, i, arr) => (
                     <th key={label || i} className="label"
-                      style={{ ...th, textAlign: align as 'left' | 'right', paddingRight: i < arr.length - 1 ? 20 : 0 }}>
+                      style={{
+                        ...th, textAlign: align as 'left' | 'right',
+                        paddingLeft:  i === 0 ? 4 : 0,
+                        paddingRight: i === arr.length - 1 ? 4 : 20,
+                      }}>
                       {label}
                     </th>
                   ))}
@@ -525,13 +528,16 @@ export default function InboundsPage() {
                       borderBottom: i < inbounds.length - 1 ? '1px solid #F0EFE9' : 'none',
                       backgroundColor: draft?.id === inb.id ? '#FAFAF7' : 'transparent',
                     }}>
-                      <td style={{ ...td, paddingRight: 20, fontFamily: G, color: '#111110' }}>{inb.charge}</td>
+                      <td style={{ ...td, paddingLeft: 4, paddingRight: 20, fontFamily: G, color: '#111110' }}>{inb.name}</td>
                       <td style={{ ...td, paddingRight: 20, whiteSpace: 'nowrap' }}>{fmtDate(inb.order_date)}</td>
                       <td style={{ ...td, paddingRight: 20 }}>
                         {inb.items.length === 0 ? '—' : inb.items.map(it => (
                           <span key={it.product_id} style={{ display: 'block', whiteSpace: 'nowrap' }}>
                             <span className="metric" style={{ color: '#111110' }}>{fmtInt(it.quantity)}</span>
                             <span>&nbsp;× {productName(it.product_id)}</span>
+                            {it.charge && (
+                              <span style={{ color: '#9E9D98' }}>&nbsp;· {it.charge}</span>
+                            )}
                           </span>
                         ))}
                       </td>
@@ -553,12 +559,15 @@ export default function InboundsPage() {
                           </span>
                         )}
                       </td>
-                      <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button style={btn} onClick={() => setDraft(draftFrom(inb))}>Edit</button>
-                        <button style={{ ...btnDanger, marginLeft: 6 }} disabled={deleting === inb.id}
-                          onClick={() => remove(inb.id, inb.charge)}>
-                          {deleting === inb.id ? '…' : 'Delete'}
-                        </button>
+                      <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div className="flex items-center justify-end gap-2">
+                          <button style={btn} onClick={() => setDraft(draftFrom(inb))}>Edit</button>
+                          <button style={iconBtnDanger} title={`Delete ${inb.name}`}
+                            disabled={deleting === inb.id}
+                            onClick={() => remove(inb.id, inb.name)}>
+                            <TrashIcon />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -573,12 +582,12 @@ export default function InboundsPage() {
       {draft && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <CardHeader label={draft.id ? `Edit ${draft.charge || 'inbound'}` : 'New Inbound'} />
+            <CardHeader label={draft.id ? `Edit ${draft.name || 'inbound'}` : 'New inbound'} />
 
             <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-              <Field label="Charge">
-                <input style={inp} value={draft.charge} placeholder="e.g. IB-2026-03"
-                  onChange={e => setDraft({ ...draft, charge: e.target.value })} />
+              <Field label="Name">
+                <input style={inp} value={draft.name} placeholder="e.g. Spring restock 2026"
+                  onChange={e => setDraft({ ...draft, name: e.target.value })} />
               </Field>
               <Field label="Order Date">
                 <DatePicker value={draft.orderDate} onChange={v => setDraft({ ...draft, orderDate: v })} />
@@ -622,6 +631,7 @@ export default function InboundsPage() {
                             lines up column for column with these rows. */}
                         <colgroup>
                           <col style={{ width: COL_PRODUCT }} />
+                          <col style={{ width: COL_CHARGE }} />
                           <col style={{ width: COL_QTY }} />
                           <col style={{ width: 150 }} />
                           <col /><col /><col />
@@ -631,6 +641,7 @@ export default function InboundsPage() {
                           <tr>
                             {[
                               { l: 'Product',                  a: 'left'  },
+                              { l: 'Charge',                   a: 'left'  },
                               { l: 'Quantity',                 a: 'right' },
                               { l: 'Production costs (EXW) $', a: 'right' },
                               { l: '€',                        a: 'right' },
@@ -665,6 +676,10 @@ export default function InboundsPage() {
                                       </option>
                                     ))}
                                   </Select>
+                                </td>
+                                <td style={{ ...td, paddingRight: 14 }}>
+                                  <input style={inp} value={it.charge} placeholder="e.g. IB-2026-03"
+                                    onChange={e => patch({ charge: e.target.value })} />
                                 </td>
                                 <td style={{ ...td, paddingRight: 14 }}>
                                   <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
@@ -708,7 +723,7 @@ export default function InboundsPage() {
                   )}
                   <button style={btnAccent} onClick={() => setDraft({
                     ...draft,
-                    items: [...draft.items, { product_id: '', quantity: '', costUsd: '', supplierId: '' }],
+                    items: [...draft.items, { product_id: '', charge: '', quantity: '', costUsd: '', supplierId: '' }],
                   })}>
                     + Add product
                   </button>
@@ -809,11 +824,12 @@ export default function InboundsPage() {
                                     the two read as one continuous grid. */}
                                 <colgroup>
                                   <col style={{ width: COL_PRODUCT }} />
+                                  <col style={{ width: COL_CHARGE }} />
                                   <col style={{ width: COL_QTY }} />
                                 </colgroup>
                                 <thead>
                                   <tr>
-                                    {[{ l: 'Product', a: 'left' }, { l: 'Quantity', a: 'right' }].map(({ l, a }, i) => (
+                                    {[{ l: 'Product', a: 'left' }, { l: 'Charge', a: 'left' }, { l: 'Quantity', a: 'right' }].map(({ l, a }, i) => (
                                       <th key={i} className="label"
                                         style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
                                     ))}
@@ -824,6 +840,11 @@ export default function InboundsPage() {
                                     <tr key={it.product_id}>
                                       <td style={{ ...td, paddingRight: 14 }}>
                                         <div style={readonlyBox}>{productName(it.product_id)}</div>
+                                      </td>
+                                      {/* Read-only echo of the production row, so both tables
+                                          keep the same columns and line up. */}
+                                      <td style={{ ...td, paddingRight: 14 }}>
+                                        <div style={readonlyBox}>{it.charge || '—'}</div>
                                       </td>
                                       <td style={{ ...td, paddingRight: 14 }}>
                                         <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
@@ -864,14 +885,88 @@ export default function InboundsPage() {
               )}
             </div>
 
-            {/* Totals */}
+            {/* Totals + per-product breakdown */}
             {totals && (
-              <div className="flex items-baseline justify-between flex-wrap gap-2"
-                style={{ marginTop: 28, paddingTop: 14, borderTop: '1px solid #E3E2DC' }}>
-                <span className="label">Total production &amp; IB shipping costs (DDP)</span>
-                <span className="metric" style={{ fontFamily: G, fontSize: '1rem', fontWeight: 600, color: '#111110' }}>
-                  {fmtEur(totals.total)}
-                </span>
+              <div style={{ marginTop: 28, paddingTop: 14, borderTop: '1px solid #E3E2DC' }}>
+                <div className="flex items-baseline justify-between flex-wrap gap-2">
+                  <span className="label">Total production &amp; IB shipping costs (DDP)</span>
+                  <span className="metric" style={{ fontFamily: G, fontSize: '1rem', fontWeight: 600, color: '#111110' }}>
+                    {fmtEur(totals.total)}
+                  </span>
+                </div>
+
+                {summary.products.length > 0 && (
+                  <div style={{ ...frame, marginTop: 16, overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                      <thead>
+                        <tr>
+                          {[
+                            { l: 'Product',        a: 'left'  },
+                            { l: 'Quantity',       a: 'right' },
+                            { l: 'Production / pc', a: 'right' },
+                            { l: 'Shipping / pc',  a: 'right' },
+                            { l: 'Landed / pc',    a: 'right' },
+                            { l: 'Total',          a: 'right' },
+                          ].map(({ l, a }, i) => (
+                            <th key={i} className="label"
+                              style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: i < 5 ? 20 : 0 }}>{l}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {summary.products.map(pc => (
+                          <tr key={pc.product_id}>
+                            <td style={{ ...td, padding: '10px 20px 10px 0', color: '#111110' }}>
+                              {productName(pc.product_id)}
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 20px 10px 0', textAlign: 'right' }}>
+                              {fmtInt(pc.quantity)}
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 20px 10px 0', textAlign: 'right' }}>
+                              {pc.productionPerUnit === null ? '—' : fmtEur(pc.productionPerUnit)}
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 20px 10px 0', textAlign: 'right' }}>
+                              {pc.shippingPerUnit === null ? '—' : fmtEur(pc.shippingPerUnit)}
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 20px 10px 0', textAlign: 'right', color: '#111110', fontWeight: 500 }}>
+                              {pc.landedPerUnit === null ? '—' : fmtEur(pc.landedPerUnit)}
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 0', textAlign: 'right' }}>
+                              {fmtEur(pc.productionEur + pc.shippingEur)}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* Freight not yet tied to a product — shown so the rows
+                            always add up to the DDP total instead of quietly
+                            falling short. */}
+                        {summary.unallocated > 0.005 && (
+                          <tr>
+                            <td colSpan={5} style={{ ...td, padding: '10px 20px 10px 0', color: '#EA6C00' }}>
+                              Unallocated freight — not yet assigned to a product
+                            </td>
+                            <td className="metric" style={{ ...td, padding: '10px 0', textAlign: 'right', color: '#EA6C00' }}>
+                              {fmtEur(summary.unallocated)}
+                            </td>
+                          </tr>
+                        )}
+
+                        <tr>
+                          <td colSpan={5} className="label"
+                            style={{ padding: '12px 20px 0 0', borderTop: '1px solid #E3E2DC' }}>
+                            Total production &amp; IB shipping costs (DDP)
+                          </td>
+                          <td className="metric" style={{
+                            padding: '12px 0 0', textAlign: 'right', borderTop: '1px solid #E3E2DC',
+                            color: '#111110', fontWeight: 600,
+                          }}>
+                            {fmtEur(summary.total)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -932,10 +1027,10 @@ export default function InboundsPage() {
             </div>
 
             <div className="flex gap-2" style={{ marginTop: 20 }}>
-              <button style={btnPrimary} disabled={saving} onClick={save}>
+              <button style={btnLarge} disabled={saving} onClick={save}>
                 {saving ? 'Saving…' : draft.id ? 'Save changes' : 'Create inbound'}
               </button>
-              <button style={btn} onClick={() => setDraft(null)}>Cancel</button>
+              <button style={btnField} onClick={() => setDraft(null)}>Cancel</button>
             </div>
           </Card>
         </div>

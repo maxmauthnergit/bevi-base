@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader } from '@/components/ui/Card'
+import { Field } from '@/components/ui/Field'
 import { SkeletonCard } from '@/components/ui/Skeleton'
 import { G, inp, btn, btnPrimary, btnDanger, fmtEur, fmtInt } from '@/components/ui/formStyles'
 import { DEFAULT_PRODUCT_COSTS, type ProductCostConfig } from '@/lib/costs-config'
@@ -54,7 +55,7 @@ export default function InboundCalculatorPage() {
 
   const [scenarios,    setScenarios]    = useState<Scenario[]>([])
   const [scenarioName, setScenarioName]  = useState('')
-  const [chargeNo,     setChargeNo]      = useState('')
+  const [inboundName,  setInboundName]   = useState('')
   const [creating,     setCreating]      = useState<ShipMode | null>(null)
 
   useEffect(() => {
@@ -156,8 +157,8 @@ export default function InboundCalculatorPage() {
   }
 
   async function createInbound(r: ModeResult) {
-    if (!chargeNo.trim()) {
-      setError('Enter a Charge before creating an inbound')
+    if (!inboundName.trim()) {
+      setError('Enter a name before creating an inbound')
       return
     }
     setCreating(r.mode)
@@ -173,6 +174,7 @@ export default function InboundCalculatorPage() {
       const rate = config.usdEur
       const items = picked.map(p => ({
         product_id: p.id,
+        charge: '',
         quantity: qtyByProduct[p.id],
         production_cost_usd: rate
           ? Math.round(((prodByProduct[p.id] ?? 0) / rate) * 100) / 100
@@ -198,7 +200,7 @@ export default function InboundCalculatorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          charge: chargeNo,
+          name: inboundName,
           order_date: effectiveOrderDate,
           production_fx_usd_eur: rate,
           production_fx_date: effectiveOrderDate,
@@ -474,8 +476,9 @@ export default function InboundCalculatorPage() {
         <p className="label" style={{ marginBottom: 10 }}>Create as inbound</p>
         <div className="flex gap-2 flex-wrap items-end">
           <div style={{ width: 200 }}>
-            <Field label="Charge">
-              <input style={inp} value={chargeNo} onChange={e => setChargeNo(e.target.value)} placeholder="e.g. IB-2026-03" />
+            <Field label="Name">
+              <input style={inp} value={inboundName} onChange={e => setInboundName(e.target.value)}
+                placeholder="e.g. Spring restock 2026" />
             </Field>
           </div>
           {results.map(r => (
@@ -495,15 +498,6 @@ export default function InboundCalculatorPage() {
 }
 
 // ─── Small building blocks ───────────────────────────────────────────────────
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span className="label" style={{ display: 'block', marginBottom: 5 }}>{label}</span>
-      {children}
-    </label>
-  )
-}
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
