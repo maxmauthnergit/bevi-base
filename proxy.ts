@@ -1,7 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+// Local development escape hatch: skip the Google login so `npm run dev` can
+// open /dashboard directly. Both conditions must hold — NODE_ENV is 'production'
+// in any `next build` output, so this can never be switched on in a deployment.
+const devAuthBypass =
+  process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true'
+
+export async function proxy(request: NextRequest) {
+  if (devAuthBypass) return NextResponse.next({ request })
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

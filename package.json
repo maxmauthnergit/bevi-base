@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/check-env.mjs",
     "build": "next build",
     "start": "next start",
+    "preview": "next build && next start",
+    "check:env": "node scripts/check-env.mjs",
     "lint": "eslint"
   },
   "dependencies": {
@@ -21,6 +24,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@next/env": "16.2.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
