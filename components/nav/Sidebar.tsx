@@ -2,96 +2,55 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { clsx } from 'clsx'
 import { createSupabaseBrowser } from '@/lib/supabase/browser'
+import { NAV, resolveActive } from '@/components/nav/nav-config'
 
-const navItems = [
-  {
-    href: '/dashboard',
-    label: 'Overview',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <path d="M7 1.5 L13 7 L11.5 7 L11.5 12.5 L2.5 12.5 L2.5 7 L1 7 Z"
-          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/sales',
-    label: 'Sales',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <polyline points="1.5,11 4.5,7.5 7,9 10,4.5 12.5,5.5"
-          stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/orders',
-    label: 'Orders',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <path d="M2.5 1.5 L11.5 1.5 L11.5 11 L9.5 9.5 L7.5 11 L5.5 9.5 L3.5 11 L2.5 10 L2.5 1.5"
-          stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
-        <path d="M4.5 4.5 L9.5 4.5 M4.5 6.5 L9.5 6.5 M4.5 8 L7.5 8"
-          stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/marketing',
-    label: 'Marketing',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.35" />
-        <circle cx="7" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.35" />
-        <circle cx="7" cy="7" r="0.9" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/financials',
-    label: 'Financials',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <rect x="1" y="3.5" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.35" />
-        <path d="M1 6.5 L13 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="butt" />
-        <rect x="2.5" y="8.5" width="3" height="1.8" rx="0.4" stroke="currentColor" strokeWidth="1.05" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/inventory',
-    label: 'Inventory',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <rect x="1.5" y="1.5" width="11" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.35" />
-        <rect x="1.5" y="5.5" width="11" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.35" />
-        <rect x="1.5" y="9.5" width="11" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.35" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/settings',
-    label: 'Settings',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-        <path d="M6.0 1.6 L8.0 1.6 L8.9 3.7 L11.2 3.5 L12.2 5.1 L10.8 7.0 L12.2 8.9 L11.2 10.5 L8.9 10.3 L8.0 12.4 L6.0 12.4 L5.1 10.3 L2.8 10.5 L1.8 8.9 L3.2 7.0 L1.8 5.1 L2.8 3.5 L5.1 3.7 Z"
-          stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-        <circle cx="7" cy="7" r="2.3" stroke="currentColor" strokeWidth="1.3" />
-      </svg>
-    ),
-  },
-]
+const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none"
+      style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', display: 'block', flexShrink: 0 }}>
+      <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+const rowBase: React.CSSProperties = {
+  borderRadius: 10,
+  textDecoration: 'none',
+  width: '100%',
+  background: 'none',
+  border: 'none',
+  cursor: 'pointer',
+  textAlign: 'left',
+}
+
+const labelBase: React.CSSProperties = {
+  fontFamily: G,
+  fontSize: '0.8125rem',
+  letterSpacing: '0.01em',
+}
+
+function ActiveDot() {
+  return (
+    <span style={{
+      marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%',
+      backgroundColor: '#7DEFEF', flexShrink: 0,
+    }} />
+  )
+}
 
 export function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
+  const active   = resolveActive(pathname)
 
-  function isActive(href: string) {
-    if (href === '/dashboard') return pathname === '/dashboard'
-    return pathname.startsWith(href)
-  }
+  // Explicit open/closed state per group. Undefined means "follow the route",
+  // so the group holding the current page starts open but can still be collapsed.
+  const [manuallyOpen, setManuallyOpen] = useState<Record<string, boolean | undefined>>({})
 
   async function signOut() {
     const supabase = createSupabaseBrowser()
@@ -129,7 +88,7 @@ export function Sidebar() {
         <span
           style={{
             display: 'none',
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontFamily: G,
             fontSize: '1.375rem',
             fontWeight: 700,
             color: '#FFFFFF',
@@ -142,55 +101,87 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex flex-col gap-1 px-3 flex-1">
-        {navItems.map((item) => {
-          const active = isActive(item.href)
+        {NAV.map((node) => {
+          if (node.kind === 'link') {
+            const isActive = active.href === node.href
+            return (
+              <Link
+                key={node.href}
+                href={node.href}
+                className={clsx(
+                  'flex items-center gap-3 px-3 py-2 transition-colors',
+                  isActive ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
+                )}
+                style={{ ...rowBase, backgroundColor: isActive ? '#1E1E1C' : 'transparent' }}
+              >
+                <span style={{
+                  color: isActive ? '#7DEFEF' : 'currentColor',
+                  width: 15, height: 15, display: 'flex', alignItems: 'center', flexShrink: 0,
+                }}>
+                  {node.icon}
+                </span>
+                <span style={{ ...labelBase, fontWeight: isActive ? 500 : 400 }}>{node.label}</span>
+                {isActive && <ActiveDot />}
+              </Link>
+            )
+          }
+
+          const holdsActive = active.groupId === node.id
+          const open        = manuallyOpen[node.id] ?? holdsActive
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-center gap-3 px-3 py-2 transition-colors',
-                active ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
-              )}
-              style={{
-                borderRadius: 10,
-                backgroundColor: active ? '#1E1E1C' : 'transparent',
-                textDecoration: 'none',
-              }}
-            >
-              <span
-                style={{
-                  color: active ? '#7DEFEF' : 'currentColor',
-                  display: 'flex',
-                  alignItems: 'center',
-                  flexShrink: 0,
-                }}
+            <div key={node.id} className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => setManuallyOpen(m => ({ ...m, [node.id]: !open }))}
+                aria-expanded={open}
+                className={clsx(
+                  'flex items-center gap-3 px-3 py-2 transition-colors',
+                  holdsActive ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
+                )}
+                style={rowBase}
               >
-                {item.icon}
-              </span>
-              <span
-                style={{
-                  fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
-                  fontSize: '0.8125rem',
-                  fontWeight: active ? 500 : 400,
-                  letterSpacing: '0.01em',
-                }}
-              >
-                {item.label}
-              </span>
-              {active && (
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    backgroundColor: '#7DEFEF',
-                    flexShrink: 0,
-                  }}
-                />
+                <span style={{
+                  color: holdsActive ? '#7DEFEF' : 'currentColor',
+                  width: 15, height: 15, display: 'flex', alignItems: 'center', flexShrink: 0,
+                }}>
+                  {node.icon}
+                </span>
+                <span style={{ ...labelBase, fontWeight: holdsActive ? 500 : 400 }}>{node.label}</span>
+                <span style={{ marginLeft: 'auto', color: '#555550', display: 'flex' }}>
+                  <Chevron open={open} />
+                </span>
+              </button>
+
+              {open && (
+                <div className="flex flex-col gap-1" style={{ marginTop: 2, marginBottom: 2 }}>
+                  {node.children.map(child => {
+                    const isActive = active.href === child.href
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={clsx(
+                          'flex items-center py-1.5 transition-colors',
+                          isActive ? 'text-white' : 'text-[#555550] hover:text-[#AAAAAA]',
+                        )}
+                        style={{
+                          ...rowBase,
+                          paddingLeft: 42,
+                          paddingRight: 12,
+                          backgroundColor: isActive ? '#1E1E1C' : 'transparent',
+                        }}
+                      >
+                        <span style={{ ...labelBase, fontSize: '0.75rem', fontWeight: isActive ? 500 : 400 }}>
+                          {child.label}
+                        </span>
+                        {isActive && <ActiveDot />}
+                      </Link>
+                    )
+                  })}
+                </div>
               )}
-            </Link>
+            </div>
           )
         })}
       </nav>
@@ -203,7 +194,7 @@ export function Sidebar() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0',
-            fontFamily: "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontFamily: G,
             fontSize: '0.6875rem', color: '#3A3A38', letterSpacing: '0.04em',
           }}
         >

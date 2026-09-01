@@ -5,6 +5,8 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import type { ProductCostConfig } from '@/lib/costs-config'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
+// Shared with the inbounds and calculator pages.
+import { inp, btn, iconBtn } from '@/components/ui/formStyles'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -21,10 +23,6 @@ function Chevron({ open }: { open: boolean }) {
     </svg>
   )
 }
-
-const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex', alignItems: 'center' }
-const btn: React.CSSProperties = { fontFamily: G, fontSize: '0.75rem', letterSpacing: '0.04em', cursor: 'pointer', padding: '4px 12px', borderRadius: 8, border: '1px solid #E3E2DC', backgroundColor: '#FFFFFF', color: '#6B6A64' }
-const inp: React.CSSProperties = { fontFamily: G, fontSize: '0.8125rem', color: '#111110', border: '1px solid #E3E2DC', borderRadius: 8, padding: '5px 10px', width: '100%', boxSizing: 'border-box', outline: 'none', backgroundColor: '#FFFFFF' }
 
 // ─── API integrations ─────────────────────────────────────────────────────────
 
