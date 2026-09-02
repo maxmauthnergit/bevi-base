@@ -6,13 +6,15 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
-  G, inp, btn, btnField, btnAccent, btnLarge, iconBtnDanger,
+  G, inp, btn, btnAccent, btnLarge, iconBtnDanger,
   COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary, readout,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
 import { Field } from '@/components/ui/Field'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { TrashIcon } from '@/components/ui/TrashIcon'
+import { RateRow } from '@/components/ui/RateRow'
+import { useFxRate } from '@/hooks/useFxRate'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
   reconcileQuantities, productName, usdToEur, perProductSummary,
@@ -155,50 +157,6 @@ const frame: React.CSSProperties = {
   backgroundColor: '#F5F4F0', borderRadius: 12, padding: '16px 18px',
 }
 
-/**
- * FX date + rate + lookup button, shared by Production and every shipment.
- * Module scope on purpose: declared inside the page it would be a fresh
- * component type on each render, remounting the inputs and losing focus.
- */
-function RateRow({
-  fxKey, date, rate, busy, note, onDate, onRate, onFetch,
-}: {
-  fxKey:   string
-  date:    string
-  rate:    string
-  busy:    boolean
-  note?:   string
-  onDate:  (v: string) => void
-  onRate:  (v: string) => void
-  onFetch: () => void
-}) {
-  return (
-    <div>
-      <div className="flex gap-3 flex-wrap items-end">
-        <div style={{ width: 165 }}>
-          <Field label="FX date">
-            <DatePicker value={date} onChange={onDate} />
-          </Field>
-        </div>
-        <div style={{ width: 130 }}>
-          <Field label="USD → EUR">
-            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
-              placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
-          </Field>
-        </div>
-        <button style={btnField} disabled={busy} onClick={onFetch}>
-          {busy ? 'Fetching…' : 'Fetch rate'}
-        </button>
-      </div>
-      {note && (
-        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginTop: 6 }} key={fxKey}>
-          {note}
-        </p>
-      )}
-    </div>
-  )
-}
-
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function InboundsPage() {
@@ -212,9 +170,7 @@ export default function InboundsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  // Rate lookup: which field is loading, and any note to show next to it.
-  const [fxBusy, setFxBusy] = useState<string | null>(null)
-  const [fxNote, setFxNote] = useState<Record<string, string>>({})
+  const { fxBusy, fxNote, fetchRate } = useFxRate()
 
   const [partnerDialog, setPartnerDialog] = useState<null | {
     kind: 'supplier' | 'shipping'
@@ -270,35 +226,6 @@ export default function InboundsPage() {
   const summary    = perProductSummary({ items: draftItems, shipments: draftShipments })
 
   const productionFx = draft ? fxOf(draft.productionFx) : null
-
-  /** Looks up the ECB rate for a date and writes it into the given field. */
-  async function fetchRate(key: string, date: string, apply: (rate: string) => void) {
-    if (!date) {
-      setFxNote(n => ({ ...n, [key]: 'Pick a date first' }))
-      return
-    }
-    setFxBusy(key)
-    setFxNote(n => ({ ...n, [key]: '' }))
-    try {
-      const res  = await fetch(`/api/fx?date=${date}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Rate lookup failed')
-      apply(String(json.rate))
-      // The ECB only publishes on business days, so a weekend resolves back to
-      // the previous one. Say so rather than booking a rate from an unseen day.
-      setFxNote(n => ({
-        ...n,
-        [key]: json.date !== date ? `ECB rate of ${fmtDate(json.date)}` : '',
-      }))
-    } catch (e) {
-      setFxNote(n => ({
-        ...n,
-        [key]: `${e instanceof Error ? e.message : 'Lookup failed'} — enter it manually`,
-      }))
-    } finally {
-      setFxBusy(null)
-    }
-  }
 
   function openPartnerDialog(kind: 'supplier' | 'shipping', apply: (p: Partner) => void) {
     setPartnerDialog({ kind, name: '', apply })
@@ -591,7 +518,6 @@ export default function InboundsPage() {
               <SectionHeading>Production</SectionHeading>
               <div style={frame}>
                 <RateRow
-                  fxKey="production"
                   date={draft.productionFxDate}
                   rate={draft.productionFx}
                   busy={fxBusy === 'production'}
@@ -741,7 +667,6 @@ export default function InboundsPage() {
                         </div>
 
                         <RateRow
-                          fxKey={`ship-${idx}`}
                           date={sh.fxDate}
                           rate={sh.fx}
                           busy={fxBusy === `ship-${idx}`}

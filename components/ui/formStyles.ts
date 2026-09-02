@@ -176,8 +176,13 @@ export function fmtEur(v: number) {
   return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' €'
 }
 
+/**
+ * Whole units. `maximumFractionDigits: 0` is not cosmetic: de-DE defaults to 3,
+ * and the stock projection subtracts a fractional sales rate every day, so a
+ * projected figure printed "428,867" — 428.867 bags, which do not exist.
+ */
 export function fmtInt(v: number) {
-  return new Intl.NumberFormat('de-DE').format(v)
+  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v)
 }
 
 /** File size for the invoice table. Null when the size was never recorded. */

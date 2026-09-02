@@ -5,20 +5,20 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Select } from '@/components/ui/Select'
-import { SectionHeading } from '@/components/ui/SectionHeading'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { TrashIcon } from '@/components/ui/TrashIcon'
+import { RateRow } from '@/components/ui/RateRow'
+import { useFxRate } from '@/hooks/useFxRate'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import {
   G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, btnPrimary, iconBtnDanger,
-  COL_PRODUCT, COL_QTY, fmtEur, fmtInt, readout,
+  COL_PRODUCT, COL_QTY, fmtEur, fmtInt, readout, SECTION_GAP,
 } from '@/components/ui/formStyles'
 import { StockProjectionChart, MODE_COLOR, type ModeBranch } from '@/components/charts/StockProjectionChart'
-import { DEFAULT_PRODUCT_COSTS, type ProductCostConfig } from '@/lib/costs-config'
-import { CALCULATOR_PRODUCTS, productName, type Inbound, type ShipMode } from '@/lib/inbounds'
+import { CALCULATOR_PRODUCTS, productName, usdToEur, type Inbound, type ShipMode } from '@/lib/inbounds'
 import { projectStock, unitsOn, type Restock } from '@/lib/stock-projection'
 import {
-  DEFAULT_CALC_CONFIG, calculateAll, productionDaysFor, productionCostByProduct,
+  DEFAULT_CALC_CONFIG, calculateAll, productionDaysFor,
   fmtDate, todayIso, daysBetween,
   type CalcConfig, type ModeResult,
 } from '@/lib/inbound-calc'
@@ -45,7 +45,13 @@ const FORECAST_MIN_DAYS  = 90
 // Saved in `inbound_scenarios` (name + payload JSONB) — the same table the
 // scenario buttons used, so nothing has to be migrated.
 
-interface DraftItem { productId: string; quantity: string }
+/** Amounts are strings so a cleared field stays cleared while typing. */
+interface DraftItem {
+  productId: string
+  quantity:  string
+  /** EXW total for the position in USD — what the supplier quotes, as in Inbounds. */
+  priceUsd:  string
+}
 
 interface Draft {
   id:             string | null
@@ -54,6 +60,9 @@ interface Draft {
   items:          DraftItem[]
   /** Empty means "follow the tier for this quantity". */
   productionDays: string
+  /** One rate for the whole calculation: it converts production AND freight. */
+  fxRate:         string
+  fxDate:         string
 }
 
 interface CalcPayload {
@@ -62,6 +71,8 @@ interface CalcPayload {
   /** Shape written before quantities became rows; still read so old saves open. */
   quantities?:    Record<string, string>
   productionDays: string
+  fxRate?:        string
+  fxDate?:        string
   config:         CalcConfig
 }
 
@@ -74,27 +85,43 @@ interface InventoryRow {
 }
 
 function blankDraft(): Draft {
+  const today = todayIso()
   return {
-    id: null, name: '', orderDate: todayIso(),
-    items: [{ productId: CALCULATOR_PRODUCTS[0]?.id ?? '', quantity: '1000' }],
+    id: null, name: '', orderDate: today,
+    items: [{ productId: CALCULATOR_PRODUCTS[0]?.id ?? '', quantity: '1000', priceUsd: '' }],
     productionDays: '',
+    fxRate: String(DEFAULT_CALC_CONFIG.usdEur), fxDate: today,
   }
 }
 
 function draftFrom(c: Calculation): Draft {
   const p = c.payload
-  const items: DraftItem[] = p.items
-    ?? Object.entries(p.quantities ?? {})
-      .filter(([id, q]) => (Number(q) || 0) > 0 && CALCULATOR_PRODUCTS.some(cp => cp.id === id))
-      .map(([productId, quantity]) => ({ productId, quantity }))
+  // Saves written before the rows carried a price open with an empty one, so
+  // their production cost reads 0 € until it is entered — the settings-based
+  // estimate the calculator used to apply is deliberately not resurrected here.
+  const items: DraftItem[] = (p.items ?? Object.entries(p.quantities ?? {})
+    .filter(([id, q]) => (Number(q) || 0) > 0 && CALCULATOR_PRODUCTS.some(cp => cp.id === id))
+    .map(([productId, quantity]) => ({ productId, quantity, priceUsd: '' })))
+    .map(it => ({ ...it, priceUsd: it.priceUsd ?? '' }))
   return {
     id: c.id, name: c.name, orderDate: p.orderDate,
     items, productionDays: p.productionDays ?? '',
+    fxRate: p.fxRate ?? String(p.config?.usdEur ?? DEFAULT_CALC_CONFIG.usdEur),
+    fxDate: p.fxDate ?? p.orderDate,
   }
 }
 
 const qtyMap = (items: DraftItem[]): Record<string, number> =>
   Object.fromEntries(items.filter(i => i.productId).map(i => [i.productId, Number(i.quantity) || 0]))
+
+/** A rate is usable only when it is a finite number above zero. */
+const fxOf = (v: string): number | null => {
+  const n = Number(v)
+  return v.trim() === '' || !Number.isFinite(n) || n <= 0 ? null : n
+}
+
+const usdTotal = (items: DraftItem[]): number =>
+  items.reduce((s, it) => s + (Number(it.priceUsd) || 0), 0)
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +129,6 @@ export default function InboundCalculatorPage() {
   const router = useRouter()
 
   const [config, setConfig] = useState<CalcConfig>(DEFAULT_CALC_CONFIG)
-  const [costs,  setCosts]  = useState<ProductCostConfig[]>(DEFAULT_PRODUCT_COSTS)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [status,  setStatus]  = useState<string | null>(null)
@@ -112,6 +138,8 @@ export default function InboundCalculatorPage() {
   const [saving,   setSaving]   = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [creating, setCreating] = useState<ShipMode | null>(null)
+
+  const { fxBusy, fxNote, fetchRate } = useFxRate()
 
   // Stock forecast inputs.
   const [inventory, setInventory] = useState<InventoryRow[] | null>(null)
@@ -123,11 +151,9 @@ export default function InboundCalculatorPage() {
   useEffect(() => {
     Promise.all([
       fetch('/api/inbound-calc-config').then(r => r.json()).catch(() => null),
-      fetch('/api/costs-config').then(r => r.json()).catch(() => null),
       fetch('/api/inbound-scenarios').then(r => r.json()).catch(() => null),
-    ]).then(([cfg, cst, scn]) => {
+    ]).then(([cfg, scn]) => {
       if (cfg?.config) setConfig(cfg.config)
-      if (cst?.costs)  setCosts(cst.costs)
       if (scn?.scenarios) setCalcs(scn.scenarios)
       setLoading(false)
     })
@@ -163,10 +189,10 @@ export default function InboundCalculatorPage() {
     [qtyByProduct],
   )
 
-  const prodByProduct = useMemo(
-    () => productionCostByProduct(costs, qtyByProduct),
-    [costs, qtyByProduct],
-  )
+  // The one rate of this calculation. It converts the production positions and,
+  // through the config handed to calculateAll, the freight as well.
+  const rate         = fxOf(draft.fxRate)
+  const productionEur = usdToEur(usdTotal(draft.items), rate) ?? 0
 
   const tierDays    = productionDaysFor(totalQty, config.productionTiers)
   const prodDaysNum = draft.productionDays === '' ? tierDays : Number(draft.productionDays) || 0
@@ -174,9 +200,16 @@ export default function InboundCalculatorPage() {
   const effectiveOrderDate = draft.orderDate || todayIso()
 
   const results = useMemo(
-    () => calculateAll({ orderDate: effectiveOrderDate, qtyByProduct, productionDays: prodDaysNum, config, costs }),
-    [effectiveOrderDate, qtyByProduct, prodDaysNum, config, costs],
+    () => calculateAll({
+      orderDate: effectiveOrderDate, qtyByProduct, productionDays: prodDaysNum,
+      productionEur, config: { ...config, usdEur: rate ?? 0 },
+    }),
+    [effectiveOrderDate, qtyByProduct, prodDaysNum, productionEur, config, rate],
   )
+
+  // Without a rate every EUR figure would silently be 0,00 € — which is not the
+  // same statement as "not converted yet".
+  const eur = (v: number) => (rate === null ? '—' : fmtEur(v))
 
   const scale     = Math.max(...results.map(r => r.totalDays.max), 1)
   const cheapest  = results.reduce((a, b) => (b.totalEur < a.totalEur ? b : a))
@@ -277,6 +310,8 @@ export default function InboundCalculatorPage() {
         orderDate:      effectiveOrderDate,
         items:          draft.items.filter(i => i.productId),
         productionDays: draft.productionDays,
+        fxRate:         draft.fxRate,
+        fxDate:         draft.fxDate,
         config,
       }
       const res = await fetch(
@@ -353,16 +388,14 @@ export default function InboundCalculatorPage() {
 
       if (picked.length === 0) throw new Error('Enter a quantity for at least one product')
 
-      // Inbounds record what was invoiced in USD plus the rate used, so the
-      // calculator hands over its own rate rather than only the converted sum.
-      const rate = config.usdEur
+      // An inbound stores USD per position plus the rate it was booked at —
+      // which is exactly what was typed here, so nothing is converted back. A
+      // blank rate carries over as null and the inbound editor asks for it.
       const items = picked.map(p => ({
         product_id: p.id,
         charge: '',
         quantity: qtyByProduct[p.id],
-        production_cost_usd: rate
-          ? Math.round(((prodByProduct[p.id] ?? 0) / rate) * 100) / 100
-          : 0,
+        production_cost_usd: Number(draft.items.find(i => i.productId === p.id)?.priceUsd) || 0,
         supplier_id: null,
       }))
 
@@ -374,7 +407,7 @@ export default function InboundCalculatorPage() {
         shipping_company_id: null,
         cost_usd: Math.round(r.costUsd * 100) / 100,
         fx_usd_eur: rate,
-        fx_date: effectiveOrderDate,
+        fx_date: draft.fxDate || effectiveOrderDate,
         planned_arrival: r.readyAtWeship.min,
         actual_arrival: null,
         items: picked.map(p => ({ product_id: p.id, quantity: qtyByProduct[p.id] })),
@@ -387,7 +420,7 @@ export default function InboundCalculatorPage() {
           name: draft.name.trim(),
           order_date: effectiveOrderDate,
           production_fx_usd_eur: rate,
-          production_fx_date: effectiveOrderDate,
+          production_fx_date: draft.fxDate || effectiveOrderDate,
           notes: `Planned with the Inbound Calculator (${r.label}, ${r.totalDays.min}–${r.totalDays.max} days, `
                + `ready ${r.readyAtWeship.min} to ${r.readyAtWeship.max}).`,
           items,
@@ -463,18 +496,19 @@ export default function InboundCalculatorPage() {
               </thead>
               <tbody>
                 {calcs.map((c, i) => {
-                  const d    = draftFrom(c)
-                  const qty  = qtyMap(d.items)
-                  const cfg  = c.payload.config ?? config
-                  const tot  = Object.values(qty).reduce((s, q) => s + q, 0)
+                  const d       = draftFrom(c)
+                  const qty     = qtyMap(d.items)
+                  const cfg     = c.payload.config ?? config
+                  const tot     = Object.values(qty).reduce((s, q) => s + q, 0)
+                  const rowRate = fxOf(d.fxRate)
                   const rows = calculateAll({
                     orderDate: d.orderDate || todayIso(),
                     qtyByProduct: qty,
                     productionDays: d.productionDays === ''
                       ? productionDaysFor(tot, cfg.productionTiers)
                       : Number(d.productionDays) || 0,
-                    config: cfg,
-                    costs,
+                    productionEur: usdToEur(usdTotal(d.items), rowRate) ?? 0,
+                    config: { ...cfg, usdEur: rowRate ?? 0 },
                   })
                   const best = rows.reduce((a, b) => (b.totalEur < a.totalEur ? b : a))
                   return (
@@ -493,7 +527,7 @@ export default function InboundCalculatorPage() {
                         ))}
                       </td>
                       <td className="metric" style={{ ...td, paddingRight: 20, textAlign: 'right', color: '#111110' }}>
-                        {fmtEur(best.totalEur)}
+                        {rowRate === null ? '—' : fmtEur(best.totalEur)}
                         <span style={{ display: 'block', fontSize: '0.6875rem', color: '#9E9D98' }}>
                           {best.label}
                         </span>
@@ -541,101 +575,134 @@ export default function InboundCalculatorPage() {
         </div>
 
         {/* ─── Products ─────────────────────────────────────────────────── */}
-        <SectionHeading>Products</SectionHeading>
-        <div style={frame}>
-          {draft.items.length === 0 ? (
-            <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
-              No products yet.
-            </p>
-          ) : (
-            <div style={{ overflowX: 'auto', marginBottom: 10 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
-                {/* Same widths as the inbound editor, so the two tables line up. */}
-                <colgroup>
-                  <col style={{ width: COL_PRODUCT }} />
-                  <col style={{ width: COL_QTY }} />
-                  <col />
-                  <col style={{ width: 56 }} />
-                </colgroup>
-                <thead>
-                  <tr>
-                    {[
-                      { l: 'Product',            a: 'left'  },
-                      { l: 'Quantity',           a: 'right' },
-                      { l: 'Production (EUR)',   a: 'right' },
-                      { l: '',                   a: 'right' },
-                    ].map(({ l, a }, i) => (
-                      <th key={i} className="label"
-                        style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {draft.items.map((it, idx) => {
-                    const patch = (p: Partial<DraftItem>) => setDraft(d => ({
-                      ...d, items: d.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
-                    }))
-                    const prodEur = prodByProduct[it.productId] ?? 0
-                    return (
-                      <tr key={idx}>
-                        <td style={{ ...td, paddingRight: 14 }}>
-                          <Select value={it.productId} onChange={v => patch({ productId: v })}>
-                            <option value="">Select product…</option>
-                            {CALCULATOR_PRODUCTS.map(p => (
-                              <option key={p.id} value={p.id}
-                                disabled={p.id !== it.productId && draft.items.some(x => x.productId === p.id)}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </td>
-                        <td style={{ ...td, paddingRight: 14 }}>
-                          <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                            placeholder="0" value={it.quantity}
-                            onChange={e => patch({ quantity: e.target.value })} />
-                        </td>
-                        <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
-                          {it.productId ? fmtEur(prodEur) : '—'}
-                        </td>
-                        <td style={{ ...td, textAlign: 'right' }}>
-                          <button style={iconBtnDanger} title="Remove product"
-                            onClick={() => setDraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }))}>
-                            <TrashIcon />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <button style={btnAccent}
-            disabled={draft.items.length >= CALCULATOR_PRODUCTS.length}
-            onClick={() => setDraft(d => ({ ...d, items: [...d.items, { productId: '', quantity: '' }] }))}>
-            + Add product
-          </button>
-          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 10 }}>
-            Only the Bevi Bags can be planned here — they are the main product and the only ones
-            with a stock forecast behind them. More products follow.
+        <div style={{ ...frame, marginTop: SECTION_GAP }}>
+          <FrameHeading>Products</FrameHeading>
+
+          <RateRow
+            date={draft.fxDate}
+            rate={draft.fxRate}
+            busy={fxBusy === 'calc'}
+            note={fxNote['calc']}
+            onDate={v => patchDraft({ fxDate: v })}
+            onRate={v => patchDraft({ fxRate: v })}
+            onFetch={() => fetchRate('calc', draft.fxDate,
+              v => setDraft(d => ({ ...d, fxRate: v })))}
+          />
+          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 6 }}>
+            One rate for the whole calculation — it converts the production costs below and the
+            freight in every shipping mode.
           </p>
+
+          <div style={{ marginTop: 28 }}>
+            {draft.items.length === 0 ? (
+              <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
+                No products yet.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                  {/* Same widths as the inbound editor, so the two tables line up. */}
+                  <colgroup>
+                    <col style={{ width: COL_PRODUCT }} />
+                    <col style={{ width: COL_QTY }} />
+                    <col style={{ width: 150 }} />
+                    <col /><col />
+                    <col style={{ width: 56 }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      {[
+                        { l: 'Product',                  a: 'left'  },
+                        { l: 'Quantity',                 a: 'right' },
+                        { l: 'Production costs (EXW) $', a: 'right' },
+                        { l: '€',                        a: 'right' },
+                        { l: '€ per unit',               a: 'right' },
+                        { l: '',                         a: 'right' },
+                      ].map(({ l, a }, i) => (
+                        <th key={i} className="label"
+                          style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draft.items.map((it, idx) => {
+                      const patch = (p: Partial<DraftItem>) => setDraft(d => ({
+                        ...d, items: d.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
+                      }))
+                      const qty     = Number(it.quantity) || 0
+                      const lineEur = usdToEur(Number(it.priceUsd) || 0, rate)
+                      const perUnit = lineEur !== null && qty ? lineEur / qty : null
+                      return (
+                        <tr key={idx}>
+                          <td style={{ ...td, paddingRight: 14 }}>
+                            <Select value={it.productId} onChange={v => patch({ productId: v })}>
+                              <option value="">Select product…</option>
+                              {CALCULATOR_PRODUCTS.map(p => (
+                                <option key={p.id} value={p.id}
+                                  disabled={p.id !== it.productId && draft.items.some(x => x.productId === p.id)}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </td>
+                          <td style={{ ...td, paddingRight: 14 }}>
+                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
+                              placeholder="0" value={it.quantity}
+                              onChange={e => patch({ quantity: e.target.value })} />
+                          </td>
+                          <td style={{ ...td, paddingRight: 14 }}>
+                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
+                              placeholder="0.00" value={it.priceUsd}
+                              onChange={e => patch({ priceUsd: e.target.value })} />
+                          </td>
+                          <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
+                            {lineEur === null ? '—' : fmtEur(lineEur)}
+                          </td>
+                          <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
+                            {perUnit === null ? '—' : fmtEur(perUnit)}
+                          </td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <button style={iconBtnDanger} title="Remove product"
+                              onClick={() => setDraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }))}>
+                              <TrashIcon />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <button style={btnAccent}
+              disabled={draft.items.length >= CALCULATOR_PRODUCTS.length}
+              onClick={() => setDraft(d => ({
+                ...d, items: [...d.items, { productId: '', quantity: '', priceUsd: '' }],
+              }))}>
+              + Add product
+            </button>
+            <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 10 }}>
+              Only the Bevi Bags can be planned here — they are the main product and the only ones
+              with a stock forecast behind them. More products follow.
+            </p>
+          </div>
         </div>
 
         {/* ─── Assumptions ──────────────────────────────────────────────── */}
-        <SectionHeading>Assumptions</SectionHeading>
-        <div style={frame}>
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-            <Field label="USD → EUR rate">
-              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
-                value={config.usdEur}
-                onChange={e => setConfig(c => ({ ...c, usdEur: Number(e.target.value) || 0 }))} />
-            </Field>
-            <Field label="WeShip handling (days)">
+        <div style={{ ...frame, marginTop: SECTION_GAP }}>
+          <FrameHeading>Assumptions</FrameHeading>
+          {/* Fixed width: in a grid cell each field was ~80px wide for a number
+              that is never more than two digits. */}
+          <Field label="WeShip handling (days)">
+            {/* The inputs are pinned, not the field: in a grid cell each box was
+                ~80px wide for a number that is never more than two digits. The
+                label stays free so it does not wrap. */}
+            <div style={{ width: 150 }}>
               <RangeInput
                 value={config.weshipHandling}
                 onChange={v => setConfig(c => ({ ...c, weshipHandling: v }))} />
-            </Field>
-          </div>
+            </div>
+          </Field>
           <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 12 }}>
             Production defaults to the tier covering the quantity
             ({config.productionTiers.map(t => `${fmtInt(t.qty)} pcs → ${t.days} d`).join(' · ')});
@@ -694,17 +761,17 @@ export default function InboundCalculatorPage() {
                 ))}
               </Row>
               <Row label="Freight (EUR)">
-                {results.map(r => <Cell key={r.mode} metric>{fmtEur(r.costEur)}</Cell>)}
+                {results.map(r => <Cell key={r.mode} metric>{eur(r.costEur)}</Cell>)}
               </Row>
               <Row label="Production (EUR)">
-                {results.map(r => <Cell key={r.mode} metric>{fmtEur(r.productionEur)}</Cell>)}
+                {results.map(r => <Cell key={r.mode} metric>{eur(r.productionEur)}</Cell>)}
               </Row>
               <Row label="Total (EUR)" strong>
-                {results.map(r => <Cell key={r.mode} metric strong>{fmtEur(r.totalEur)}</Cell>)}
+                {results.map(r => <Cell key={r.mode} metric strong>{eur(r.totalEur)}</Cell>)}
               </Row>
               <Row label="Landed cost / unit">
                 {results.map(r => (
-                  <Cell key={r.mode} metric>{r.landedPerUnit === null ? '—' : fmtEur(r.landedPerUnit)}</Cell>
+                  <Cell key={r.mode} metric>{r.landedPerUnit === null ? '—' : eur(r.landedPerUnit)}</Cell>
                 ))}
               </Row>
               <Row label="Ready at WeShip" strong>
@@ -804,11 +871,6 @@ export default function InboundCalculatorPage() {
       <Card className="mb-4">
         <CardHeader label="Stock forecast" />
 
-        <div className="flex gap-4 flex-wrap" style={{ marginBottom: 20 }}>
-          <LegendDot color="#111110" label="No new order" />
-          {results.map(r => <LegendDot key={r.mode} color={MODE_COLOR[r.mode]} label={r.label} dashed />)}
-        </div>
-
         {stockNote && (
           <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginBottom: 16 }}>{stockNote}</p>
         )}
@@ -826,8 +888,8 @@ export default function InboundCalculatorPage() {
           const runsOut = baseline.runsOutOn[p.id] ?? null
           return (
             <div key={p.id}>
-              <SectionHeading first={i === 0}>{p.name}</SectionHeading>
-              <div style={frame}>
+              <div style={{ ...frame, marginTop: i === 0 ? 0 : SECTION_GAP }}>
+                <FrameHeading>{p.name}</FrameHeading>
                 <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 18 }}>
                   <Field label="On stock today">
                     <div className="metric" style={{ ...readout, textAlign: 'right' }}>
@@ -856,7 +918,7 @@ export default function InboundCalculatorPage() {
                         {[
                           { l: 'Mode',              a: 'left'  },
                           { l: 'Arrives at WeShip', a: 'left'  },
-                          { l: 'Stock left then',   a: 'right' },
+                          { l: 'Stock on arrival',  a: 'right' },
                           { l: '',                  a: 'left'  },
                         ].map(({ l, a }, k) => (
                           <th key={k} className="label"
@@ -865,6 +927,26 @@ export default function InboundCalculatorPage() {
                       </tr>
                     </thead>
                     <tbody>
+                      {/* The baseline is a row here rather than a legend of its
+                          own — this table is the chart's legend, and the black
+                          line needs a name as much as the four dashed ones. */}
+                      <tr style={{ borderTop: '1px solid #E7E6E0' }}>
+                        <td style={{ ...td, paddingRight: 16 }}>
+                          <span className="flex items-center gap-2" style={{ color: '#111110' }}>
+                            <Dash color="#111110" />
+                            No new order
+                          </span>
+                        </td>
+                        <td style={{ ...td, paddingRight: 16 }}>—</td>
+                        <td style={{ ...td, paddingRight: 16, textAlign: 'right' }}>—</td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {p.dailySales <= 0
+                            ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
+                            : runsOut
+                              ? <span style={{ color: '#DC2626' }}>sold out {fmtDate(runsOut)}</span>
+                              : <span style={{ color: '#0D8585' }}>lasts past the window</span>}
+                        </td>
+                      </tr>
                       {branches.map(b => {
                         const left = unitsOn(baseline, p.id, b.arrival)
                         // The gap is what the order is actually about: days with
@@ -874,10 +956,7 @@ export default function InboundCalculatorPage() {
                           <tr key={b.mode} style={{ borderTop: '1px solid #E7E6E0' }}>
                             <td style={{ ...td, paddingRight: 16 }}>
                               <span className="flex items-center gap-2" style={{ color: '#111110' }}>
-                                <span style={{
-                                  width: 8, height: 8, borderRadius: 2,
-                                  backgroundColor: MODE_COLOR[b.mode], display: 'inline-block',
-                                }} />
+                                <Dash color={MODE_COLOR[b.mode]} dashed />
                                 {b.label}
                               </span>
                             </td>
@@ -904,9 +983,11 @@ export default function InboundCalculatorPage() {
         })}
 
         <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 16 }}>
-          Stock is WeShip’s on-hand minus what is already going out, and the curve falls at the sales
-          rate of the last 30 days. That rate only counts orders that carry the SKU — bags sold inside
-          a bundle are not attributed to them, so it reads low; override it above.
+          <b style={{ fontWeight: 500 }}>Stock on arrival</b> is what is still on the shelf on the day
+          that mode’s goods reach WeShip, <i>if this order is not placed</i> — the black line on that
+          day. Stock itself is WeShip’s on-hand minus what is already going out, and the line falls at
+          the sales rate of the last 30 days. That rate only counts orders that carry the SKU — bags
+          sold inside a bundle are not attributed to them, so it reads low; override it above.
           Inbounds already planned are included in the falling line.
         </p>
       </Card>
@@ -954,15 +1035,26 @@ const frame: React.CSSProperties = {
   backgroundColor: '#F5F4F0', borderRadius: 12, padding: '16px 18px',
 }
 
-function LegendDot({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+/**
+ * Heading of a filled area, sitting inside it. Same pattern as the shipment
+ * blocks in the inbound editor: outside the frame the label floated above the
+ * surface it names.
+ */
+function FrameHeading({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-2" style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
-      <span style={{
-        width: 14, height: 0, display: 'inline-block',
-        borderTop: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
-      }} />
-      {label}
-    </span>
+    <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+      <span className="label">{children}</span>
+    </div>
+  )
+}
+
+/** A piece of the line it stands for, so the table reads as the chart's legend. */
+function Dash({ color, dashed }: { color: string; dashed?: boolean }) {
+  return (
+    <span style={{
+      width: 14, height: 0, display: 'inline-block', flexShrink: 0,
+      borderTop: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
+    }} />
   )
 }
 

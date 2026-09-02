@@ -114,15 +114,18 @@ export function StockProjectionChart({
           axisLine={false} tickLine={false} width={isMobile ? 38 : 56}
         />
 
-        {/* Empty shelf. The whole point of the chart is where the line meets it. */}
-        <ReferenceLine y={0} stroke="#DC2626" strokeWidth={1} />
+        {/* The empty shelf. Drawn as the axis it is — red here would be a warning
+            about the coordinate system, and would read as a fifth series besides. */}
+        <ReferenceLine y={0} stroke="#C9C8C2" strokeWidth={1} />
 
+        {/* The day the shelf empties. In ink, not red: red is already Road's
+            neighbour on this chart, and a marker must not look like a series. */}
         {runsOut && (
           <ReferenceLine
-            x={runsOut} stroke="#DC2626" strokeDasharray="3 3"
+            x={runsOut} stroke="#6B6A64" strokeDasharray="3 3"
             label={{
-              value: `out ${fmtDate(runsOut).slice(0, 6)}`,
-              position: 'insideTopRight', fill: '#DC2626', fontSize: 9, fontFamily: F,
+              value: `sold out ${fmtDate(runsOut).slice(0, 6)}`,
+              position: 'insideTopRight', fill: '#6B6A64', fontSize: 9, fontFamily: F,
             }}
           />
         )}
