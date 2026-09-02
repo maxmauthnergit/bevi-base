@@ -133,3 +133,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+
+/* ── Floating user island ─────────────────────────────────────────────────── */
+
+/* Slides out of the way while scrolling down; the transform is set inline. */
+.user-island {
+  transition: transform 0.25s ease, opacity 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .user-island { transition: none; }
+}

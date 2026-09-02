@@ -2,7 +2,8 @@ import { Sidebar } from '@/components/nav/Sidebar'
 import { BottomNav } from '@/components/nav/BottomNav'
 import { DateRangeProvider } from '@/components/providers/DateRangeProvider'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { TopBarUser } from '@/components/nav/TopBarUser'
+import { UserIsland, SCROLL_CONTAINER_ID } from '@/components/nav/UserIsland'
+import { getLowStockItems } from '@/lib/low-stock'
 import { redirect } from 'next/navigation'
 
 export default async function DashboardLayout({
@@ -16,6 +17,10 @@ export default async function DashboardLayout({
   // Authoritative session check. proxy.ts only inspects the cookie, so a
   // stale or forged one reaches this point — reject it here.
   if (!user) redirect('/login')
+
+  // Not awaited: the island streams the alerts in so the inventory calls
+  // never block the page from rendering.
+  const lowStock = getLowStockItems().catch(() => [])
 
   const displayName = user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
@@ -38,25 +43,19 @@ export default async function DashboardLayout({
         <Sidebar />
       </div>
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-y-auto pb-16 lg:pb-0">
-        {/* Top bar — desktop only */}
-        <div
-          className="hidden lg:flex"
-          style={{
-            position: 'sticky', top: 0, zIndex: 10,
-            height: 80, flexShrink: 0,
-            alignItems: 'flex-start', justifyContent: 'flex-end',
-            padding: '32px 40px 0',
-            backgroundColor: '#F5F4F0',
-          }}
-        >
-          <TopBarUser displayName={displayName} initials={initials} avatarUrl={avatarUrl} />
-        </div>
-
+      <div id={SCROLL_CONTAINER_ID} className="flex flex-col flex-1 min-w-0 overflow-y-auto pb-16 lg:pb-0">
         <DateRangeProvider>
           {children}
         </DateRangeProvider>
       </div>
+
+      {/* Floating island — user + low stock notification, all breakpoints */}
+      <UserIsland
+        displayName={displayName}
+        initials={initials}
+        avatarUrl={avatarUrl}
+        lowStock={lowStock}
+      />
 
       {/* Bottom nav — mobile + tablet only */}
       <div className="lg:hidden">
