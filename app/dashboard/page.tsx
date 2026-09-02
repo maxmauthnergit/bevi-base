@@ -4,7 +4,7 @@ import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { InventoryAlert } from '@/components/inventory/InventoryAlert'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
-import { isLowStock } from '@/lib/inventory'
+import { isLowStock, effectiveUnits, daysOfCover, stockLastsUntil } from '@/lib/inventory'
 import { getWeShipStock } from '@/lib/weship/queries'
 
 
@@ -19,12 +19,12 @@ export default async function DashboardPage() {
 
   const lowStockItems = (stockLevels ?? [])
     .map((item) => {
-      const ws             = weshipStock?.find((w) => w.sku === item.sku)
-      const effectiveUnits = ws != null ? ws.on_stock - ws.outgoing : item.units
-      const avgSales       = avgDailySales?.[item.sku] ?? 0
-      const daysLeft       = avgSales > 0 ? Math.floor(effectiveUnits / avgSales) : null
-      const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
-      return { ...item, effectiveUnits, daysLeft, lastUntil }
+      const ws        = weshipStock?.find((w) => w.sku === item.sku)
+      const units     = effectiveUnits(ws, item.units)
+      const avgSales  = avgDailySales?.[item.sku] ?? 0
+      const daysLeft  = daysOfCover(units, avgSales)
+      const lastUntil = stockLastsUntil(units, avgSales)
+      return { ...item, effectiveUnits: units, daysLeft, lastUntil }
     })
     // Coverage is the only criterion — the absolute reorder_threshold is
     // ignored on purpose (see lib/inventory.ts).

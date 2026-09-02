@@ -24,6 +24,27 @@ export const inp: React.CSSProperties = {
   backgroundColor: '#FFFFFF',
 }
 
+/**
+ * Same footprint as `inp`, for a value that is shown rather than entered — a
+ * computed total, a stock figure. (A read-only *date* uses DateReadout instead,
+ * which matches the date trigger rather than a text field.)
+ */
+export const readout: React.CSSProperties = {
+  fontFamily: G,
+  fontSize: '0.8125rem',
+  color: '#6B6A64',
+  border: '1px solid #E3E2DC',
+  borderRadius: 8,
+  padding: '5px 10px',
+  height: FIELD_H,
+  width: '100%',
+  boxSizing: 'border-box',
+  backgroundColor: '#FAFAF7',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
 export const btn: React.CSSProperties = {
   fontFamily: G,
   fontSize: '0.75rem',

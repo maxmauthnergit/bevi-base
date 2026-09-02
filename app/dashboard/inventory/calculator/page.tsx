@@ -4,10 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
-import { SkeletonCard } from '@/components/ui/Skeleton'
-import { G, inp, btn, btnPrimary, btnDanger, fmtEur, fmtInt } from '@/components/ui/formStyles'
+import { Select } from '@/components/ui/Select'
+import { SectionHeading } from '@/components/ui/SectionHeading'
+import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
+import { TrashIcon } from '@/components/ui/TrashIcon'
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import {
+  G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, btnPrimary, iconBtnDanger,
+  COL_PRODUCT, COL_QTY, fmtEur, fmtInt, readout,
+} from '@/components/ui/formStyles'
+import { StockProjectionChart, MODE_COLOR, type ModeBranch } from '@/components/charts/StockProjectionChart'
 import { DEFAULT_PRODUCT_COSTS, type ProductCostConfig } from '@/lib/costs-config'
-import { INBOUND_PRODUCTS, type ShipMode } from '@/lib/inbounds'
+import { CALCULATOR_PRODUCTS, productName, type Inbound, type ShipMode } from '@/lib/inbounds'
+import { projectStock, unitsOn, type Restock } from '@/lib/stock-projection'
 import {
   DEFAULT_CALC_CONFIG, calculateAll, productionDaysFor, productionCostByProduct,
   fmtDate, todayIso, daysBetween,
@@ -28,14 +37,66 @@ const PHASE_LABEL: [string, string][] = [
   ['weship',       'WeShip handling'],
 ]
 
-interface Scenario { id: string; name: string; payload: ScenarioPayload; created_at: string }
+/** Days of curve drawn past the last arrival, so the restock is visible landing. */
+const FORECAST_TAIL_DAYS = 21
+const FORECAST_MIN_DAYS  = 90
 
-interface ScenarioPayload {
+// ─── Stored calculation ──────────────────────────────────────────────────────
+// Saved in `inbound_scenarios` (name + payload JSONB) — the same table the
+// scenario buttons used, so nothing has to be migrated.
+
+interface DraftItem { productId: string; quantity: string }
+
+interface Draft {
+  id:             string | null
+  name:           string
   orderDate:      string
-  quantities:     Record<string, string>
+  items:          DraftItem[]
+  /** Empty means "follow the tier for this quantity". */
+  productionDays: string
+}
+
+interface CalcPayload {
+  orderDate:      string
+  items?:         DraftItem[]
+  /** Shape written before quantities became rows; still read so old saves open. */
+  quantities?:    Record<string, string>
   productionDays: string
   config:         CalcConfig
 }
+
+interface Calculation { id: string; name: string; payload: CalcPayload; created_at: string }
+
+interface InventoryRow {
+  sku:             string
+  units:           number
+  avg_daily_sales: number
+}
+
+function blankDraft(): Draft {
+  return {
+    id: null, name: '', orderDate: todayIso(),
+    items: [{ productId: CALCULATOR_PRODUCTS[0]?.id ?? '', quantity: '1000' }],
+    productionDays: '',
+  }
+}
+
+function draftFrom(c: Calculation): Draft {
+  const p = c.payload
+  const items: DraftItem[] = p.items
+    ?? Object.entries(p.quantities ?? {})
+      .filter(([id, q]) => (Number(q) || 0) > 0 && CALCULATOR_PRODUCTS.some(cp => cp.id === id))
+      .map(([productId, quantity]) => ({ productId, quantity }))
+  return {
+    id: c.id, name: c.name, orderDate: p.orderDate,
+    items, productionDays: p.productionDays ?? '',
+  }
+}
+
+const qtyMap = (items: DraftItem[]): Record<string, number> =>
+  Object.fromEntries(items.filter(i => i.productId).map(i => [i.productId, Number(i.quantity) || 0]))
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function InboundCalculatorPage() {
   const router = useRouter()
@@ -46,17 +107,18 @@ export default function InboundCalculatorPage() {
   const [error,   setError]   = useState<string | null>(null)
   const [status,  setStatus]  = useState<string | null>(null)
 
-  const [orderDate,  setOrderDate]  = useState(todayIso())
-  const [quantities, setQuantities] = useState<Record<string, string>>(
-    Object.fromEntries(INBOUND_PRODUCTS.map(p => [p.id, p.id === 'bevi-bag-black' ? '1000' : ''])),
-  )
-  // Empty means "follow the tier for this quantity".
-  const [productionDays, setProductionDays] = useState('')
+  const [calcs,    setCalcs]    = useState<Calculation[]>([])
+  const [draft,    setDraft]    = useState<Draft>(blankDraft)
+  const [saving,   setSaving]   = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [creating, setCreating] = useState<ShipMode | null>(null)
 
-  const [scenarios,    setScenarios]    = useState<Scenario[]>([])
-  const [scenarioName, setScenarioName]  = useState('')
-  const [inboundName,  setInboundName]   = useState('')
-  const [creating,     setCreating]      = useState<ShipMode | null>(null)
+  // Stock forecast inputs.
+  const [inventory, setInventory] = useState<InventoryRow[] | null>(null)
+  const [stockState, setStockState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [stockNote,  setStockNote]  = useState<string | null>(null)
+  const [inbounds,  setInbounds]  = useState<Inbound[]>([])
+  const [rates,     setRates]     = useState<Record<string, string>>({})
 
   useEffect(() => {
     Promise.all([
@@ -66,25 +128,50 @@ export default function InboundCalculatorPage() {
     ]).then(([cfg, cst, scn]) => {
       if (cfg?.config) setConfig(cfg.config)
       if (cst?.costs)  setCosts(cst.costs)
-      if (scn?.scenarios) setScenarios(scn.scenarios)
+      if (scn?.scenarios) setCalcs(scn.scenarios)
       setLoading(false)
     })
   }, [])
 
-  const qtyByProduct = useMemo(
-    () => Object.fromEntries(INBOUND_PRODUCTS.map(p => [p.id, Number(quantities[p.id]) || 0])),
-    [quantities],
-  )
-  const totalQty = useMemo(
+  // Stock and planned arrivals feed the forecast only — the cost side of the
+  // page must not wait on them, so they load on their own and fail on their own.
+  useEffect(() => {
+    fetch('/api/inventory')
+      .then(async r => {
+        const json = await r.json()
+        if (!r.ok) throw new Error(json.error ?? 'Could not load stock levels')
+        setInventory(json.rows as InventoryRow[])
+        setStockState('ready')
+        if (json.sources && !json.sources.weship) {
+          setStockNote('WeShip did not answer — the figures below are Shopify’s.')
+        }
+      })
+      .catch(e => {
+        setStockState('failed')
+        setStockNote(e instanceof Error ? e.message : 'Could not load stock levels')
+      })
+
+    fetch('/api/inbounds')
+      .then(r => r.json())
+      .then(json => { if (json?.inbounds) setInbounds(json.inbounds as Inbound[]) })
+      .catch(() => {})
+  }, [])
+
+  const qtyByProduct = useMemo(() => qtyMap(draft.items), [draft.items])
+  const totalQty     = useMemo(
     () => Object.values(qtyByProduct).reduce((s, q) => s + q, 0),
     [qtyByProduct],
   )
 
-  const tierDays    = productionDaysFor(totalQty, config.productionTiers)
-  const prodDaysNum = productionDays === '' ? tierDays : Number(productionDays) || 0
+  const prodByProduct = useMemo(
+    () => productionCostByProduct(costs, qtyByProduct),
+    [costs, qtyByProduct],
+  )
 
-  // Clearing the date input yields '', which the date maths cannot parse.
-  const effectiveOrderDate = orderDate || todayIso()
+  const tierDays    = productionDaysFor(totalQty, config.productionTiers)
+  const prodDaysNum = draft.productionDays === '' ? tierDays : Number(draft.productionDays) || 0
+
+  const effectiveOrderDate = draft.orderDate || todayIso()
 
   const results = useMemo(
     () => calculateAll({ orderDate: effectiveOrderDate, qtyByProduct, productionDays: prodDaysNum, config, costs }),
@@ -96,6 +183,8 @@ export default function InboundCalculatorPage() {
   const fastest   = results.reduce((a, b) => (b.totalDays.min < a.totalDays.min ? b : a))
   const todayOff  = daysBetween(effectiveOrderDate, todayIso())
 
+  function patchDraft(p: Partial<Draft>) { setDraft(d => ({ ...d, ...p })) }
+
   function patchMode(mode: ShipMode, patch: Partial<CalcConfig['modes'][ShipMode]>) {
     setConfig(c => ({ ...c, modes: { ...c.modes, [mode]: { ...c.modes[mode], ...patch } } }))
   }
@@ -104,6 +193,140 @@ export default function InboundCalculatorPage() {
     setStatus(msg)
     setTimeout(() => setStatus(null), 2500)
   }, [])
+
+  // ─── Forecast ──────────────────────────────────────────────────────────────
+
+  const today = todayIso()
+
+  /** Far enough out that the slowest mode's late arrival is still on the chart. */
+  const horizon = useMemo(() => {
+    const last = Math.max(...results.map(r => daysBetween(today, r.readyAtWeship.max)), 0)
+    return Math.max(FORECAST_MIN_DAYS, last + FORECAST_TAIL_DAYS)
+  }, [results, today])
+
+  const forecastProducts = useMemo(() => CALCULATOR_PRODUCTS.map(p => {
+    const row       = inventory?.find(r => r.sku === p.forecastSku) ?? null
+    const suggested = row?.avg_daily_sales ?? 0
+    const typed     = rates[p.id]
+    return {
+      id:         p.id,
+      name:       p.name,
+      units:      row?.units ?? 0,
+      known:      row !== null,
+      suggested,
+      dailySales: typed !== undefined && typed !== '' ? Math.max(0, Number(typed) || 0) : suggested,
+    }
+  }), [inventory, rates])
+
+  // Everything already on the water counts: leaving planned inbounds out would
+  // show a shortfall that a delivery three weeks from now already covers.
+  const plannedRestocks = useMemo<Restock[]>(() => {
+    const out: Restock[] = []
+    for (const inb of inbounds) {
+      for (const sh of inb.shipments) {
+        const date = sh.actual_arrival ?? sh.planned_arrival
+        if (!date) continue
+        for (const si of sh.items) {
+          if (si.quantity > 0 && CALCULATOR_PRODUCTS.some(p => p.id === si.product_id)) {
+            out.push({ productId: si.product_id, date, quantity: si.quantity, label: inb.name })
+          }
+        }
+      }
+    }
+    return out
+  }, [inbounds])
+
+  const projectionInput = useMemo(
+    () => forecastProducts.map(p => ({ id: p.id, units: p.units, dailySales: p.dailySales })),
+    [forecastProducts],
+  )
+
+  const baseline = useMemo(
+    () => projectStock({ startIso: today, days: horizon, products: projectionInput, restocks: plannedRestocks }),
+    [today, horizon, projectionInput, plannedRestocks],
+  )
+
+  const branches = useMemo<ModeBranch[]>(() => results.map(r => ({
+    mode:    r.mode,
+    label:   r.label,
+    // The early end of the window: the question is when the goods can be there,
+    // and the late end is already carried by the timeline above.
+    arrival: r.readyAtWeship.min,
+    result: projectStock({
+      startIso: today, days: horizon, products: projectionInput,
+      restocks: [
+        ...plannedRestocks,
+        ...Object.entries(qtyByProduct)
+          .filter(([, q]) => q > 0)
+          .map(([productId, quantity]) => ({ productId, date: r.readyAtWeship.min, quantity })),
+      ],
+    }),
+  })), [results, today, horizon, projectionInput, plannedRestocks, qtyByProduct])
+
+  // ─── Persistence ───────────────────────────────────────────────────────────
+
+  async function save() {
+    if (!draft.name.trim()) {
+      setError('Give the calculation a name before saving')
+      return
+    }
+    setSaving(true)
+    setError(null)
+    try {
+      const payload: CalcPayload = {
+        orderDate:      effectiveOrderDate,
+        items:          draft.items.filter(i => i.productId),
+        productionDays: draft.productionDays,
+        config,
+      }
+      const res = await fetch(
+        draft.id ? `/api/inbound-scenarios/${draft.id}` : '/api/inbound-scenarios',
+        {
+          method: draft.id ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: draft.name.trim(), payload }),
+        },
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not save the calculation')
+
+      if (draft.id) {
+        const id = draft.id
+        setCalcs(cs => cs.map(c => (c.id === id ? { ...c, name: draft.name.trim(), payload } : c)))
+        flash('Calculation saved')
+      } else {
+        setCalcs(cs => [json.scenario, ...cs])
+        // Stay in the editor on the saved record, so the next Save updates it
+        // instead of filing a second copy under the same name.
+        patchDraft({ id: json.scenario.id })
+        flash('Calculation saved')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the calculation')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function edit(c: Calculation) {
+    setDraft(draftFrom(c))
+    if (c.payload.config) setConfig(c.payload.config)
+  }
+
+  async function remove(id: string, name: string) {
+    if (!confirm(`Delete calculation "${name}"?`)) return
+    setDeleting(id)
+    try {
+      const res = await fetch(`/api/inbound-scenarios/${id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Could not delete')
+      setCalcs(cs => cs.filter(c => c.id !== id))
+      if (draft.id === id) setDraft(blankDraft())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not delete')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   async function saveDefaults() {
     try {
@@ -118,54 +341,15 @@ export default function InboundCalculatorPage() {
     }
   }
 
-  async function saveScenario() {
-    if (!scenarioName.trim()) return
-    try {
-      const payload: ScenarioPayload = { orderDate: effectiveOrderDate, quantities, productionDays, config }
-      const res  = await fetch('/api/inbound-scenarios', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: scenarioName, payload }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Could not save scenario')
-      setScenarios(s => [json.scenario, ...s])
-      setScenarioName('')
-      flash('Scenario saved')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not save scenario')
-    }
-  }
-
-  function loadScenario(id: string) {
-    const s = scenarios.find(x => x.id === id)
-    if (!s) return
-    setOrderDate(s.payload.orderDate)
-    setQuantities(s.payload.quantities)
-    setProductionDays(s.payload.productionDays)
-    setConfig(s.payload.config)
-    flash(`Loaded "${s.name}"`)
-  }
-
-  async function deleteScenario(id: string) {
-    try {
-      const res = await fetch(`/api/inbound-scenarios/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Could not delete scenario')
-      setScenarios(s => s.filter(x => x.id !== id))
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete scenario')
-    }
-  }
-
   async function createInbound(r: ModeResult) {
-    if (!inboundName.trim()) {
-      setError('Enter a name before creating an inbound')
+    if (!draft.name.trim()) {
+      setError('Give the calculation a name before creating an inbound')
       return
     }
     setCreating(r.mode)
     setError(null)
     try {
-      const prodByProduct = productionCostByProduct(costs, qtyByProduct)
-      const picked = INBOUND_PRODUCTS.filter(p => qtyByProduct[p.id] > 0)
+      const picked = CALCULATOR_PRODUCTS.filter(p => qtyByProduct[p.id] > 0)
 
       if (picked.length === 0) throw new Error('Enter a quantity for at least one product')
 
@@ -200,7 +384,7 @@ export default function InboundCalculatorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: inboundName,
+          name: draft.name.trim(),
           order_date: effectiveOrderDate,
           production_fx_usd_eur: rate,
           production_fx_date: effectiveOrderDate,
@@ -235,60 +419,229 @@ export default function InboundCalculatorPage() {
           Inbound Calculator
         </h1>
         <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', marginTop: 6 }}>
-          Plan a future goods order: what it costs, and when it is ready to ship at WeShip.
+          Plan a future goods order: what it costs, when it is ready to ship at WeShip, and whether
+          the stock on hand lasts until then.
         </p>
       </div>
 
       {error  && <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#DC2626', marginBottom: 16 }}>{error}</p>}
       {status && <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#0D8585', marginBottom: 16 }}>{status}</p>}
 
-      {/* ─── Inputs ─────────────────────────────────────────────────────── */}
+      {/* ─── Saved calculations ─────────────────────────────────────────── */}
       <Card className="mb-4">
-        <CardHeader label="Order" />
-        <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-          <Field label="Order / payment date">
-            <input style={inp} type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} />
-          </Field>
-          {INBOUND_PRODUCTS.map(p => (
-            <Field key={p.id} label={p.name}>
-              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                placeholder="0"
-                value={quantities[p.id] ?? ''}
-                onChange={e => setQuantities(q => ({ ...q, [p.id]: e.target.value }))} />
-            </Field>
-          ))}
-        </div>
+        <CardHeader
+          label="Calculations"
+          action={<button style={btnLarge} onClick={() => setDraft(blankDraft())}>New calculation</button>}
+        />
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        {calcs.length === 0 ? (
+          <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+            No saved calculations yet. Plan one below and save it.
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+              <thead>
+                <tr>
+                  {[
+                    { label: 'Name',       align: 'left'  },
+                    { label: 'Order Date', align: 'left'  },
+                    { label: 'Products',   align: 'left'  },
+                    { label: 'Total (DDP)', align: 'right' },
+                    { label: '',           align: 'right' },
+                  ].map(({ label, align }, i, arr) => (
+                    <th key={label || i} className="label"
+                      style={{
+                        ...th, textAlign: align as 'left' | 'right',
+                        paddingLeft:  i === 0 ? 4 : 0,
+                        paddingRight: i === arr.length - 1 ? 4 : 20,
+                      }}>
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {calcs.map((c, i) => {
+                  const d    = draftFrom(c)
+                  const qty  = qtyMap(d.items)
+                  const cfg  = c.payload.config ?? config
+                  const tot  = Object.values(qty).reduce((s, q) => s + q, 0)
+                  const rows = calculateAll({
+                    orderDate: d.orderDate || todayIso(),
+                    qtyByProduct: qty,
+                    productionDays: d.productionDays === ''
+                      ? productionDaysFor(tot, cfg.productionTiers)
+                      : Number(d.productionDays) || 0,
+                    config: cfg,
+                    costs,
+                  })
+                  const best = rows.reduce((a, b) => (b.totalEur < a.totalEur ? b : a))
+                  return (
+                    <tr key={c.id} style={{
+                      borderBottom: i < calcs.length - 1 ? '1px solid #F0EFE9' : 'none',
+                      backgroundColor: draft.id === c.id ? '#FAFAF7' : 'transparent',
+                    }}>
+                      <td style={{ ...td, paddingLeft: 4, paddingRight: 20, fontFamily: G, color: '#111110' }}>{c.name}</td>
+                      <td style={{ ...td, paddingRight: 20, whiteSpace: 'nowrap' }}>{fmtDate(d.orderDate)}</td>
+                      <td style={{ ...td, paddingRight: 20 }}>
+                        {d.items.length === 0 ? '—' : d.items.map(it => (
+                          <span key={it.productId} style={{ display: 'block', whiteSpace: 'nowrap' }}>
+                            <span className="metric" style={{ color: '#111110' }}>{fmtInt(Number(it.quantity) || 0)}</span>
+                            <span>&nbsp;× {productName(it.productId)}</span>
+                          </span>
+                        ))}
+                      </td>
+                      <td className="metric" style={{ ...td, paddingRight: 20, textAlign: 'right', color: '#111110' }}>
+                        {fmtEur(best.totalEur)}
+                        <span style={{ display: 'block', fontSize: '0.6875rem', color: '#9E9D98' }}>
+                          {best.label}
+                        </span>
+                      </td>
+                      <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div className="flex items-center justify-end gap-2">
+                          <button style={btn} onClick={() => edit(c)}>Edit</button>
+                          <button style={iconBtnDanger} title={`Delete ${c.name}`}
+                            disabled={deleting === c.id}
+                            onClick={() => remove(c.id, c.name)}>
+                            <TrashIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* ─── Order ──────────────────────────────────────────────────────── */}
+      <Card className="mb-4">
+        <CardHeader label={draft.id ? `Edit ${draft.name || 'calculation'}` : 'New calculation'} />
+
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+          <Field label="Name">
+            <input style={inp} value={draft.name} placeholder="e.g. Spring restock 2026"
+              onChange={e => patchDraft({ name: e.target.value })} />
+          </Field>
+          <Field label="Order / payment date">
+            <DatePicker value={draft.orderDate} onChange={v => patchDraft({ orderDate: v })} />
+          </Field>
           <Field label="Total quantity">
-            <div className="metric" style={{ ...inp, backgroundColor: '#FAFAF7', color: '#6B6A64' }}>{fmtInt(totalQty)}</div>
+            <div className="metric" style={{ ...readout, textAlign: 'right' }}>{fmtInt(totalQty)}</div>
           </Field>
           <Field label="Production days">
             <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
               placeholder={String(tierDays)}
-              value={productionDays}
-              onChange={e => setProductionDays(e.target.value)} />
-          </Field>
-          <Field label="USD → EUR rate">
-            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
-              value={config.usdEur}
-              onChange={e => setConfig(c => ({ ...c, usdEur: Number(e.target.value) || 0 }))} />
-          </Field>
-          <Field label="WeShip handling (days)">
-            <div className="flex gap-2">
-              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" value={config.weshipHandling.min}
-                onChange={e => setConfig(c => ({ ...c, weshipHandling: { ...c.weshipHandling, min: Number(e.target.value) || 0 } }))} />
-              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" value={config.weshipHandling.max}
-                onChange={e => setConfig(c => ({ ...c, weshipHandling: { ...c.weshipHandling, max: Number(e.target.value) || 0 } }))} />
-            </div>
+              value={draft.productionDays}
+              onChange={e => patchDraft({ productionDays: e.target.value })} />
           </Field>
         </div>
 
-        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 12 }}>
-          Production defaults to the tier covering the quantity
-          ({config.productionTiers.map(t => `${fmtInt(t.qty)} pcs → ${t.days} d`).join(' · ')});
-          leave the field empty to follow it, or type a value to override.
-        </p>
+        {/* ─── Products ─────────────────────────────────────────────────── */}
+        <SectionHeading>Products</SectionHeading>
+        <div style={frame}>
+          {draft.items.length === 0 ? (
+            <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98', marginBottom: 10 }}>
+              No products yet.
+            </p>
+          ) : (
+            <div style={{ overflowX: 'auto', marginBottom: 10 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                {/* Same widths as the inbound editor, so the two tables line up. */}
+                <colgroup>
+                  <col style={{ width: COL_PRODUCT }} />
+                  <col style={{ width: COL_QTY }} />
+                  <col />
+                  <col style={{ width: 56 }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    {[
+                      { l: 'Product',            a: 'left'  },
+                      { l: 'Quantity',           a: 'right' },
+                      { l: 'Production (EUR)',   a: 'right' },
+                      { l: '',                   a: 'right' },
+                    ].map(({ l, a }, i) => (
+                      <th key={i} className="label"
+                        style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 14 }}>{l}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.items.map((it, idx) => {
+                    const patch = (p: Partial<DraftItem>) => setDraft(d => ({
+                      ...d, items: d.items.map((x, i) => (i === idx ? { ...x, ...p } : x)),
+                    }))
+                    const prodEur = prodByProduct[it.productId] ?? 0
+                    return (
+                      <tr key={idx}>
+                        <td style={{ ...td, paddingRight: 14 }}>
+                          <Select value={it.productId} onChange={v => patch({ productId: v })}>
+                            <option value="">Select product…</option>
+                            {CALCULATOR_PRODUCTS.map(p => (
+                              <option key={p.id} value={p.id}
+                                disabled={p.id !== it.productId && draft.items.some(x => x.productId === p.id)}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </Select>
+                        </td>
+                        <td style={{ ...td, paddingRight: 14 }}>
+                          <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
+                            placeholder="0" value={it.quantity}
+                            onChange={e => patch({ quantity: e.target.value })} />
+                        </td>
+                        <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
+                          {it.productId ? fmtEur(prodEur) : '—'}
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          <button style={iconBtnDanger} title="Remove product"
+                            onClick={() => setDraft(d => ({ ...d, items: d.items.filter((_, i) => i !== idx) }))}>
+                            <TrashIcon />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <button style={btnAccent}
+            disabled={draft.items.length >= CALCULATOR_PRODUCTS.length}
+            onClick={() => setDraft(d => ({ ...d, items: [...d.items, { productId: '', quantity: '' }] }))}>
+            + Add product
+          </button>
+          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 10 }}>
+            Only the Bevi Bags can be planned here — they are the main product and the only ones
+            with a stock forecast behind them. More products follow.
+          </p>
+        </div>
+
+        {/* ─── Assumptions ──────────────────────────────────────────────── */}
+        <SectionHeading>Assumptions</SectionHeading>
+        <div style={frame}>
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+            <Field label="USD → EUR rate">
+              <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
+                value={config.usdEur}
+                onChange={e => setConfig(c => ({ ...c, usdEur: Number(e.target.value) || 0 }))} />
+            </Field>
+            <Field label="WeShip handling (days)">
+              <RangeInput
+                value={config.weshipHandling}
+                onChange={v => setConfig(c => ({ ...c, weshipHandling: v }))} />
+            </Field>
+          </div>
+          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 12 }}>
+            Production defaults to the tier covering the quantity
+            ({config.productionTiers.map(t => `${fmtInt(t.qty)} pcs → ${t.days} d`).join(' · ')});
+            leave the field empty to follow it, or type a value to override.
+          </p>
+        </div>
       </Card>
 
       {/* ─── Comparison ─────────────────────────────────────────────────── */}
@@ -447,40 +800,121 @@ export default function InboundCalculatorPage() {
         </p>
       </Card>
 
-      {/* ─── Scenarios & handover ───────────────────────────────────────── */}
-      <Card>
-        <CardHeader label="Scenarios" />
-        <div className="flex gap-2 flex-wrap items-end mb-5">
-          <div style={{ width: 200 }}>
-            <Field label="Scenario name">
-              <input style={inp} value={scenarioName} onChange={e => setScenarioName(e.target.value)}
-                placeholder="e.g. Spring restock 5000" />
-            </Field>
-          </div>
-          <button style={btn} onClick={saveScenario} disabled={!scenarioName.trim()}>Save scenario</button>
+      {/* ─── Stock forecast ─────────────────────────────────────────────── */}
+      <Card className="mb-4">
+        <CardHeader label="Stock forecast" />
+
+        <div className="flex gap-4 flex-wrap" style={{ marginBottom: 20 }}>
+          <LegendDot color="#111110" label="No new order" />
+          {results.map(r => <LegendDot key={r.mode} color={MODE_COLOR[r.mode]} label={r.label} dashed />)}
         </div>
 
-        {scenarios.length > 0 && (
-          <div className="flex flex-col gap-1 mb-6">
-            {scenarios.map(s => (
-              <div key={s.id} className="flex items-center gap-2" style={{ fontFamily: G, fontSize: '0.8125rem' }}>
-                <span style={{ color: '#111110', minWidth: 180 }}>{s.name}</span>
-                <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>{fmtDate(s.created_at.slice(0, 10))}</span>
-                <button style={btn} onClick={() => loadScenario(s.id)}>Load</button>
-                <button style={btnDanger} onClick={() => deleteScenario(s.id)}>Delete</button>
-              </div>
-            ))}
-          </div>
+        {stockNote && (
+          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginBottom: 16 }}>{stockNote}</p>
         )}
 
-        <p className="label" style={{ marginBottom: 10 }}>Create as inbound</p>
-        <div className="flex gap-2 flex-wrap items-end">
-          <div style={{ width: 200 }}>
-            <Field label="Name">
-              <input style={inp} value={inboundName} onChange={e => setInboundName(e.target.value)}
-                placeholder="e.g. Spring restock 2026" />
-            </Field>
+        {stockState === 'loading' ? (
+          <div className="flex flex-col gap-3">
+            <Skeleton height={14} /><Skeleton height={14} /><Skeleton height={14} />
           </div>
+        ) : stockState === 'failed' ? (
+          <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+            Without the current stock levels the forecast cannot be drawn. The costs and dates above
+            are unaffected.
+          </p>
+        ) : forecastProducts.map((p, i) => {
+          const runsOut = baseline.runsOutOn[p.id] ?? null
+          return (
+            <div key={p.id}>
+              <SectionHeading first={i === 0}>{p.name}</SectionHeading>
+              <div style={frame}>
+                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 18 }}>
+                  <Field label="On stock today">
+                    <div className="metric" style={{ ...readout, textAlign: 'right' }}>
+                      {p.known ? fmtInt(p.units) : '—'}
+                    </div>
+                  </Field>
+                  <Field label="Sales per day" hint={`Last 30 days: ${p.suggested.toFixed(1)}`}>
+                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.1"
+                      placeholder={p.suggested.toFixed(1)}
+                      value={rates[p.id] ?? ''}
+                      onChange={e => setRates(s => ({ ...s, [p.id]: e.target.value }))} />
+                  </Field>
+                  <Field label="Runs out">
+                    <DateReadout>
+                      {p.dailySales <= 0 ? 'not selling' : runsOut ? fmtDate(runsOut) : `after ${horizon} days`}
+                    </DateReadout>
+                  </Field>
+                </div>
+
+                <StockProjectionChart productId={p.id} baseline={baseline} branches={branches} />
+
+                <div style={{ overflowX: 'auto', marginTop: 16 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                    <thead>
+                      <tr>
+                        {[
+                          { l: 'Mode',              a: 'left'  },
+                          { l: 'Arrives at WeShip', a: 'left'  },
+                          { l: 'Stock left then',   a: 'right' },
+                          { l: '',                  a: 'left'  },
+                        ].map(({ l, a }, k) => (
+                          <th key={k} className="label"
+                            style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 16 }}>{l}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branches.map(b => {
+                        const left = unitsOn(baseline, p.id, b.arrival)
+                        // The gap is what the order is actually about: days with
+                        // an empty shelf before this mode's goods land.
+                        const gap  = runsOut && runsOut <= b.arrival ? daysBetween(runsOut, b.arrival) : 0
+                        return (
+                          <tr key={b.mode} style={{ borderTop: '1px solid #E7E6E0' }}>
+                            <td style={{ ...td, paddingRight: 16 }}>
+                              <span className="flex items-center gap-2" style={{ color: '#111110' }}>
+                                <span style={{
+                                  width: 8, height: 8, borderRadius: 2,
+                                  backgroundColor: MODE_COLOR[b.mode], display: 'inline-block',
+                                }} />
+                                {b.label}
+                              </span>
+                            </td>
+                            <td style={{ ...td, paddingRight: 16, whiteSpace: 'nowrap' }}>{fmtDate(b.arrival)}</td>
+                            <td className="metric" style={{ ...td, paddingRight: 16, textAlign: 'right', color: '#111110' }}>
+                              {left === null ? '—' : fmtInt(left)}
+                            </td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                              {p.dailySales <= 0
+                                ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
+                                : gap > 0
+                                  ? <span style={{ color: '#DC2626' }}>{gap} days out of stock</span>
+                                  : <span style={{ color: '#0D8585' }}>in time</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 16 }}>
+          Stock is WeShip’s on-hand minus what is already going out, and the curve falls at the sales
+          rate of the last 30 days. That rate only counts orders that carry the SKU — bags sold inside
+          a bundle are not attributed to them, so it reads low; override it above.
+          Inbounds already planned are included in the falling line.
+        </p>
+      </Card>
+
+      {/* ─── Save & handover ────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader label="Create as inbound" />
+        <div className="flex gap-2 flex-wrap items-center">
           {results.map(r => (
             <button key={r.mode} style={r.mode === cheapest.mode ? btnPrimary : btn}
               disabled={creating !== null}
@@ -490,14 +924,47 @@ export default function InboundCalculatorPage() {
           ))}
         </div>
         <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 10 }}>
-          Creates an inbound with the quantities, costs and the planned WeShip window of the chosen mode.
+          Creates an inbound named after this calculation, with its quantities, costs and the planned
+          WeShip window of the chosen mode.
         </p>
       </Card>
+
+      <div className="flex gap-2" style={{ marginTop: 20 }}>
+        <button style={btnLarge} disabled={saving || !draft.name.trim()} onClick={save}>
+          {saving ? 'Saving…' : draft.id ? 'Save changes' : 'Save calculation'}
+        </button>
+        {draft.id && (
+          <button style={btnLargeSecondary} onClick={() => setDraft(blankDraft())}>Cancel</button>
+        )}
+      </div>
     </main>
   )
 }
 
 // ─── Small building blocks ───────────────────────────────────────────────────
+
+// Every cell needs an explicit colour: the app's inherited default is set on
+// <body> and .metric styles numerals only, so an unstyled cell renders invisibly
+// against the white card.
+const th: React.CSSProperties = { paddingBottom: 10, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }
+const td: React.CSSProperties = { padding: '12px 0', verticalAlign: 'top', color: '#6B6A64' }
+
+// Filled panel, matching the inbound editor's sections.
+const frame: React.CSSProperties = {
+  backgroundColor: '#F5F4F0', borderRadius: 12, padding: '16px 18px',
+}
+
+function LegendDot({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <span className="flex items-center gap-2" style={{ fontFamily: G, fontSize: '0.6875rem', color: '#6B6A64' }}>
+      <span style={{
+        width: 14, height: 0, display: 'inline-block',
+        borderTop: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
+      }} />
+      {label}
+    </span>
+  )
+}
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
@@ -536,6 +1003,10 @@ function Cell({ children, metric, strong }: { children: React.ReactNode; metric?
   )
 }
 
+/**
+ * A min–max pair. The two fields alone were indistinguishable — which one was
+ * the low end was left to the reader — so each carries its own caption.
+ */
 function RangeInput({
   value, onChange,
 }: {
@@ -544,10 +1015,18 @@ function RangeInput({
 }) {
   return (
     <div className="flex gap-1">
-      <input style={{ ...inp, textAlign: 'right', padding: '4px 6px' }} type="number" min="0"
-        value={value.min} onChange={e => onChange({ ...value, min: Number(e.target.value) || 0 })} />
-      <input style={{ ...inp, textAlign: 'right', padding: '4px 6px' }} type="number" min="0"
-        value={value.max} onChange={e => onChange({ ...value, max: Number(e.target.value) || 0 })} />
+      {(['min', 'max'] as const).map(k => (
+        <div key={k} style={{ flex: 1 }}>
+          <input style={{ ...inp, textAlign: 'right', padding: '4px 6px' }} type="number" min="0"
+            value={value[k]} onChange={e => onChange({ ...value, [k]: Number(e.target.value) || 0 })} />
+          <span style={{
+            display: 'block', fontFamily: G, fontSize: '0.625rem', color: '#9E9D98',
+            textAlign: 'center', marginTop: 3, letterSpacing: '0.04em',
+          }}>
+            {k}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

@@ -7,11 +7,12 @@ import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
   G, inp, btn, btnField, btnAccent, btnLarge, iconBtnDanger,
-  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary,
+  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary, readout,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
 import { Field } from '@/components/ui/Field'
 import { SectionHeading } from '@/components/ui/SectionHeading'
+import { TrashIcon } from '@/components/ui/TrashIcon'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
   reconcileQuantities, productName, usdToEur, perProductSummary,
@@ -148,14 +149,6 @@ const eurOrDash = (usd: number, fx: number | null) => {
 const th: React.CSSProperties = { paddingBottom: 10, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '12px 0', verticalAlign: 'top', color: '#6B6A64' }
 
-// Same footprint as `inp`, but for values that are shown rather than entered.
-const readonlyBox: React.CSSProperties = {
-  fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64',
-  border: '1px solid #E3E2DC', borderRadius: 8, padding: '5px 10px',
-  backgroundColor: '#FAFAF7', boxSizing: 'border-box', width: '100%',
-  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-}
-
 // Filled panel, matching the section blocks on the settings page
 // (app/dashboard/settings/page.tsx:187) — reads as an area rather than a box.
 const frame: React.CSSProperties = {
@@ -203,17 +196,6 @@ function RateRow({
         </p>
       )}
     </div>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M2.5 3.5 H11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      <path d="M5.5 3.5 V2.4 H8.5 V3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M3.6 3.5 L4.2 11.4 H9.8 L10.4 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M6 5.6 V9.4 M8 5.6 V9.4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
   )
 }
 
@@ -796,7 +778,7 @@ export default function InboundsPage() {
                               value={sh.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
                           </Field>
                           <Field label="Shipping costs €">
-                            <div className="metric" style={{ ...readonlyBox, textAlign: 'right' }}>
+                            <div className="metric" style={{ ...readout, textAlign: 'right' }}>
                               {eurOrDash(num(sh.costUsd), fx)}
                             </div>
                           </Field>
@@ -838,12 +820,12 @@ export default function InboundsPage() {
                                   {draft.items.filter(it => it.product_id).map(it => (
                                     <tr key={it.product_id}>
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <div style={readonlyBox}>{productName(it.product_id)}</div>
+                                        <div style={readout}>{productName(it.product_id)}</div>
                                       </td>
                                       {/* Read-only echo of the production row, so both tables
                                           keep the same columns and line up. */}
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <div style={readonlyBox}>{it.charge || '—'}</div>
+                                        <div style={readout}>{it.charge || '—'}</div>
                                       </td>
                                       <td style={{ ...td, paddingRight: 14 }}>
                                         <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"

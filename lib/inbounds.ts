@@ -114,6 +114,13 @@ export interface InboundProduct {
    * and the order statistics would bill against the wrong rate.
    */
   costKey: string
+  /**
+   * Shopify/WeShip SKU, where the product has one. It is the only link between
+   * an inbound product and its stock level — the two id spaces are otherwise
+   * unrelated — and so it also decides what the calculator can plan: forecasting
+   * a delivery without a stock figure to land it in would be guesswork.
+   */
+  forecastSku?: string
 }
 
 /**
@@ -122,8 +129,8 @@ export interface InboundProduct {
  * for Shopify title matching, but two for ordering.
  */
 export const INBOUND_PRODUCTS: InboundProduct[] = [
-  { id: 'bevi-bag-black', name: 'Bevi Bag Full Set (Black)',    costKey: 'bevi-bag'      },
-  { id: 'bevi-bag-beige', name: 'Bevi Bag Full Set (Beige)',    costKey: 'bevi-bag'      },
+  { id: 'bevi-bag-black', name: 'Bevi Bag Full Set (Black)',    costKey: 'bevi-bag',     forecastSku: '9180013220099' },
+  { id: 'bevi-bag-beige', name: 'Bevi Bag Full Set (Beige)',    costKey: 'bevi-bag',     forecastSku: '9180013220129' },
   { id: 'water-bladder',  name: 'Bevi Water Bladder + Tubes',   costKey: 'water-bladder' },
   { id: 'phone-strap',    name: 'Bevi Phone Strap',             costKey: 'phone-strap'   },
   { id: 'cleaning-kit',   name: 'Bevi Cleaning Kit',            costKey: 'cleaning-kit'  },
@@ -141,6 +148,18 @@ export function productName(productId: string) {
   return INBOUND_PRODUCTS.find(p => p.id === productId)?.name
     ?? LEGACY_PRODUCT_NAMES[productId]
     ?? productId
+}
+
+/**
+ * What the inbound calculator can plan: the products whose stock it can actually
+ * project. Today that is the two bag colours — the main product, and the only
+ * one with a SKU on file. Giving another product a forecastSku adds it here.
+ */
+export const CALCULATOR_PRODUCTS = INBOUND_PRODUCTS.filter(p => p.forecastSku)
+
+/** Inbound product id for a stock SKU, for joining stock rows to a product. */
+export function productIdForSku(sku: string): string | null {
+  return INBOUND_PRODUCTS.find(p => p.forecastSku === sku)?.id ?? null
 }
 
 /** Guards against a rename in costs-config quietly zeroing a production cost. */
