@@ -2,7 +2,8 @@
 
 import { Field } from '@/components/ui/Field'
 import { DatePicker } from '@/components/ui/DatePicker'
-import { G, inp, btn } from '@/components/ui/formStyles'
+import { G, btn } from '@/components/ui/formStyles'
+import { NumberInput } from '@/components/ui/NumberInput'
 
 /**
  * FX date + rate + lookup button. Used by the inbound editor for production and
@@ -32,8 +33,7 @@ export function RateRow({
         </div>
         <div style={{ width: 130 }}>
           <Field label="USD → EUR">
-            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
-              placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
+            <NumberInput min={0} step={0.0001} placeholder="0.0000" value={rate} onChange={onRate} />
           </Field>
         </div>
         <button style={{ ...btn, opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={onFetch}>

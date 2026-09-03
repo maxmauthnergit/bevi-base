@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
-  G, inp, btn, btnAccent, btnLarge, iconBtnDanger,
+  G, inp, btn, btnAccent, btnLarge, iconBtnDanger, iconBtnGrey,
   COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary, readout,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
@@ -14,6 +14,8 @@ import { Field } from '@/components/ui/Field'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { TrashIcon } from '@/components/ui/TrashIcon'
 import { PlusIcon } from '@/components/ui/PlusIcon'
+import { CopyIcon } from '@/components/ui/CopyIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
 import { ShipModeLabel } from '@/components/ui/ShipMode'
 import { RateRow } from '@/components/ui/RateRow'
 import { useFxRate } from '@/hooks/useFxRate'
@@ -179,6 +181,28 @@ export default function InboundsPage() {
     name: string
     apply: (p: Partner) => void
   }>(null)
+
+  // The editor sits below the list; opening a record scrolls it into view so
+  // "Edit" on a long list does not appear to do nothing.
+  const editorRef  = useRef<HTMLDivElement>(null)
+  const [scrollTick, setScrollTick] = useState(0)
+  useEffect(() => {
+    if (scrollTick > 0) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [scrollTick])
+
+  function openEditor(d: Draft) {
+    setDraft(d)
+    setScrollTick(t => t + 1)
+  }
+
+  /** A copy opens unsaved: the shipments lose their ids, the invoices stay with the original. */
+  function duplicate(inb: Inbound) {
+    const d = draftFrom(inb)
+    openEditor({
+      ...d, id: null, name: `${d.name} (copy)`,
+      shipments: d.shipments.map(sh => ({ ...sh, id: null })),
+    })
+  }
 
   const uploadTarget = useRef<string>('')   // '' = production, else shipment id
   const fileRef      = useRef<HTMLInputElement>(null)
@@ -478,7 +502,10 @@ export default function InboundsPage() {
                       </td>
                       <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div className="flex items-center justify-end gap-2">
-                          <button style={btn} onClick={() => setDraft(draftFrom(inb))}>Edit</button>
+                          <button style={btn} onClick={() => openEditor(draftFrom(inb))}>Edit</button>
+                          <button style={iconBtnGrey} title={`Duplicate ${inb.name}`} onClick={() => duplicate(inb)}>
+                            <CopyIcon />
+                          </button>
                           <button style={iconBtnDanger} title={`Delete ${inb.name}`}
                             disabled={deleting === inb.id}
                             onClick={() => remove(inb.id, inb.name)}>
@@ -497,7 +524,7 @@ export default function InboundsPage() {
 
       {/* ─── Editor ────────────────────────────────────────────────────── */}
       {draft && (
-        <div style={{ marginTop: 16 }}>
+        <div ref={editorRef} style={{ marginTop: 16, scrollMarginTop: 16 }}>
           <Card>
             <CardHeader label={draft.id ? `Edit ${draft.name || 'inbound'}` : 'New inbound'} />
 
@@ -598,12 +625,12 @@ export default function InboundsPage() {
                                     onChange={e => patch({ charge: e.target.value })} />
                                 </td>
                                 <td style={{ ...td, paddingRight: 14 }}>
-                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                    value={it.quantity} onChange={e => patch({ quantity: e.target.value })} />
+                                  <NumberInput min={0} step={1} integer
+                                    value={it.quantity} onChange={v => patch({ quantity: v })} />
                                 </td>
                                 <td style={{ ...td, paddingRight: 14 }}>
-                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                                    value={it.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
+                                  <NumberInput min={0} step={0.01}
+                                    value={it.costUsd} onChange={v => patch({ costUsd: v })} />
                                 </td>
                                 <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
                                   {eur === null ? '—' : fmtEur(eur)}
@@ -711,8 +738,8 @@ export default function InboundsPage() {
                             </Select>
                           </Field>
                           <Field label="Shipping costs $">
-                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                              value={sh.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
+                            <NumberInput min={0} step={0.01}
+                              value={sh.costUsd} onChange={v => patch({ costUsd: v })} />
                           </Field>
                           <Field label="Shipping costs €">
                             <div className="metric" style={{ ...readout, textAlign: 'right' }}>
@@ -765,10 +792,9 @@ export default function InboundsPage() {
                                         <div style={readout}>{it.charge || '—'}</div>
                                       </td>
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                          placeholder="0"
+                                        <NumberInput min={0} step={1} integer placeholder="0"
                                           value={sh.qty[it.product_id] ?? ''}
-                                          onChange={e => patch({ qty: { ...sh.qty, [it.product_id]: e.target.value } })} />
+                                          onChange={v => patch({ qty: { ...sh.qty, [it.product_id]: v } })} />
                                       </td>
                                     </tr>
                                   ))}

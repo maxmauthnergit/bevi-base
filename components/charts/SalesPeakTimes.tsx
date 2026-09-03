@@ -90,7 +90,7 @@ function PeakCard<T extends { label: string; orders: number; revenue: number }>(
         ))}
       </div>
       {hasMore && (
-        <button
+        <button data-static
           onClick={() => setShowAll(v => !v)}
           style={{
             display: 'block', marginTop: 16,

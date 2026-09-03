@@ -217,7 +217,7 @@ function LowStockBell({
           // Roomier than the user half: the pill's own padding is only 4px, so
           // the tinted ground needs its own air before the island edge and
           // the divider.
-          padding: '6px 13px', borderRadius: 999,
+          padding: '6px 13px', borderRadius: 999, marginLeft: 6,
           border: 'none', cursor: 'pointer',
           backgroundColor: open ? 'rgba(255,68,68,0.10)' : 'rgba(255,68,68,0.06)',
         }}
@@ -227,7 +227,7 @@ function LowStockBell({
           Low Stock Alert
         </span>
       </button>
-      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 6px' }} />
+      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 10px' }} />
 
       {/* Details — expanded from the notification */}
       {open && (

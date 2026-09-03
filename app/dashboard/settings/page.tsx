@@ -6,8 +6,9 @@ import type { ProductCostConfig } from '@/lib/costs-config'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
 // Shared with the inbounds and calculator pages.
-import { inp, btn, btnAccent, btnDanger, btnLarge, iconBtn } from '@/components/ui/formStyles'
+import { btn, btnAccent, btnDanger, btnLarge, iconBtn } from '@/components/ui/formStyles'
 import { PlusIcon } from '@/components/ui/PlusIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -675,9 +676,9 @@ export default function SettingsPage() {
                   <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#6B6A64' }}>{item.supplier}</td>
                   <td style={{ padding: '6px 0', width: 120 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      <input type="number" step="0.01" value={item.amount}
-                        onChange={e => updateItem(prod.id, item.id, e.target.value)}
-                        style={{ ...inp, width: 76, textAlign: 'right', padding: '4px 6px' }} />
+                      <NumberInput step={0.01} value={item.amount}
+                        onChange={v => updateItem(prod.id, item.id, v)}
+                        style={{ width: 84, padding: '4px 6px' }} />
                       <span style={{ color: '#9E9D98', fontSize: '0.6875rem', marginLeft: 6, flexShrink: 0 }}>€</span>
                     </div>
                   </td>
@@ -755,24 +756,18 @@ export default function SettingsPage() {
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Variable Rate (%)</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <input
-                type="number" step="0.1" min="0"
-                value={payRate}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayRate(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.1} min={0} value={payRate}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayRate(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>%</span>
             </div>
           </div>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Fixed Fee per Order</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="number" step="0.01" min="0"
-                value={payFixed}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayFixed(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.01} min={0} value={payFixed}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayFixed(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
             </div>
           </div>

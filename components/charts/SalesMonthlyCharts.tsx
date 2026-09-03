@@ -154,7 +154,7 @@ export function SalesMonthlyCharts() {
       </div>
 
       {hasMore && (
-        <button
+        <button data-static
           onClick={() => setShowAll(v => !v)}
           style={{
             display: 'block', marginTop: 16,

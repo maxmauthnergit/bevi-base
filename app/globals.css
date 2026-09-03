@@ -103,11 +103,29 @@ body {
   font-feature-settings: "tnum";
 }
 
-/* Number fields: Chrome draws the spinner flush against the last digit of a
-   right-aligned value. Push it off by a step so the two stop touching. */
+/* Number fields: the browser's spinner is hidden — NumberInput draws its own,
+   in the app's style, always visible. */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
-  margin-left: 8px;
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Buttons grow a touch under the pointer and settle on press. Controls that
+   sit in a row of siblings — segmented toggles, calendar cells, the stepper
+   arrows — opt out with data-static, where a wobble would read as a glitch. */
+button {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+button:not(:disabled):not([data-static]):hover  { transform: scale(1.04); }
+button:not(:disabled):not([data-static]):active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+  button:not(:disabled):hover, button:not(:disabled):active { transform: none; }
 }
 
 /* Scrollbar */

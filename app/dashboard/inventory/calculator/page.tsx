@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
@@ -8,12 +8,15 @@ import { Select } from '@/components/ui/Select'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { TrashIcon } from '@/components/ui/TrashIcon'
 import { PlusIcon } from '@/components/ui/PlusIcon'
+import { CopyIcon } from '@/components/ui/CopyIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
+import { Modal } from '@/components/ui/Modal'
 import { ShipModeIcon, ShipModeLabel, modeColor } from '@/components/ui/ShipMode'
 import { RateRow } from '@/components/ui/RateRow'
 import { useFxRate } from '@/hooks/useFxRate'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import {
-  G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, iconBtnDanger,
+  G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, iconBtnDanger, iconBtnGrey,
   COL_PRODUCT, COL_QTY, fmtEur, fmtInt, readout, SECTION_GAP,
 } from '@/components/ui/formStyles'
 import { StockProjectionChart, type ModeBranch } from '@/components/charts/StockProjectionChart'
@@ -131,6 +134,20 @@ export default function InboundCalculatorPage() {
   const router = useRouter()
 
   const [config, setConfig] = useState<CalcConfig>(DEFAULT_CALC_CONFIG)
+  // The stored defaults, kept apart from the working config: a saved
+  // calculation carries its own copy, so changing the defaults later must not
+  // rewrite it — it only gets told that they moved.
+  const [defaults, setDefaults] = useState<CalcConfig>(DEFAULT_CALC_CONFIG)
+  const [tiersOpen,  setTiersOpen]  = useState(false)
+  const [tierDraft,  setTierDraft]  = useState<{ qty: string; days: string }[]>([])
+  const [tiersSaving, setTiersSaving] = useState(false)
+
+  // The editor sits below the list; opening a record scrolls it into view.
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [scrollTick, setScrollTick] = useState(0)
+  useEffect(() => {
+    if (scrollTick > 0) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [scrollTick])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
   const [status,  setStatus]  = useState<string | null>(null)
@@ -155,7 +172,7 @@ export default function InboundCalculatorPage() {
       fetch('/api/inbound-calc-config').then(r => r.json()).catch(() => null),
       fetch('/api/inbound-scenarios').then(r => r.json()).catch(() => null),
     ]).then(([cfg, scn]) => {
-      if (cfg?.config) setConfig(cfg.config)
+      if (cfg?.config) { setConfig(cfg.config); setDefaults(cfg.config) }
       if (scn?.scenarios) setCalcs(scn.scenarios)
       setLoading(false)
     })
@@ -197,6 +214,8 @@ export default function InboundCalculatorPage() {
   const productionEur = usdToEur(usdTotal(draft.items), rate) ?? 0
 
   const tierDays    = productionDaysFor(totalQty, config.productionTiers)
+  // Only a saved calculation can be behind the defaults — a new one starts on them.
+  const tiersBehind = draft.id !== null && tierKey(config.productionTiers) !== tierKey(defaults.productionTiers)
   const prodDaysNum = draft.productionDays === '' ? tierDays : Number(draft.productionDays) || 0
 
   const effectiveOrderDate = draft.orderDate || todayIso()
@@ -348,6 +367,62 @@ export default function InboundCalculatorPage() {
   function edit(c: Calculation) {
     setDraft(draftFrom(c))
     if (c.payload.config) setConfig(c.payload.config)
+    setScrollTick(t => t + 1)
+  }
+
+  /** A copy opens unsaved, with the original's assumptions. */
+  function duplicate(c: Calculation) {
+    const d = draftFrom(c)
+    setDraft({ ...d, id: null, name: `${d.name} (copy)` })
+    if (c.payload.config) setConfig(c.payload.config)
+    setScrollTick(t => t + 1)
+  }
+
+  /** A fresh calculation starts on the stored defaults, not on whatever was last edited. */
+  function startNew() {
+    setDraft(blankDraft())
+    setConfig(defaults)
+  }
+
+  function resetProductionToDefault() {
+    patchDraft({ productionDays: '' })
+    setConfig(c => ({ ...c, productionTiers: defaults.productionTiers }))
+  }
+
+  function openTiersDialog() {
+    setTierDraft(defaults.productionTiers.map(t => ({ qty: String(t.qty), days: String(t.days) })))
+    setTiersOpen(true)
+  }
+
+  async function saveTiers() {
+    const tiers = tierDraft
+      .map(t => ({ qty: Number(t.qty) || 0, days: Number(t.days) || 0 }))
+      .filter(t => t.qty > 0)
+      .sort((a, b) => a.qty - b.qty)
+    if (tiers.length === 0) {
+      setError('Add at least one tier')
+      return
+    }
+    setTiersSaving(true)
+    setError(null)
+    try {
+      const next = { ...defaults, productionTiers: tiers }
+      const res  = await fetch('/api/inbound-calc-config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Could not save defaults')
+      setDefaults(next)
+      // The calculation being edited keeps its own tiers; an unsaved one has
+      // nothing of its own yet and follows the new defaults.
+      if (draft.id === null) setConfig(c => ({ ...c, productionTiers: tiers }))
+      setTiersOpen(false)
+      flash('Production defaults saved')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save defaults')
+    } finally {
+      setTiersSaving(false)
+    }
   }
 
   async function remove(id: string, name: string) {
@@ -372,6 +447,7 @@ export default function InboundCalculatorPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Could not save defaults')
+      setDefaults(config)
       flash('Defaults saved')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save defaults')
@@ -466,7 +542,7 @@ export default function InboundCalculatorPage() {
       <Card className="mb-4">
         <CardHeader
           label="Calculations"
-          action={<button style={btnLarge} onClick={() => setDraft(blankDraft())}>New calculation</button>}
+          action={<button style={btnLarge} onClick={startNew}>New calculation</button>}
         />
 
         {calcs.length === 0 ? (
@@ -537,6 +613,9 @@ export default function InboundCalculatorPage() {
                       <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div className="flex items-center justify-end gap-2">
                           <button style={btn} onClick={() => edit(c)}>Edit</button>
+                          <button style={iconBtnGrey} title={`Duplicate ${c.name}`} onClick={() => duplicate(c)}>
+                            <CopyIcon />
+                          </button>
                           <button style={iconBtnDanger} title={`Delete ${c.name}`}
                             disabled={deleting === c.id}
                             onClick={() => remove(c.id, c.name)}>
@@ -554,6 +633,7 @@ export default function InboundCalculatorPage() {
       </Card>
 
       {/* ─── Order ──────────────────────────────────────────────────────── */}
+      <div ref={editorRef} style={{ scrollMarginTop: 16 }}>
       <Card className="mb-4">
         <CardHeader label={draft.id ? `Edit ${draft.name || 'calculation'}` : 'New calculation'} />
 
@@ -568,11 +648,36 @@ export default function InboundCalculatorPage() {
           <Field label="Total quantity">
             <div className="metric" style={{ ...readout, textAlign: 'right' }}>{fmtInt(totalQty)}</div>
           </Field>
+        </div>
+
+        {/* Own row: the field is short, but the two buttons beside it and the
+            defaults note would not fit a grid cell. */}
+        <div style={{ marginTop: 16 }}>
           <Field label="Production days">
-            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-              placeholder={String(tierDays)}
-              value={draft.productionDays}
-              onChange={e => patchDraft({ productionDays: e.target.value })} />
+            <div className="flex gap-2 flex-wrap items-center">
+              <div style={{ width: 130 }}>
+                <NumberInput min={0} step={1} integer
+                  placeholder={String(tierDays)}
+                  value={draft.productionDays}
+                  onChange={v => patchDraft({ productionDays: v })} />
+              </div>
+              <button style={btn} onClick={resetProductionToDefault}
+                disabled={draft.productionDays === '' && !tiersBehind}>
+                Reset to default
+              </button>
+              <button style={btn} onClick={openTiersDialog}>Set defaults</button>
+              {tiersBehind && (
+                <span className="flex items-center gap-2" style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00' }}>
+                  <span aria-hidden style={{
+                    width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                    border: '1.3px solid #EA6C00', display: 'inline-flex',
+                    alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.625rem',
+                  }}>!</span>
+                  The production defaults have changed since this calculation was saved — it keeps
+                  its own. Reset to default to adopt them.
+                </span>
+              )}
+            </div>
           </Field>
         </div>
 
@@ -648,14 +753,12 @@ export default function InboundCalculatorPage() {
                             </Select>
                           </td>
                           <td style={{ ...td, paddingRight: 14 }}>
-                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                              placeholder="0" value={it.quantity}
-                              onChange={e => patch({ quantity: e.target.value })} />
+                            <NumberInput min={0} step={1} integer placeholder="0" value={it.quantity}
+                              onChange={v => patch({ quantity: v })} />
                           </td>
                           <td style={{ ...td, paddingRight: 14 }}>
-                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                              placeholder="0.00" value={it.priceUsd}
-                              onChange={e => patch({ priceUsd: e.target.value })} />
+                            <NumberInput min={0} step={0.01} placeholder="0.00" value={it.priceUsd}
+                              onChange={v => patch({ priceUsd: v })} />
                           </td>
                           <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
                             {lineEur === null ? '—' : fmtEur(lineEur)}
@@ -712,6 +815,7 @@ export default function InboundCalculatorPage() {
           </p>
         </div>
       </Card>
+      </div>
 
       {/* ─── Comparison ─────────────────────────────────────────────────── */}
       <Card className="mb-4">
@@ -724,12 +828,18 @@ export default function InboundCalculatorPage() {
             <thead>
               <tr>
                 <th className="label" style={{ textAlign: 'left', paddingBottom: 10, borderBottom: '1px solid #E3E2DC' }} />
+                {/* Names on one line, tags on a line of their own beneath — a
+                    tag beside the name pushed that column out of step. */}
                 {results.map(r => (
                   <th key={r.mode} className="label"
-                    style={{ textAlign: 'right', paddingBottom: 10, paddingLeft: 20, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }}>
+                    style={{ textAlign: 'right', verticalAlign: 'top', paddingBottom: 10, paddingLeft: 20, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }}>
                     <span style={{ fontSize: '0.75rem' }}><ShipModeLabel mode={r.mode} label={r.label} /></span>
-                    {r.mode === cheapest.mode && <Tag>cheapest</Tag>}
-                    {r.mode === fastest.mode  && <Tag>fastest</Tag>}
+                    {(r.mode === cheapest.mode || r.mode === fastest.mode) && (
+                      <span className="flex justify-end gap-1" style={{ marginTop: 5 }}>
+                        {r.mode === cheapest.mode && <Tag>cheapest</Tag>}
+                        {r.mode === fastest.mode  && <Tag>fastest</Tag>}
+                      </span>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -756,9 +866,9 @@ export default function InboundCalculatorPage() {
               <Row label="Freight (USD)">
                 {results.map(r => (
                   <Cell key={r.mode}>
-                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
+                    <NumberInput min={0} step={1} integer
                       value={config.modes[r.mode].costUsd}
-                      onChange={e => patchMode(r.mode, { costUsd: Number(e.target.value) || 0 })} />
+                      onChange={v => patchMode(r.mode, { costUsd: Number(v) || 0 })} />
                   </Cell>
                 ))}
               </Row>
@@ -829,12 +939,12 @@ export default function InboundCalculatorPage() {
                   <Field label="Sales per day" hint={`Last 30 days: ${p.suggested.toFixed(1)}`}>
                     {/* Whole units only: the arrows step by one, and a typed
                         decimal is cut off rather than carried into the forecast. */}
-                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1" inputMode="numeric"
+                    <NumberInput min={0} step={1} integer
                       placeholder={String(Math.round(p.suggested))}
                       value={rates[p.id] ?? ''}
-                      onChange={e => setRates(s => ({ ...s, [p.id]: e.target.value.replace(/[^\d]/g, '') }))} />
+                      onChange={v => setRates(s => ({ ...s, [p.id]: v }))} />
                   </Field>
-                  <Field label="Runs out">
+                  <Field label="Sold out">
                     <DateReadout>
                       {p.dailySales <= 0 ? 'not selling' : runsOut ? fmtDate(runsOut) : `after ${horizon} days`}
                     </DateReadout>
@@ -1020,11 +1130,71 @@ export default function InboundCalculatorPage() {
           {saving ? 'Saving…' : draft.id ? 'Save changes' : 'Save calculation'}
         </button>
         {draft.id && (
-          <button style={btnLargeSecondary} onClick={() => setDraft(blankDraft())}>Cancel</button>
+          <button style={btnLargeSecondary} onClick={startNew}>Cancel</button>
         )}
       </div>
+
+      {/* ─── Production defaults ────────────────────────────────────────── */}
+      <Modal
+        open={tiersOpen}
+        title="Production defaults"
+        width={420}
+        onClose={() => setTiersOpen(false)}
+        footer={
+          <>
+            <button style={btnLargeSecondary} onClick={() => setTiersOpen(false)}>Cancel</button>
+            <button style={btnLarge} disabled={tiersSaving} onClick={saveTiers}>
+              {tiersSaving ? 'Saving…' : 'Save defaults'}
+            </button>
+          </>
+        }
+      >
+        <p style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', margin: '0 0 14px' }}>
+          Production days by order size. A quantity takes the first tier that still covers it;
+          above the largest tier, the largest tier&apos;s days apply. Saved for every calculation —
+          ones already saved keep their own figures and are only told the defaults moved.
+        </p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+          <thead>
+            <tr>
+              <th className="label" style={{ ...th, textAlign: 'right', paddingRight: 14 }}>Up to (pcs)</th>
+              <th className="label" style={{ ...th, textAlign: 'right', paddingRight: 14 }}>Days</th>
+              <th style={{ ...th, width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {tierDraft.map((t, i) => (
+              <tr key={i}>
+                <td style={{ ...td, padding: '8px 14px 8px 0' }}>
+                  <NumberInput min={0} step={100} integer placeholder="0" value={t.qty}
+                    onChange={v => setTierDraft(rows => rows.map((r, k) => (k === i ? { ...r, qty: v } : r)))} />
+                </td>
+                <td style={{ ...td, padding: '8px 14px 8px 0' }}>
+                  <NumberInput min={0} step={1} integer placeholder="0" value={t.days}
+                    onChange={v => setTierDraft(rows => rows.map((r, k) => (k === i ? { ...r, days: v } : r)))} />
+                </td>
+                <td style={{ ...td, padding: '8px 0', textAlign: 'right' }}>
+                  <button style={iconBtnDanger} title="Remove tier"
+                    onClick={() => setTierDraft(rows => rows.filter((_, k) => k !== i))}>
+                    <TrashIcon />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button style={{ ...btnAccent, marginTop: 10 }}
+          onClick={() => setTierDraft(rows => [...rows, { qty: '', days: '' }])}>
+          <PlusIcon /> Add tier
+        </button>
+      </Modal>
     </main>
   )
+}
+
+/** Order-insensitive fingerprint of a tier list, for "have the defaults moved". */
+function tierKey(tiers: CalcConfig['productionTiers']): string {
+  return [...tiers].sort((a, b) => a.qty - b.qty).map(t => `${t.qty}:${t.days}`).join('|')
 }
 
 // ─── Small building blocks ───────────────────────────────────────────────────
@@ -1066,9 +1236,9 @@ function Dash({ color, dashed }: { color: string; dashed?: boolean }) {
 function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span style={{
-      display: 'inline-block', marginLeft: 6, padding: '1px 6px', borderRadius: 999,
-      backgroundColor: 'rgba(125,239,239,0.3)', color: '#0D8585',
-      fontSize: '0.5625rem', letterSpacing: '0.06em', textTransform: 'uppercase',
+      display: 'inline-block', padding: '2px 7px', borderRadius: 999,
+      backgroundColor: '#EDECEA', color: '#6B6A64',
+      fontSize: '0.5625rem', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.2,
     }}>
       {children}
     </span>
@@ -1118,8 +1288,8 @@ function RangeInput({
     <div className="flex gap-1">
       {(['min', 'max'] as const).map(k => (
         <div key={k} style={{ flex: 1 }}>
-          <input style={{ ...inp, textAlign: 'right', padding: '4px 8px' }} type="number" min="0"
-            value={value[k]} onChange={e => onChange({ ...value, [k]: Number(e.target.value) || 0 })} />
+          <NumberInput min={0} step={1} integer style={{ paddingLeft: 6 }}
+            value={value[k]} onChange={v => onChange({ ...value, [k]: Number(v) || 0 })} />
           <span style={{
             display: 'block', fontFamily: G, fontSize: '0.625rem', color: '#9E9D98',
             textAlign: 'center', marginTop: 3, letterSpacing: '0.04em',

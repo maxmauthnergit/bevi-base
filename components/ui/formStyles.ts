@@ -102,6 +102,13 @@ export const btnDanger: React.CSSProperties = {
   color: '#DC2626',
 }
 
+/** Square btn holding only an icon — the row-duplicate button. */
+export const iconBtnGrey: React.CSSProperties = {
+  ...btn,
+  width: FIELD_H,
+  padding: 0,
+}
+
 /** Square btnDanger holding only an icon — the row-removal button. */
 export const iconBtnDanger: React.CSSProperties = {
   ...btnDanger,

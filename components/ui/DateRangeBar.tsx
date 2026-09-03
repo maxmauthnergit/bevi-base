@@ -95,11 +95,11 @@ function CalendarPicker({
 
       {/* Month navigation */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <button style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
+        <button data-static style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
         <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#111110', letterSpacing: '0.01em' }}>
           {MONTH_NAMES[vm]} {vy}
         </span>
-        <button style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
+        <button data-static style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
       </div>
 
       {/* Day-of-week headers */}
@@ -123,7 +123,7 @@ function CalendarPicker({
           const isToday = ds === todayStr
 
           return (
-            <button
+            <button data-static
               key={ds}
               onClick={() => handleDay(ds)}
               onMouseEnter={() => phase === 'to' && setHover(ds)}
@@ -145,10 +145,10 @@ function CalendarPicker({
           {phase === 'from' ? 'Select start date' : 'Now pick end date'}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={onClose} style={{ ...pillStyle(false), padding: '4px 12px', fontSize: '0.6875rem' }}>
+          <button data-static onClick={onClose} style={{ ...pillStyle(false), padding: '4px 12px', fontSize: '0.6875rem' }}>
             Cancel
           </button>
-          <button
+          <button data-static
             onClick={() => canApply && onApply(from, to)}
             style={{
               ...pillStyle(true), padding: '4px 12px', fontSize: '0.6875rem',
@@ -228,14 +228,14 @@ export function DateRangeBar() {
           borderBottom: '1px solid #F0EFE9',
         }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <button style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
+            <button data-static style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
             <span style={{ fontFamily: G, fontSize: FS, fontWeight: 500, color: monthNavActive ? '#111110' : '#6B6A64', minWidth: 64, textAlign: 'center' }}>
               {fmtYM(displayYM)}
             </span>
-            <button style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
+            <button data-static style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
           </div>
           <div style={{ position: 'relative' }}>
-            <button
+            <button data-static
               style={{ ...pillStyle(isCustom || showCalendar), display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: '0.6875rem' }}
               onClick={() => setShowCalendar(v => !v)}
             >
@@ -262,7 +262,7 @@ export function DateRangeBar() {
           scrollbarWidth: 'none',
         }}>
           {PRESETS.map(p => (
-            <button key={p.id} style={{ ...pillStyle(range.preset === p.id), whiteSpace: 'nowrap', fontSize: '0.6875rem', padding: '4px 9px' }} onClick={() => selectPreset(p.id as PresetId)}>
+            <button data-static key={p.id} style={{ ...pillStyle(range.preset === p.id), whiteSpace: 'nowrap', fontSize: '0.6875rem', padding: '4px 9px' }} onClick={() => selectPreset(p.id as PresetId)}>
               {p.label}
             </button>
           ))}
@@ -289,7 +289,7 @@ export function DateRangeBar() {
         paddingRight: 16, marginRight: 16,
         borderRight: '1px solid #F0EFE9', flexShrink: 0,
       }}>
-        <button style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
+        <button data-static style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
         <span style={{
           fontFamily: G, fontSize: FS, fontWeight: 500,
           color: monthNavActive ? '#111110' : '#6B6A64',
@@ -298,13 +298,13 @@ export function DateRangeBar() {
         }}>
           {fmtYM(displayYM)}
         </span>
-        <button style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
+        <button data-static style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
       </div>
 
       {/* Preset pills */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, flexWrap: 'wrap' }}>
         {PRESETS.map(p => (
-          <button key={p.id} style={pillStyle(range.preset === p.id)} onClick={() => selectPreset(p.id as PresetId)}>
+          <button data-static key={p.id} style={pillStyle(range.preset === p.id)} onClick={() => selectPreset(p.id as PresetId)}>
             {p.label}
           </button>
         ))}
@@ -316,7 +316,7 @@ export function DateRangeBar() {
         borderLeft: '1px solid #F0EFE9', flexShrink: 0,
         position: 'relative',
       }}>
-        <button
+        <button data-static
           style={{
             ...pillStyle(isCustom || showCalendar),
             display: 'flex', alignItems: 'center', gap: 7, padding: '5px 11px',
