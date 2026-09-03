@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowser } from '@/lib/supabase/browser'
 import { LowStockList } from '@/components/inventory/LowStockList'
-import { COVERAGE_WARNING_DAYS } from '@/lib/inventory'
 import type { LowStockItem } from '@/lib/low-stock'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -211,11 +210,14 @@ function LowStockBell({
     <>
       <button
         onClick={onToggle}
-        aria-label={`Low stock alert — ${items.length} SKUs under ${COVERAGE_WARNING_DAYS} days`}
+        aria-label={`Low stock alert — ${items.length} SKU${items.length > 1 ? 's' : ''}`}
         aria-expanded={open}
         style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '5px 9px', borderRadius: 999,
+          display: 'flex', alignItems: 'center', gap: 6,
+          // Roomier than the user half: the pill's own padding is only 4px, so
+          // the tinted ground needs its own air before the island edge and
+          // the divider.
+          padding: '6px 13px', borderRadius: 999,
           border: 'none', cursor: 'pointer',
           backgroundColor: open ? 'rgba(255,68,68,0.10)' : 'rgba(255,68,68,0.06)',
         }}
@@ -224,14 +226,8 @@ function LowStockBell({
         <span className="label" style={{ color: '#DC2626' }}>
           Low Stock Alert
         </span>
-        <span className="metric" style={{
-          fontFamily: G, fontSize: '0.6875rem', fontWeight: 600,
-          color: '#DC2626', lineHeight: 1,
-        }}>
-          {items.length}
-        </span>
       </button>
-      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0 }} />
+      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 6px' }} />
 
       {/* Details — expanded from the notification */}
       {open && (
@@ -244,18 +240,7 @@ function LowStockBell({
           boxShadow: '0 8px 28px rgba(17,17,16,0.12)',
           overflow: 'hidden',
         }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 16px',
-            backgroundColor: 'rgba(255, 68, 68, 0.06)',
-            borderBottom: '1px solid rgba(255,68,68,0.15)',
-          }}>
-            <span className="label" style={{ color: '#FF4444' }}>
-              {items.length} SKU{items.length > 1 ? 's' : ''} under {COVERAGE_WARNING_DAYS} days
-            </span>
-          </div>
-
-          <div style={{ padding: '0 16px', maxHeight: 'min(60vh, 420px)', overflowY: 'auto' }}>
+          <div style={{ padding: '4px 16px 0', maxHeight: 'min(60vh, 420px)', overflowY: 'auto' }}>
             <LowStockList items={items} />
           </div>
 

@@ -7,22 +7,10 @@ import {
 import { useBreakpoint } from '@/hooks/useBreakpoint'
 import { fmtInt } from '@/components/ui/formStyles'
 import { fmtDate } from '@/lib/inbound-calc'
-import type { ProjectionResult } from '@/lib/stock-projection'
+import type { ProjectionResult, Restock } from '@/lib/stock-projection'
+import { modeColor, ShipModeIcon } from '@/components/ui/ShipMode'
 
 const F = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
-
-/**
- * Shipping-mode hues, in fixed order, from the validated categorical palette —
- * the app's own chart colours put Air and Road at ΔE 10.5 for normal vision,
- * close enough to be unreadable. Assigned by mode, never by rank, so filtering
- * modes out never repaints the survivors.
- */
-export const MODE_COLOR: Record<string, string> = {
-  air:   '#2a78d6',
-  truck: '#eb6834',
-  train: '#1baf7a',
-  sea:   '#eda100',
-}
 
 /**
  * The line stock is on today is the reference path, not a fifth series — it is
@@ -43,11 +31,14 @@ export function StockProjectionChart({
   productId,
   baseline,
   branches,
+  restocks = [],
   height = 260,
 }: {
   productId: string
   baseline:  ProjectionResult
   branches:  ModeBranch[]
+  /** Deliveries already inside the baseline, so the tooltip can name a jump. */
+  restocks?: Restock[]
   height?:   number
 }) {
   const bp       = useBreakpoint()
@@ -70,6 +61,17 @@ export function StockProjectionChart({
   }), [baseline, branches, productId])
 
   const runsOut = baseline.runsOutOn[productId] ?? null
+
+  // A step up in the black line is a planned inbound landing. Without a name
+  // on it, it reads as a glitch in the data rather than as a delivery.
+  const restocksByDate = useMemo(() => {
+    const map = new Map<string, Restock[]>()
+    for (const r of restocks) {
+      if (r.productId !== productId || r.quantity <= 0) continue
+      map.set(r.date, [...(map.get(r.date) ?? []), r])
+    }
+    return map
+  }, [restocks, productId])
 
   // Ticks are placed by hand: left to recharts, a 5,000 domain came out
   // 0 · 1,500 · 3,000 · 4,500 · 5,000 — an uneven last step that reads as an
@@ -130,12 +132,12 @@ export function StockProjectionChart({
           />
         )}
 
-        <Tooltip content={renderTooltip(branches)} cursor={{ stroke: '#C9C8C2', strokeWidth: 1 }} />
+        <Tooltip content={renderTooltip(branches, restocksByDate)} cursor={{ stroke: '#C9C8C2', strokeWidth: 1 }} />
 
         {branches.map(b => (
           <Line
             key={b.mode} type="linear" dataKey={b.mode}
-            stroke={MODE_COLOR[b.mode] ?? '#9E9D98'} strokeWidth={2} strokeDasharray="5 3"
+            stroke={modeColor(b.mode)} strokeWidth={2} strokeDasharray="5 3"
             dot={false} activeDot={{ r: 3 }} connectNulls={false} isAnimationActive={false}
           />
         ))}
@@ -154,7 +156,7 @@ function previousDay(iso: string): string {
   return new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10)
 }
 
-function renderTooltip(branches: ModeBranch[]) {
+function renderTooltip(branches: ModeBranch[], restocksByDate: Map<string, Restock[]>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function Tip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null
@@ -165,6 +167,7 @@ function renderTooltip(branches: ModeBranch[]) {
       return hit && typeof hit.value === 'number' ? hit.value : null
     }
     const base = value('baseline')
+    const landed = restocksByDate.get(label as string) ?? []
 
     return (
       <div style={{
@@ -175,10 +178,17 @@ function renderTooltip(branches: ModeBranch[]) {
           {fmtDate(label as string)}
         </div>
         <Row swatch={BASELINE} name="No new order" value={base} />
+        {landed.map((r, i) => (
+          <div key={i} className="flex items-center justify-between gap-4"
+            style={{ marginTop: 2, paddingLeft: 16, color: '#9E9D98', fontSize: '0.6875rem' }}>
+            <span>{r.label ? `${r.label} lands` : 'Planned inbound lands'}</span>
+            <span style={{ fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>+{fmtInt(r.quantity)}</span>
+          </div>
+        ))}
         {branches.map(b => {
           const v = value(b.mode)
           return v === null ? null : (
-            <Row key={b.mode} swatch={MODE_COLOR[b.mode] ?? '#9E9D98'} name={b.label} value={v} />
+            <Row key={b.mode} mode={b.mode} name={b.label} value={v} />
           )
         })}
       </div>
@@ -186,11 +196,13 @@ function renderTooltip(branches: ModeBranch[]) {
   }
 }
 
-function Row({ swatch, name, value }: { swatch: string; name: string; value: number | null }) {
+function Row({ swatch, mode, name, value }: { swatch?: string; mode?: string; name: string; value: number | null }) {
   return (
     <div className="flex items-center justify-between gap-4" style={{ marginTop: 3 }}>
       <span className="flex items-center gap-2" style={{ color: '#C3C2B7', fontSize: '0.75rem' }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: swatch, display: 'inline-block' }} />
+        {mode
+          ? <span style={{ color: modeColor(mode), display: 'inline-flex' }}><ShipModeIcon mode={mode} size={12} /></span>
+          : <span style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: swatch, display: 'inline-block' }} />}
         {name}
       </span>
       <span style={{ color: '#FFFFFF', fontSize: '0.75rem', fontVariantNumeric: 'tabular-nums' }}>

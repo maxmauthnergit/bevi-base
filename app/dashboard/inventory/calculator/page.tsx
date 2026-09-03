@@ -7,14 +7,16 @@ import { Field } from '@/components/ui/Field'
 import { Select } from '@/components/ui/Select'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { TrashIcon } from '@/components/ui/TrashIcon'
+import { PlusIcon } from '@/components/ui/PlusIcon'
+import { ShipModeIcon, ShipModeLabel, modeColor } from '@/components/ui/ShipMode'
 import { RateRow } from '@/components/ui/RateRow'
 import { useFxRate } from '@/hooks/useFxRate'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import {
-  G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, btnPrimary, iconBtnDanger,
+  G, inp, btn, btnAccent, btnLarge, btnLargeSecondary, iconBtnDanger,
   COL_PRODUCT, COL_QTY, fmtEur, fmtInt, readout, SECTION_GAP,
 } from '@/components/ui/formStyles'
-import { StockProjectionChart, MODE_COLOR, type ModeBranch } from '@/components/charts/StockProjectionChart'
+import { StockProjectionChart, type ModeBranch } from '@/components/charts/StockProjectionChart'
 import { CALCULATOR_PRODUCTS, productName, usdToEur, type Inbound, type ShipMode } from '@/lib/inbounds'
 import { projectStock, unitsOn, type Restock } from '@/lib/stock-projection'
 import {
@@ -528,8 +530,8 @@ export default function InboundCalculatorPage() {
                       </td>
                       <td className="metric" style={{ ...td, paddingRight: 20, textAlign: 'right', color: '#111110' }}>
                         {rowRate === null ? '—' : fmtEur(best.totalEur)}
-                        <span style={{ display: 'block', fontSize: '0.6875rem', color: '#9E9D98' }}>
-                          {best.label}
+                        <span style={{ display: 'block', fontSize: '0.6875rem', marginTop: 2 }}>
+                          <ShipModeLabel mode={best.mode} label={best.label} size={12} />
                         </span>
                       </td>
                       <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -679,7 +681,7 @@ export default function InboundCalculatorPage() {
               onClick={() => setDraft(d => ({
                 ...d, items: [...d.items, { productId: '', quantity: '', priceUsd: '' }],
               }))}>
-              + Add product
+              <PlusIcon /> Add product
             </button>
             <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 10 }}>
               Only the Bevi Bags can be planned here — they are the main product and the only ones
@@ -725,7 +727,7 @@ export default function InboundCalculatorPage() {
                 {results.map(r => (
                   <th key={r.mode} className="label"
                     style={{ textAlign: 'right', paddingBottom: 10, paddingLeft: 20, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }}>
-                    <span style={{ color: '#111110', fontSize: '0.75rem' }}>{r.label}</span>
+                    <span style={{ fontSize: '0.75rem' }}><ShipModeLabel mode={r.mode} label={r.label} /></span>
                     {r.mode === cheapest.mode && <Tag>cheapest</Tag>}
                     {r.mode === fastest.mode  && <Tag>fastest</Tag>}
                   </th>
@@ -778,7 +780,7 @@ export default function InboundCalculatorPage() {
                 {results.map(r => (
                   <Cell key={r.mode}>
                     <span style={{ display: 'block', color: '#111110', whiteSpace: 'nowrap' }}>{fmtDate(r.readyAtWeship.min)}</span>
-                    <span style={{ display: 'block', color: '#6B6A64', whiteSpace: 'nowrap' }}>– {fmtDate(r.readyAtWeship.max)}</span>
+                    <span style={{ display: 'block', color: '#6B6A64', whiteSpace: 'nowrap', fontWeight: 500 }}>– {fmtDate(r.readyAtWeship.max)}</span>
                   </Cell>
                 ))}
               </Row>
@@ -793,6 +795,133 @@ export default function InboundCalculatorPage() {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      {/* ─── Stock forecast ─────────────────────────────────────────────── */}
+      <Card className="mb-4">
+        <CardHeader label="Stock forecast" />
+
+        {stockNote && (
+          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginBottom: 16 }}>{stockNote}</p>
+        )}
+
+        {stockState === 'loading' ? (
+          <div className="flex flex-col gap-3">
+            <Skeleton height={14} /><Skeleton height={14} /><Skeleton height={14} />
+          </div>
+        ) : stockState === 'failed' ? (
+          <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
+            Without the current stock levels the forecast cannot be drawn. The costs and dates above
+            are unaffected.
+          </p>
+        ) : forecastProducts.map((p, i) => {
+          const runsOut = baseline.runsOutOn[p.id] ?? null
+          return (
+            <div key={p.id}>
+              <div style={{ ...frame, marginTop: i === 0 ? 0 : SECTION_GAP }}>
+                <FrameHeading>{p.name}</FrameHeading>
+                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 18 }}>
+                  <Field label="On stock today">
+                    <div className="metric" style={{ ...readout, textAlign: 'right' }}>
+                      {p.known ? fmtInt(p.units) : '—'}
+                    </div>
+                  </Field>
+                  <Field label="Sales per day" hint={`Last 30 days: ${p.suggested.toFixed(1)}`}>
+                    {/* Whole units only: the arrows step by one, and a typed
+                        decimal is cut off rather than carried into the forecast. */}
+                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1" inputMode="numeric"
+                      placeholder={String(Math.round(p.suggested))}
+                      value={rates[p.id] ?? ''}
+                      onChange={e => setRates(s => ({ ...s, [p.id]: e.target.value.replace(/[^\d]/g, '') }))} />
+                  </Field>
+                  <Field label="Runs out">
+                    <DateReadout>
+                      {p.dailySales <= 0 ? 'not selling' : runsOut ? fmtDate(runsOut) : `after ${horizon} days`}
+                    </DateReadout>
+                  </Field>
+                </div>
+
+                <StockProjectionChart productId={p.id} baseline={baseline} branches={branches} restocks={plannedRestocks} />
+
+                <div style={{ overflowX: 'auto', marginTop: 16 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
+                    <thead>
+                      <tr>
+                        {[
+                          { l: 'Mode',              a: 'left'  },
+                          { l: 'Arrives at WeShip', a: 'left'  },
+                          { l: 'Stock on arrival',  a: 'right' },
+                          { l: '',                  a: 'left'  },
+                        ].map(({ l, a }, k) => (
+                          <th key={k} className="label"
+                            style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 16 }}>{l}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* The baseline is a row here rather than a legend of its
+                          own — this table is the chart's legend, and the black
+                          line needs a name as much as the four dashed ones. */}
+                      <tr style={{ borderTop: '1px solid #E7E6E0' }}>
+                        <td style={{ ...td, paddingRight: 16 }}>
+                          <span className="flex items-center gap-2" style={{ color: '#111110' }}>
+                            <Dash color="#111110" />
+                            No new order
+                          </span>
+                        </td>
+                        <td style={{ ...td, paddingRight: 16 }}>—</td>
+                        <td style={{ ...td, paddingRight: 16, textAlign: 'right' }}>—</td>
+                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                          {p.dailySales <= 0
+                            ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
+                            : runsOut
+                              ? <span style={{ color: '#DC2626' }}>sold out {fmtDate(runsOut)}</span>
+                              : <span style={{ color: '#0D8585' }}>lasts past the window</span>}
+                        </td>
+                      </tr>
+                      {branches.map(b => {
+                        const left = unitsOn(baseline, p.id, b.arrival)
+                        // The gap is what the order is actually about: days with
+                        // an empty shelf before this mode's goods land.
+                        const gap  = runsOut && runsOut <= b.arrival ? daysBetween(runsOut, b.arrival) : 0
+                        return (
+                          <tr key={b.mode} style={{ borderTop: '1px solid #E7E6E0' }}>
+                            <td style={{ ...td, paddingRight: 16 }}>
+                              <span className="flex items-center gap-2" style={{ color: '#111110' }}>
+                                <Dash color={modeColor(b.mode)} dashed />
+                                <ShipModeLabel mode={b.mode} label={b.label} />
+                              </span>
+                            </td>
+                            <td style={{ ...td, paddingRight: 16, whiteSpace: 'nowrap' }}>{fmtDate(b.arrival)}</td>
+                            <td className="metric" style={{ ...td, paddingRight: 16, textAlign: 'right', color: '#111110' }}>
+                              {left === null ? '—' : fmtInt(left)}
+                            </td>
+                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                              {p.dailySales <= 0
+                                ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
+                                : gap > 0
+                                  ? <span style={{ color: '#DC2626' }}>{gap} days out of stock</span>
+                                  : <span style={{ color: '#0D8585' }}>in time</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 16 }}>
+          <b style={{ fontWeight: 500 }}>Stock on arrival</b> is what is still on the shelf on the day
+          that mode’s goods reach WeShip, <i>if this order is not placed</i> — the black line on that
+          day. Stock itself is WeShip’s on-hand minus what is already going out, and the line falls at
+          the sales rate of the last 30 days. That rate only counts orders that carry the SKU — bags
+          sold inside a bundle are not attributed to them, so it reads low; override it above.
+          Inbounds already planned are included in the falling line.
+        </p>
       </Card>
 
       {/* ─── Timeline ───────────────────────────────────────────────────── */}
@@ -819,7 +948,7 @@ export default function InboundCalculatorPage() {
           {results.map(r => (
             <div key={r.mode}>
               <div className="flex items-baseline justify-between mb-1.5" style={{ fontFamily: G, fontSize: '0.75rem' }}>
-                <span style={{ color: '#111110', fontWeight: 500 }}>{r.label}</span>
+                <span style={{ fontWeight: 500 }}><ShipModeLabel mode={r.mode} label={r.label} /></span>
                 <span className="metric" style={{ color: '#6B6A64' }}>
                   {fmtDate(r.readyAtWeship.min)} – {fmtDate(r.readyAtWeship.max)}
                 </span>
@@ -867,139 +996,15 @@ export default function InboundCalculatorPage() {
         </p>
       </Card>
 
-      {/* ─── Stock forecast ─────────────────────────────────────────────── */}
-      <Card className="mb-4">
-        <CardHeader label="Stock forecast" />
-
-        {stockNote && (
-          <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginBottom: 16 }}>{stockNote}</p>
-        )}
-
-        {stockState === 'loading' ? (
-          <div className="flex flex-col gap-3">
-            <Skeleton height={14} /><Skeleton height={14} /><Skeleton height={14} />
-          </div>
-        ) : stockState === 'failed' ? (
-          <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#9E9D98' }}>
-            Without the current stock levels the forecast cannot be drawn. The costs and dates above
-            are unaffected.
-          </p>
-        ) : forecastProducts.map((p, i) => {
-          const runsOut = baseline.runsOutOn[p.id] ?? null
-          return (
-            <div key={p.id}>
-              <div style={{ ...frame, marginTop: i === 0 ? 0 : SECTION_GAP }}>
-                <FrameHeading>{p.name}</FrameHeading>
-                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 18 }}>
-                  <Field label="On stock today">
-                    <div className="metric" style={{ ...readout, textAlign: 'right' }}>
-                      {p.known ? fmtInt(p.units) : '—'}
-                    </div>
-                  </Field>
-                  <Field label="Sales per day" hint={`Last 30 days: ${p.suggested.toFixed(1)}`}>
-                    <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.1"
-                      placeholder={p.suggested.toFixed(1)}
-                      value={rates[p.id] ?? ''}
-                      onChange={e => setRates(s => ({ ...s, [p.id]: e.target.value }))} />
-                  </Field>
-                  <Field label="Runs out">
-                    <DateReadout>
-                      {p.dailySales <= 0 ? 'not selling' : runsOut ? fmtDate(runsOut) : `after ${horizon} days`}
-                    </DateReadout>
-                  </Field>
-                </div>
-
-                <StockProjectionChart productId={p.id} baseline={baseline} branches={branches} />
-
-                <div style={{ overflowX: 'auto', marginTop: 16 }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', color: '#6B6A64' }}>
-                    <thead>
-                      <tr>
-                        {[
-                          { l: 'Mode',              a: 'left'  },
-                          { l: 'Arrives at WeShip', a: 'left'  },
-                          { l: 'Stock on arrival',  a: 'right' },
-                          { l: '',                  a: 'left'  },
-                        ].map(({ l, a }, k) => (
-                          <th key={k} className="label"
-                            style={{ ...th, textAlign: a as 'left' | 'right', paddingRight: 16 }}>{l}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {/* The baseline is a row here rather than a legend of its
-                          own — this table is the chart's legend, and the black
-                          line needs a name as much as the four dashed ones. */}
-                      <tr style={{ borderTop: '1px solid #E7E6E0' }}>
-                        <td style={{ ...td, paddingRight: 16 }}>
-                          <span className="flex items-center gap-2" style={{ color: '#111110' }}>
-                            <Dash color="#111110" />
-                            No new order
-                          </span>
-                        </td>
-                        <td style={{ ...td, paddingRight: 16 }}>—</td>
-                        <td style={{ ...td, paddingRight: 16, textAlign: 'right' }}>—</td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                          {p.dailySales <= 0
-                            ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
-                            : runsOut
-                              ? <span style={{ color: '#DC2626' }}>sold out {fmtDate(runsOut)}</span>
-                              : <span style={{ color: '#0D8585' }}>lasts past the window</span>}
-                        </td>
-                      </tr>
-                      {branches.map(b => {
-                        const left = unitsOn(baseline, p.id, b.arrival)
-                        // The gap is what the order is actually about: days with
-                        // an empty shelf before this mode's goods land.
-                        const gap  = runsOut && runsOut <= b.arrival ? daysBetween(runsOut, b.arrival) : 0
-                        return (
-                          <tr key={b.mode} style={{ borderTop: '1px solid #E7E6E0' }}>
-                            <td style={{ ...td, paddingRight: 16 }}>
-                              <span className="flex items-center gap-2" style={{ color: '#111110' }}>
-                                <Dash color={MODE_COLOR[b.mode]} dashed />
-                                {b.label}
-                              </span>
-                            </td>
-                            <td style={{ ...td, paddingRight: 16, whiteSpace: 'nowrap' }}>{fmtDate(b.arrival)}</td>
-                            <td className="metric" style={{ ...td, paddingRight: 16, textAlign: 'right', color: '#111110' }}>
-                              {left === null ? '—' : fmtInt(left)}
-                            </td>
-                            <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                              {p.dailySales <= 0
-                                ? <span style={{ color: '#9E9D98' }}>no sales rate</span>
-                                : gap > 0
-                                  ? <span style={{ color: '#DC2626' }}>{gap} days out of stock</span>
-                                  : <span style={{ color: '#0D8585' }}>in time</span>}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-
-        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 16 }}>
-          <b style={{ fontWeight: 500 }}>Stock on arrival</b> is what is still on the shelf on the day
-          that mode’s goods reach WeShip, <i>if this order is not placed</i> — the black line on that
-          day. Stock itself is WeShip’s on-hand minus what is already going out, and the line falls at
-          the sales rate of the last 30 days. That rate only counts orders that carry the SKU — bags
-          sold inside a bundle are not attributed to them, so it reads low; override it above.
-          Inbounds already planned are included in the falling line.
-        </p>
-      </Card>
-
       {/* ─── Save & handover ────────────────────────────────────────────── */}
       <Card>
         <CardHeader label="Create as inbound" />
         <div className="flex gap-2 flex-wrap items-center">
           {results.map(r => (
-            <button key={r.mode} style={r.mode === cheapest.mode ? btnPrimary : btn}
+            <button key={r.mode} style={{ ...btn, opacity: creating !== null ? 0.6 : 1 }}
               disabled={creating !== null}
               onClick={() => createInbound(r)}>
+              <span style={{ color: modeColor(r.mode), display: 'inline-flex' }}><ShipModeIcon mode={r.mode} /></span>
               {creating === r.mode ? 'Creating…' : r.label}
             </button>
           ))}
@@ -1042,7 +1047,7 @@ const frame: React.CSSProperties = {
  */
 function FrameHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+    <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
       <span className="label">{children}</span>
     </div>
   )
@@ -1073,7 +1078,10 @@ function Tag({ children }: { children: React.ReactNode }) {
 function Row({ label, children, strong }: { label: string; children: React.ReactNode; strong?: boolean }) {
   return (
     <tr style={{ borderBottom: '1px solid #F0EFE9' }}>
-      <td className="label" style={{ padding: '10px 0', whiteSpace: 'nowrap', color: strong ? '#6B6A64' : undefined }}>
+      <td className="label" style={{
+        padding: '10px 0', whiteSpace: 'nowrap',
+        color: strong ? '#111110' : undefined, fontWeight: strong ? 700 : undefined,
+      }}>
         {label}
       </td>
       {children}
@@ -1088,6 +1096,7 @@ function Cell({ children, metric, strong }: { children: React.ReactNode; metric?
       style={{
         padding: '10px 0 10px 20px', textAlign: 'right', verticalAlign: 'middle',
         color: strong ? '#111110' : '#6B6A64', width: 150,
+        fontWeight: strong ? 700 : undefined,
       }}
     >
       {children}
@@ -1109,7 +1118,7 @@ function RangeInput({
     <div className="flex gap-1">
       {(['min', 'max'] as const).map(k => (
         <div key={k} style={{ flex: 1 }}>
-          <input style={{ ...inp, textAlign: 'right', padding: '4px 6px' }} type="number" min="0"
+          <input style={{ ...inp, textAlign: 'right', padding: '4px 8px' }} type="number" min="0"
             value={value[k]} onChange={e => onChange({ ...value, [k]: Number(e.target.value) || 0 })} />
           <span style={{
             display: 'block', fontFamily: G, fontSize: '0.625rem', color: '#9E9D98',

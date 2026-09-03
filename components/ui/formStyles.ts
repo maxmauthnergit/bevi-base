@@ -45,88 +45,100 @@ export const readout: React.CSSProperties = {
   textOverflow: 'ellipsis',
 }
 
-export const btn: React.CSSProperties = {
+// ─── Buttons ─────────────────────────────────────────────────────────────────
+// Four kinds, told apart by colour alone — every other property is shared:
+//
+//   black  btnLarge   the page's main call to action ("Save changes", "New inbound")
+//   blue   btnAccent  the action of a section ("+ Add product", "+ Upload invoice")
+//   grey   btn        a sub-action inside a section ("Fetch rate", "Edit", "Open")
+//   red    btnDanger  removal
+//
+// The black one is deliberately bigger and heavier. The other three are all
+// FIELD_H tall with the same weight, so a row of them reads as one family and
+// none of them is mistaken for a text field — which is why the grey one has a
+// tinted ground rather than the white-with-border look of an input.
+
+const btnBase: React.CSSProperties = {
   fontFamily: G,
   fontSize: '0.75rem',
-  letterSpacing: '0.04em',
+  fontWeight: 500,
+  letterSpacing: '0.03em',
+  lineHeight: 1,
   cursor: 'pointer',
-  padding: '4px 12px',
+  height: FIELD_H,
+  padding: '0 14px',
+  boxSizing: 'border-box',
   borderRadius: 8,
-  border: '1px solid #E3E2DC',
-  backgroundColor: '#FFFFFF',
-  color: '#6B6A64',
+  border: '1px solid transparent',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,               // between an icon and its label
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 }
 
-export const btnPrimary: React.CSSProperties = {
-  ...btn,
+/** Grey: a sub-action inside a section. */
+export const btn: React.CSSProperties = {
+  ...btnBase,
+  backgroundColor: '#EBEAE5',
+  borderColor: '#DCDBD4',
+  color: '#3A3A38',
+}
+
+/** Blue: the action of a section. */
+export const btnAccent: React.CSSProperties = {
+  ...btnBase,
+  backgroundColor: 'rgba(125,239,239,0.25)',
+  borderColor: '#7DEFEF',
+  color: '#0D8585',
+}
+
+/** Red: removal. */
+export const btnDanger: React.CSSProperties = {
+  ...btnBase,
+  backgroundColor: 'rgba(220,38,38,0.06)',
+  borderColor: 'rgba(220,38,38,0.2)',
+  color: '#DC2626',
+}
+
+/** Square btnDanger holding only an icon — the row-removal button. */
+export const iconBtnDanger: React.CSSProperties = {
+  ...btnDanger,
+  width: FIELD_H,
+  padding: 0,
+}
+
+/**
+ * Height of the black main call to action. Taller than FIELD_H on purpose: it
+ * is the one button on a page that should outweigh the rest. Cancel beside it
+ * shares the height so the pair lines up.
+ */
+export const BTN_LG_H = 36
+
+/** Black: the page's main call to action, e.g. "New inbound", "Save changes". */
+export const btnLarge: React.CSSProperties = {
+  ...btnBase,
+  fontSize: '0.8125rem',
+  fontWeight: 600,
+  letterSpacing: '0.02em',
+  padding: '0 20px',
+  height: BTN_LG_H,
   backgroundColor: '#111110',
   borderColor: '#111110',
   color: '#FFFFFF',
 }
 
-export const btnDanger: React.CSSProperties = {
-  ...btn,
-  color: '#DC2626',
-  borderColor: 'rgba(220,38,38,0.2)',
-}
-
-/** Sits on a form row: same height as the field beside it, roomier padding. */
-export const btnField: React.CSSProperties = {
-  ...btn,
-  height: FIELD_H,
-  padding: '0 16px',
-  boxSizing: 'border-box',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontWeight: 500,   // same weight as btnAccent, so the two read as one family
-}
-
-/** "Add …" actions. Coloured, but the dark primary stays the strongest action. */
-export const btnAccent: React.CSSProperties = {
-  ...btn,
-  height: FIELD_H,
-  padding: '0 16px',
-  boxSizing: 'border-box',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: 'rgba(125,239,239,0.25)',
-  borderColor: '#7DEFEF',
-  color: '#0D8585',
-  fontWeight: 500,
-}
-
-/**
- * Height for the page-level buttons. Pinned for the same reason as FIELD_H: a
- * padding-sized primary and a fixed-height secondary next to it come out
- * different, which is exactly how Cancel ended up shorter than Save changes.
- */
-export const BTN_LG_H = 33
-
-/** Page-level primary, e.g. "New inbound" — reads as the main action. */
-export const btnLarge: React.CSSProperties = {
-  ...btnPrimary,
-  fontSize: '0.8125rem',
-  fontWeight: 600,
-  letterSpacing: '0.02em',
-  padding: '0 18px',
-  height: BTN_LG_H,
-  boxSizing: 'border-box',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}
-
 /** The quieter half of a primary pair, e.g. Cancel beside Save changes. */
 export const btnLargeSecondary: React.CSSProperties = {
   ...btnLarge,
-  backgroundColor: '#FFFFFF',
-  borderColor: '#E3E2DC',
-  color: '#6B6A64',
   fontWeight: 500,
+  backgroundColor: '#EBEAE5',
+  borderColor: '#DCDBD4',
+  color: '#3A3A38',
 }
 
+/** Bare icon button, e.g. the chevron that opens a settings section. */
 export const iconBtn: React.CSSProperties = {
   background: 'none',
   border: 'none',
@@ -135,23 +147,6 @@ export const iconBtn: React.CSSProperties = {
   borderRadius: 6,
   display: 'flex',
   alignItems: 'center',
-}
-
-/** Row-removal button: field height, faint red ground so it reads as destructive. */
-export const iconBtnDanger: React.CSSProperties = {
-  height: FIELD_H,
-  width: FIELD_H,
-  boxSizing: 'border-box',
-  border: '1px solid rgba(220,38,38,0.2)',
-  backgroundColor: 'rgba(220,38,38,0.06)',
-  color: '#DC2626',
-  borderRadius: 8,
-  cursor: 'pointer',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 0,
-  flexShrink: 0,
 }
 
 /**

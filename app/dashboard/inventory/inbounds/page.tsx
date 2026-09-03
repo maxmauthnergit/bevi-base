@@ -13,6 +13,8 @@ import { Select } from '@/components/ui/Select'
 import { Field } from '@/components/ui/Field'
 import { SectionHeading } from '@/components/ui/SectionHeading'
 import { TrashIcon } from '@/components/ui/TrashIcon'
+import { PlusIcon } from '@/components/ui/PlusIcon'
+import { ShipModeLabel } from '@/components/ui/ShipMode'
 import { RateRow } from '@/components/ui/RateRow'
 import { useFxRate } from '@/hooks/useFxRate'
 import {
@@ -454,7 +456,12 @@ export default function InboundsPage() {
                       <td style={{ ...td, paddingRight: 20, whiteSpace: 'nowrap' }}>
                         {inb.shipments.length === 0
                           ? '—'
-                          : inb.shipments.map(sh => shipModeLabel(sh.mode)).join(' + ')}
+                          : inb.shipments.map((sh, k) => (
+                            <span key={k}>
+                              {k > 0 && <span style={{ margin: '0 6px' }}>+</span>}
+                              <ShipModeLabel mode={sh.mode} />
+                            </span>
+                          ))}
                       </td>
                       <td className="metric" style={{ ...td, paddingRight: 20, textAlign: 'right', color: '#111110' }}>
                         {fmtEur(t.total)}
@@ -634,7 +641,7 @@ export default function InboundsPage() {
                     ...draft,
                     items: [...draft.items, { product_id: '', charge: '', quantity: '', costUsd: '', supplierId: '' }],
                   })}>
-                    + Add product
+                    <PlusIcon /> Add product
                   </button>
                 </div>
               </div>
@@ -659,7 +666,12 @@ export default function InboundsPage() {
                     return (
                       <div key={idx} style={frame}>
                         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-                          <span className="label">Shipment {idx + 1}</span>
+                          <span className="flex items-center gap-3">
+                            <span className="label">Shipment {idx + 1}</span>
+                            <span style={{ fontFamily: G, fontSize: '0.75rem' }}>
+                              <ShipModeLabel mode={sh.mode} size={12} />
+                            </span>
+                          </span>
                           <button style={iconBtnDanger} title="Remove shipment"
                             onClick={() => setDraft({ ...draft, shipments: draft.shipments.filter((_, i) => i !== idx) })}>
                             <TrashIcon />
@@ -777,7 +789,7 @@ export default function InboundsPage() {
                   fx: '', fxDate: draft.orderDate, planned: '', actual: '', qty: {},
                 }],
               })}>
-                + Add IB shipping
+                <PlusIcon /> Add IB shipping
               </button>
 
               {/* Allocation mismatches are a hint, not a blocker: a charge is
@@ -881,7 +893,7 @@ export default function InboundsPage() {
               <SectionHeading
                 action={draft.id ? (
                   <button style={btnAccent} disabled={uploading} onClick={() => pickFiles('')}>
-                    {uploading ? 'Uploading…' : '+ Upload invoice'}
+                    {uploading ? 'Uploading…' : <><PlusIcon /> Upload invoice</>}
                   </button>
                 ) : undefined}
               >

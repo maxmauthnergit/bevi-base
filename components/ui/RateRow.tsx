@@ -2,7 +2,7 @@
 
 import { Field } from '@/components/ui/Field'
 import { DatePicker } from '@/components/ui/DatePicker'
-import { G, inp, btnField } from '@/components/ui/formStyles'
+import { G, inp, btn } from '@/components/ui/formStyles'
 
 /**
  * FX date + rate + lookup button. Used by the inbound editor for production and
@@ -36,7 +36,7 @@ export function RateRow({
               placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
           </Field>
         </div>
-        <button style={btnField} disabled={busy} onClick={onFetch}>
+        <button style={{ ...btn, opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={onFetch}>
           {busy ? 'Fetching…' : 'Fetch rate'}
         </button>
       </div>

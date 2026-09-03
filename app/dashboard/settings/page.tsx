@@ -6,7 +6,8 @@ import type { ProductCostConfig } from '@/lib/costs-config'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
 // Shared with the inbounds and calculator pages.
-import { inp, btn, iconBtn } from '@/components/ui/formStyles'
+import { inp, btn, btnAccent, btnDanger, btnLarge, iconBtn } from '@/components/ui/formStyles'
+import { PlusIcon } from '@/components/ui/PlusIcon'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -550,7 +551,7 @@ export default function SettingsPage() {
                           <span className="label" style={{ display: 'block', marginTop: 2, color: '#9E9D98' }}>{period}</span>
                         </div>
                         <button
-                          style={{ ...btn, color: isDel ? '#9E9D98' : '#DC2626', borderColor: isDel ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: isDel ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: isDel ? 0.6 : 1, cursor: isDel ? 'not-allowed' : 'pointer' }}
                           disabled={isDel}
                           onClick={() => deletePdf(upload)}
                         >
@@ -571,11 +572,11 @@ export default function SettingsPage() {
               {/* Upload button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: pdfUploads.length > 0 ? 10 : 0, borderTop: pdfUploads.length > 0 ? '1px solid #EDECEA' : 'none' }}>
                 <button
-                  style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
+                  style={{ ...btnAccent, opacity: bankUploading ? 0.6 : 1, cursor: bankUploading ? 'not-allowed' : 'pointer' }}
                   disabled={bankUploading}
                   onClick={() => { setBankError(null); setBankUploadResult(null); setBankDeleteError(null); bankFileRef.current?.click() }}
                 >
-                  {bankUploading ? 'Parsing…' : '+ Upload PDF'}
+                  {bankUploading ? 'Parsing…' : <><PlusIcon /> Upload PDF</>}
                 </button>
                 {bankUploadResult && (
                   <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
@@ -612,9 +613,9 @@ export default function SettingsPage() {
                     {m.hasServices ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span className="label" style={{ color: '#9E9D98' }}>{m.servicesName}</span>
-                        <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }} onClick={() => handleDownload(m.key)}>Download</button>
+                        <button style={btn} onClick={() => handleDownload(m.key)}>Download</button>
                         <button
-                          style={{ ...btn, color: deleting === m.key ? '#9E9D98' : '#DC2626', borderColor: deleting === m.key ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: deleting === m.key ? 0.6 : 1, cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
                           disabled={deleting === m.key}
                           onClick={() => handleDelete(m.key)}
                         >
@@ -623,11 +624,11 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <button
-                        style={{ ...btn, color: uploading === m.key ? '#9E9D98' : '#6B6A64', cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
+                        style={{ ...btnAccent, opacity: uploading === m.key ? 0.6 : 1, cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
                         disabled={uploading === m.key}
                         onClick={() => { setFileError(null); uploadKey.current = m.key; fileRef.current!.accept = '.xlsx'; fileRef.current?.click() }}
                       >
-                        {uploading === m.key ? 'Uploading…' : '+ Upload'}
+                        {uploading === m.key ? 'Uploading…' : <><PlusIcon /> Upload</>}
                       </button>
                     )}
                   </div>
@@ -703,7 +704,7 @@ export default function SettingsPage() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>Saved</span>
           )}
           <button
-            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '8px 40px', cursor: saving ? 'not-allowed' : 'pointer' }}
+            style={{ ...btnLarge, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
             disabled={saving}
             onClick={handleSave}
           >

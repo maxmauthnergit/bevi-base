@@ -103,6 +103,13 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* Number fields: Chrome draws the spinner flush against the last digit of a
+   right-aligned value. Push it off by a step so the two stop touching. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin-left: 8px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar        { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track  { background: #F5F4F0; }
