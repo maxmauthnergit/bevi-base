@@ -577,7 +577,9 @@ export default function InboundsPage() {
                           <col style={{ width: COL_CHARGE }} />
                           <col style={{ width: COL_QTY }} />
                           <col style={{ width: 150 }} />
-                          <col /><col /><col />
+                          {/* Pinned: left to the content, the € column resized
+                              with every keystroke in the $ field beside it. */}
+                          <col style={{ width: 150 }} /><col style={{ width: 120 }} /><col />
                           <col style={{ width: 56 }} />
                         </colgroup>
                         <thead>
@@ -587,7 +589,7 @@ export default function InboundsPage() {
                               { l: 'Charge',                   a: 'left'  },
                               { l: 'Quantity',                 a: 'right' },
                               { l: 'Production costs (EXW) $', a: 'right' },
-                              { l: '€',                        a: 'right' },
+                              { l: 'Production costs (EXW) €', a: 'right' },
                               { l: '€ per unit',               a: 'right' },
                               { l: 'Supplier',                 a: 'left'  },
                               { l: '',                         a: 'right' },

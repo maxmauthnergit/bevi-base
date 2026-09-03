@@ -141,6 +141,7 @@ export default function InboundCalculatorPage() {
   const [tiersOpen,  setTiersOpen]  = useState(false)
   const [tierDraft,  setTierDraft]  = useState<{ qty: string; days: string }[]>([])
   const [tiersSaving, setTiersSaving] = useState(false)
+  const [resetModesOpen, setResetModesOpen] = useState(false)
 
   // The editor sits below the list; opening a record scrolls it into view.
   const editorRef = useRef<HTMLDivElement>(null)
@@ -233,8 +234,6 @@ export default function InboundCalculatorPage() {
   const eur = (v: number) => (rate === null ? '—' : fmtEur(v))
 
   const scale     = Math.max(...results.map(r => r.totalDays.max), 1)
-  const cheapest  = results.reduce((a, b) => (b.totalEur < a.totalEur ? b : a))
-  const fastest   = results.reduce((a, b) => (b.totalDays.min < a.totalDays.min ? b : a))
   const todayOff  = daysBetween(effectiveOrderDate, todayIso())
 
   function patchDraft(p: Partial<Draft>) { setDraft(d => ({ ...d, ...p })) }
@@ -387,6 +386,13 @@ export default function InboundCalculatorPage() {
   function resetProductionToDefault() {
     patchDraft({ productionDays: '' })
     setConfig(c => ({ ...c, productionTiers: defaults.productionTiers }))
+  }
+
+  /** Puts the stored defaults back into the four modes — asked first, since it overwrites all of them. */
+  function resetModesToDefaults() {
+    setConfig(c => ({ ...c, modes: defaults.modes }))
+    setResetModesOpen(false)
+    flash('Shipping modes reset to defaults')
   }
 
   function openTiersDialog() {
@@ -637,22 +643,30 @@ export default function InboundCalculatorPage() {
       <Card className="mb-4">
         <CardHeader label={draft.id ? `Edit ${draft.name || 'calculation'}` : 'New calculation'} />
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-          <Field label="Name">
-            <input style={inp} value={draft.name} placeholder="e.g. Spring restock 2026"
-              onChange={e => patchDraft({ name: e.target.value })} />
-          </Field>
-          <Field label="Order / payment date">
-            <DatePicker value={draft.orderDate} onChange={v => patchDraft({ orderDate: v })} />
-          </Field>
-          <Field label="Total quantity">
-            <div className="metric" style={{ ...readout, textAlign: 'right' }}>{fmtInt(totalQty)}</div>
-          </Field>
+        {/* Fields take the width their content needs rather than a share of
+            the row: a name is not wider for being alone on its line. */}
+        <div className="flex gap-4 flex-wrap items-end">
+          <div style={{ width: 'min(320px, 100%)' }}>
+            <Field label="Name">
+              <input style={inp} value={draft.name} placeholder="e.g. Spring restock 2026"
+                onChange={e => patchDraft({ name: e.target.value })} />
+            </Field>
+          </div>
+          <div style={{ width: 165 }}>
+            <Field label="Order / payment date">
+              <DatePicker value={draft.orderDate} onChange={v => patchDraft({ orderDate: v })} />
+            </Field>
+          </div>
         </div>
 
-        {/* Own row: the field is short, but the two buttons beside it and the
-            defaults note would not fit a grid cell. */}
-        <div style={{ marginTop: 16 }}>
+        {/* Quantity and production days side by side: the days follow the
+            quantity, and the row says so. */}
+        <div className="flex gap-4 flex-wrap items-end" style={{ marginTop: 16 }}>
+          <div style={{ width: 130 }}>
+            <Field label="Total quantity">
+              <div className="metric" style={{ ...readout, textAlign: 'right' }}>{fmtInt(totalQty)}</div>
+            </Field>
+          </div>
           <Field label="Production days">
             <div className="flex gap-2 flex-wrap items-center">
               <div style={{ width: 130 }}>
@@ -680,6 +694,11 @@ export default function InboundCalculatorPage() {
             </div>
           </Field>
         </div>
+        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 8 }}>
+          Defaults to the tier covering the quantity
+          ({config.productionTiers.map(t => `${fmtInt(t.qty)} pcs → ${t.days} d`).join(' · ')});
+          leave the field empty to follow it, or type a value to override.
+        </p>
 
         {/* ─── Products ─────────────────────────────────────────────────── */}
         <div style={{ ...frame, marginTop: SECTION_GAP }}>
@@ -713,7 +732,9 @@ export default function InboundCalculatorPage() {
                     <col style={{ width: COL_PRODUCT }} />
                     <col style={{ width: COL_QTY }} />
                     <col style={{ width: 150 }} />
-                    <col /><col />
+                    {/* Pinned: left to the content, the € column resized with
+                        every keystroke in the $ field beside it. */}
+                    <col style={{ width: 150 }} /><col style={{ width: 120 }} />
                     <col style={{ width: 56 }} />
                   </colgroup>
                   <thead>
@@ -722,7 +743,7 @@ export default function InboundCalculatorPage() {
                         { l: 'Product',                  a: 'left'  },
                         { l: 'Quantity',                 a: 'right' },
                         { l: 'Production costs (EXW) $', a: 'right' },
-                        { l: '€',                        a: 'right' },
+                        { l: 'Production costs (EXW) €', a: 'right' },
                         { l: '€ per unit',               a: 'right' },
                         { l: '',                         a: 'right' },
                       ].map(({ l, a }, i) => (
@@ -809,9 +830,8 @@ export default function InboundCalculatorPage() {
             </div>
           </Field>
           <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 12 }}>
-            Production defaults to the tier covering the quantity
-            ({config.productionTiers.map(t => `${fmtInt(t.qty)} pcs → ${t.days} d`).join(' · ')});
-            leave the field empty to follow it, or type a value to override.
+            Days from the goods landing at WeShip until they are booked in and can be sold. Added
+            to every mode after transit.
           </p>
         </div>
       </Card>
@@ -821,25 +841,22 @@ export default function InboundCalculatorPage() {
       <Card className="mb-4">
         <CardHeader
           label="Shipping modes"
-          action={<button style={btn} onClick={saveDefaults}>Save as defaults</button>}
+          action={
+            <div className="flex gap-2">
+              <button style={btn} onClick={() => setResetModesOpen(true)}>Reset to defaults</button>
+              <button style={btn} onClick={saveDefaults}>Save as defaults</button>
+            </div>
+          }
         />
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', minWidth: 640 }}>
             <thead>
               <tr>
                 <th className="label" style={{ textAlign: 'left', paddingBottom: 10, borderBottom: '1px solid #E3E2DC' }} />
-                {/* Names on one line, tags on a line of their own beneath — a
-                    tag beside the name pushed that column out of step. */}
                 {results.map(r => (
                   <th key={r.mode} className="label"
-                    style={{ textAlign: 'right', verticalAlign: 'top', paddingBottom: 10, paddingLeft: 20, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }}>
+                    style={{ textAlign: 'right', paddingBottom: 10, paddingLeft: 20, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }}>
                     <span style={{ fontSize: '0.75rem' }}><ShipModeLabel mode={r.mode} label={r.label} /></span>
-                    {(r.mode === cheapest.mode || r.mode === fastest.mode) && (
-                      <span className="flex justify-end gap-1" style={{ marginTop: 5 }}>
-                        {r.mode === cheapest.mode && <Tag>cheapest</Tag>}
-                        {r.mode === fastest.mode  && <Tag>fastest</Tag>}
-                      </span>
-                    )}
                   </th>
                 ))}
               </tr>
@@ -1149,7 +1166,7 @@ export default function InboundCalculatorPage() {
           </>
         }
       >
-        <p style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', margin: '0 0 14px' }}>
+        <p style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', margin: '0 0 22px' }}>
           Production days by order size. A quantity takes the first tier that still covers it;
           above the largest tier, the largest tier&apos;s days apply. Saved for every calculation —
           ones already saved keep their own figures and are only told the defaults moved.
@@ -1183,10 +1200,27 @@ export default function InboundCalculatorPage() {
             ))}
           </tbody>
         </table>
-        <button style={{ ...btnAccent, marginTop: 10 }}
+        <button style={{ ...btnAccent, marginTop: 10, marginBottom: 8 }}
           onClick={() => setTierDraft(rows => [...rows, { qty: '', days: '' }])}>
           <PlusIcon /> Add tier
         </button>
+      </Modal>
+
+      <Modal
+        open={resetModesOpen}
+        title="Reset shipping modes?"
+        onClose={() => setResetModesOpen(false)}
+        footer={
+          <>
+            <button style={btnLargeSecondary} onClick={() => setResetModesOpen(false)}>Cancel</button>
+            <button style={btnLarge} onClick={resetModesToDefaults}>Reset</button>
+          </>
+        }
+      >
+        <p style={{ fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64', margin: 0 }}>
+          Pre-departure, transit and freight of all four modes go back to the stored defaults.
+          What is in the table now is lost unless the calculation was saved with it.
+        </p>
       </Modal>
     </main>
   )
@@ -1230,18 +1264,6 @@ function Dash({ color, dashed }: { color: string; dashed?: boolean }) {
       width: 14, height: 0, display: 'inline-block', flexShrink: 0,
       borderTop: `2px ${dashed ? 'dashed' : 'solid'} ${color}`,
     }} />
-  )
-}
-
-function Tag({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      display: 'inline-block', padding: '2px 7px', borderRadius: 999,
-      backgroundColor: '#EDECEA', color: '#6B6A64',
-      fontSize: '0.5625rem', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.2,
-    }}>
-      {children}
-    </span>
   )
 }
 

@@ -227,7 +227,9 @@ function LowStockBell({
           Low Stock Alert
         </span>
       </button>
-      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 10px' }} />
+      {/* 10px to the pill; 1px plus the user button's own 9px to the name — the
+          same gap on both sides. */}
+      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 1px 0 10px' }} />
 
       {/* Details — expanded from the notification */}
       {open && (
