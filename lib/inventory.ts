@@ -17,3 +17,32 @@ export function coverageFill(daysLeft: number | null): number {
 export function isLowStock(daysLeft: number | null): boolean {
   return daysLeft !== null && daysLeft < COVERAGE_WARNING_DAYS
 }
+
+// ─── Effective stock ─────────────────────────────────────────────────────────
+
+export interface WeShipUnits { on_stock: number; outgoing: number }
+
+/**
+ * The quantity actually available to sell.
+ *
+ * WeShip is the warehouse that ships, so its number leads; `outgoing` is already
+ * committed to orders on the way out and is therefore subtracted. Shopify's
+ * inventory_quantity is the fallback for a SKU WeShip does not carry.
+ *
+ * Was written out inline in both the overview and the inventory page; it lives
+ * here so the two, and the inventory API route, cannot drift apart.
+ */
+export function effectiveUnits(weship: WeShipUnits | null | undefined, shopifyUnits: number): number {
+  return weship != null ? weship.on_stock - weship.outgoing : shopifyUnits
+}
+
+/** Whole days of cover left, or null when nothing is selling. */
+export function daysOfCover(units: number, avgDailySales: number): number | null {
+  return avgDailySales > 0 ? Math.floor(units / avgDailySales) : null
+}
+
+/** The day stock reaches zero at the current rate, ignoring any restock. */
+export function stockLastsUntil(units: number, avgDailySales: number, from = new Date()): Date | null {
+  const days = daysOfCover(units, avgDailySales)
+  return days === null ? null : new Date(from.getTime() + days * 86_400_000)
+}

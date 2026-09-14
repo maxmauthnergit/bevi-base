@@ -35,7 +35,7 @@ export function MetricToggle({
       {OPTIONS.map(opt => {
         const active = value === opt.id
         return (
-          <button
+          <button data-static
             key={opt.id}
             type="button"
             onClick={() => onChange(opt.id)}

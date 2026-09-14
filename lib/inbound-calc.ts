@@ -6,9 +6,8 @@
 // than a single date. The quotes this is based on disagree by 10-15 days per
 // mode; pretending otherwise would just hide the risk.
 
-import type { ProductCostConfig } from '@/lib/costs-config'
 import type { ShipMode } from '@/lib/inbounds'
-import { SHIP_MODES, INBOUND_PRODUCTS } from '@/lib/inbounds'
+import { SHIP_MODES } from '@/lib/inbounds'
 
 export interface DayRange { min: number; max: number }
 
@@ -28,6 +27,7 @@ export interface CalcConfig {
   productionTiers: { qty: number; days: number }[]
   weshipHandling:  DayRange
   modes:           Record<ShipMode, ModeConfig>
+  /** The rate a new calculation starts from; each calculation then owns its own. */
   usdEur:          number
 }
 
@@ -86,43 +86,6 @@ export function productionDaysFor(quantity: number, tiers: CalcConfig['productio
   return (sorted.find(t => quantity <= t.qty) ?? sorted[sorted.length - 1]).days
 }
 
-// ─── Costs ───────────────────────────────────────────────────────────────────
-
-// Only the 'manufacturing' items count here. The 'ib_shipping' items in
-// costs-config are themselves a per-unit freight estimate and would double-count
-// against the freight figure the calculator carries per mode.
-//
-// Keyed by inbound product, resolved through its costKey — the two bag colours
-// are separate products to order but share one cost entry, so looking up by the
-// product id directly would find nothing and silently bill them at zero.
-export function productionCostByProduct(
-  costs: ProductCostConfig[],
-  qtyByProduct: Record<string, number>,
-): Record<string, number> {
-  const perUnitByCostKey = new Map<string, number>()
-  for (const p of costs) {
-    perUnitByCostKey.set(
-      p.id,
-      p.items.filter(it => it.costType === 'manufacturing').reduce((s, it) => s + it.amount, 0),
-    )
-  }
-
-  const out: Record<string, number> = {}
-  for (const p of INBOUND_PRODUCTS) {
-    const qty = qtyByProduct[p.id] ?? 0
-    if (!qty) continue
-    out[p.id] = (perUnitByCostKey.get(p.costKey) ?? 0) * qty
-  }
-  return out
-}
-
-export function productionCostEur(
-  costs: ProductCostConfig[],
-  qtyByProduct: Record<string, number>,
-): number {
-  return Object.values(productionCostByProduct(costs, qtyByProduct)).reduce((s, v) => s + v, 0)
-}
-
 // ─── Timeline ────────────────────────────────────────────────────────────────
 
 export interface PhaseSpan {
@@ -157,12 +120,18 @@ export interface CalcInput {
   orderDate:      string
   qtyByProduct:   Record<string, number>
   productionDays: number
+  /**
+   * Total EXW production in EUR. Passed in rather than derived: the order rows
+   * carry what the supplier quotes, in USD, and the calculation's own rate
+   * converts it — the same rate that converts the freight below.
+   */
+  productionEur:  number
+  /** `config.usdEur` is the rate of THIS calculation, not a global default. */
   config:         CalcConfig
-  costs:          ProductCostConfig[]
 }
 
 export function calculateMode(mode: ShipMode, input: CalcInput): ModeResult {
-  const { orderDate, qtyByProduct, productionDays, config, costs } = input
+  const { orderDate, qtyByProduct, productionDays, productionEur, config } = input
   const m = config.modes[mode]
 
   const phases: PhaseSpan[] = []
@@ -191,9 +160,8 @@ export function calculateMode(mode: ShipMode, input: CalcInput): ModeResult {
   push('weship',       'WeShip handling', config.weshipHandling)
   const readyAtWeship = { min: addDays(orderDate, cumMin), max: addDays(orderDate, cumMax) }
 
-  const totalQty      = Object.values(qtyByProduct).reduce((s, q) => s + (q || 0), 0)
-  const costEur       = m.costUsd * config.usdEur
-  const productionEur = productionCostEur(costs, qtyByProduct)
+  const totalQty = Object.values(qtyByProduct).reduce((s, q) => s + (q || 0), 0)
+  const costEur  = m.costUsd * config.usdEur
 
   return {
     mode,

@@ -181,7 +181,7 @@ export function TrendChart() {
       {/* Toggles */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 6, flexWrap: 'wrap' }}>
         {TOGGLES.map(t => (
-          <button
+          <button data-static
             key={t.key}
             onClick={() => setVisible(v => ({ ...v, [t.key]: !v[t.key] }))}
             style={{

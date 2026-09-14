@@ -2,7 +2,7 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getWeShipStock } from '@/lib/weship/queries'
 
-import { isLowStock } from '@/lib/inventory'
+import { isLowStock, effectiveUnits, daysOfCover, stockLastsUntil } from '@/lib/inventory'
 
 export const revalidate = 600
 
@@ -31,19 +31,17 @@ export default async function InventoryPage() {
     const unitsShopify = item.units
     const avgSales     = avgDailySales?.[item.sku] ?? 0
 
-    const stockForForecast = unitsWeship ?? unitsShopify
-    const daysLeft  = avgSales > 0 ? Math.floor(stockForForecast / avgSales) : null
-    const lastUntil = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
-
-    const effectiveUnits = unitsWeship ?? unitsShopify
+    const units     = effectiveUnits(ws, unitsShopify)
+    const daysLeft  = daysOfCover(units, avgSales)
+    const lastUntil = stockLastsUntil(units, avgSales)
     // Coverage decides, not the absolute reorder_threshold — see lib/inventory.ts.
     const isLow = isLowStock(daysLeft)
 
-    return { ...item, unitsWeship, unitsShopify, avgSales, daysLeft, lastUntil, isLow, effectiveUnits }
+    return { ...item, unitsWeship, unitsShopify, avgSales, daysLeft, lastUntil, isLow, effectiveUnits: units }
   })
 
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       {/* Header */}
       <div className="mb-4">
         <h1

@@ -82,7 +82,7 @@ export function DatePicker({
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
-      <button
+      <button data-static
         type="button"
         onClick={openPicker}
         disabled={disabled}
@@ -120,11 +120,11 @@ export function DatePicker({
         }}>
           {/* Month navigation */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <button type="button" style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
+            <button data-static type="button" style={NAV_BTN} onClick={() => navMonth(-1)}><ChevLeft /></button>
             <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#111110', letterSpacing: '0.01em' }}>
               {MONTH_NAMES[vm]} {vy}
             </span>
-            <button type="button" style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
+            <button data-static type="button" style={NAV_BTN} onClick={() => navMonth(+1)}><ChevRight /></button>
           </div>
 
           {/* Day-of-week headers */}
@@ -142,7 +142,7 @@ export function DatePicker({
             {cells.map((ds, i) => {
               if (!ds) return <div key={`e${i}`} style={{ padding: '5px 0' }} />
               return (
-                <button
+                <button data-static
                   key={ds}
                   type="button"
                   onClick={() => pick(ds)}
@@ -163,14 +163,14 @@ export function DatePicker({
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             marginTop: 14, paddingTop: 12, borderTop: '1px solid #F0EFE9',
           }}>
-            <button
+            <button data-static
               type="button"
               onClick={() => { onChange(''); setOpen(false) }}
               style={{ ...pillStyle(false), padding: '4px 12px', fontSize: '0.6875rem' }}
             >
               Clear
             </button>
-            <button
+            <button data-static
               type="button"
               onClick={() => pick(todayStr)}
               style={{ ...pillStyle(true), padding: '4px 12px', fontSize: '0.6875rem' }}

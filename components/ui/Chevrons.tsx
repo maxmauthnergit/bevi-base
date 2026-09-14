@@ -24,3 +24,11 @@ export function ChevDown() {
     </svg>
   )
 }
+
+export function ChevUp() {
+  return (
+    <svg width="9" height="5" viewBox="0 0 9 5" fill="none">
+      <path d="M0.5 4.5L4.5 0.5L8.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

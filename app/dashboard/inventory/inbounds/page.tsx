@@ -6,12 +6,19 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { DatePicker, DateReadout } from '@/components/ui/DatePicker'
 import { Modal } from '@/components/ui/Modal'
 import {
-  G, inp, btn, btnField, btnAccent, btnLarge, iconBtnDanger,
-  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary,
+  G, inp, btn, btnAccent, btnLarge, iconBtnDanger, iconBtnGrey,
+  COL_PRODUCT, COL_CHARGE, COL_QTY, fmtEur, fmtInt, fmtBytes, btnLargeSecondary, readout,
 } from '@/components/ui/formStyles'
 import { Select } from '@/components/ui/Select'
 import { Field } from '@/components/ui/Field'
 import { SectionHeading } from '@/components/ui/SectionHeading'
+import { TrashIcon } from '@/components/ui/TrashIcon'
+import { PlusIcon } from '@/components/ui/PlusIcon'
+import { CopyIcon } from '@/components/ui/CopyIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
+import { ShipModeLabel } from '@/components/ui/ShipMode'
+import { RateRow } from '@/components/ui/RateRow'
+import { useFxRate } from '@/hooks/useFxRate'
 import {
   INBOUND_PRODUCTS, SHIP_MODES, shipModeLabel, inboundTotals, arrivalSpan,
   reconcileQuantities, productName, usdToEur, perProductSummary,
@@ -148,73 +155,10 @@ const eurOrDash = (usd: number, fx: number | null) => {
 const th: React.CSSProperties = { paddingBottom: 10, borderBottom: '1px solid #E3E2DC', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '12px 0', verticalAlign: 'top', color: '#6B6A64' }
 
-// Same footprint as `inp`, but for values that are shown rather than entered.
-const readonlyBox: React.CSSProperties = {
-  fontFamily: G, fontSize: '0.8125rem', color: '#6B6A64',
-  border: '1px solid #E3E2DC', borderRadius: 8, padding: '5px 10px',
-  backgroundColor: '#FAFAF7', boxSizing: 'border-box', width: '100%',
-  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-}
-
 // Filled panel, matching the section blocks on the settings page
 // (app/dashboard/settings/page.tsx:187) — reads as an area rather than a box.
 const frame: React.CSSProperties = {
   backgroundColor: '#F5F4F0', borderRadius: 12, padding: '16px 18px',
-}
-
-/**
- * FX date + rate + lookup button, shared by Production and every shipment.
- * Module scope on purpose: declared inside the page it would be a fresh
- * component type on each render, remounting the inputs and losing focus.
- */
-function RateRow({
-  fxKey, date, rate, busy, note, onDate, onRate, onFetch,
-}: {
-  fxKey:   string
-  date:    string
-  rate:    string
-  busy:    boolean
-  note?:   string
-  onDate:  (v: string) => void
-  onRate:  (v: string) => void
-  onFetch: () => void
-}) {
-  return (
-    <div>
-      <div className="flex gap-3 flex-wrap items-end">
-        <div style={{ width: 165 }}>
-          <Field label="FX date">
-            <DatePicker value={date} onChange={onDate} />
-          </Field>
-        </div>
-        <div style={{ width: 130 }}>
-          <Field label="USD → EUR">
-            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.0001"
-              placeholder="0.0000" value={rate} onChange={e => onRate(e.target.value)} />
-          </Field>
-        </div>
-        <button style={btnField} disabled={busy} onClick={onFetch}>
-          {busy ? 'Fetching…' : 'Fetch rate'}
-        </button>
-      </div>
-      {note && (
-        <p style={{ fontFamily: G, fontSize: '0.6875rem', color: '#EA6C00', marginTop: 6 }} key={fxKey}>
-          {note}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <path d="M2.5 3.5 H11.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      <path d="M5.5 3.5 V2.4 H8.5 V3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M3.6 3.5 L4.2 11.4 H9.8 L10.4 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-      <path d="M6 5.6 V9.4 M8 5.6 V9.4" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
-    </svg>
-  )
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -230,15 +174,35 @@ export default function InboundsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
 
-  // Rate lookup: which field is loading, and any note to show next to it.
-  const [fxBusy, setFxBusy] = useState<string | null>(null)
-  const [fxNote, setFxNote] = useState<Record<string, string>>({})
+  const { fxBusy, fxNote, fetchRate } = useFxRate()
 
   const [partnerDialog, setPartnerDialog] = useState<null | {
     kind: 'supplier' | 'shipping'
     name: string
     apply: (p: Partner) => void
   }>(null)
+
+  // The editor sits below the list; opening a record scrolls it into view so
+  // "Edit" on a long list does not appear to do nothing.
+  const editorRef  = useRef<HTMLDivElement>(null)
+  const [scrollTick, setScrollTick] = useState(0)
+  useEffect(() => {
+    if (scrollTick > 0) editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [scrollTick])
+
+  function openEditor(d: Draft) {
+    setDraft(d)
+    setScrollTick(t => t + 1)
+  }
+
+  /** A copy opens unsaved: the shipments lose their ids, the invoices stay with the original. */
+  function duplicate(inb: Inbound) {
+    const d = draftFrom(inb)
+    openEditor({
+      ...d, id: null, name: `${d.name} (copy)`,
+      shipments: d.shipments.map(sh => ({ ...sh, id: null })),
+    })
+  }
 
   const uploadTarget = useRef<string>('')   // '' = production, else shipment id
   const fileRef      = useRef<HTMLInputElement>(null)
@@ -288,35 +252,6 @@ export default function InboundsPage() {
   const summary    = perProductSummary({ items: draftItems, shipments: draftShipments })
 
   const productionFx = draft ? fxOf(draft.productionFx) : null
-
-  /** Looks up the ECB rate for a date and writes it into the given field. */
-  async function fetchRate(key: string, date: string, apply: (rate: string) => void) {
-    if (!date) {
-      setFxNote(n => ({ ...n, [key]: 'Pick a date first' }))
-      return
-    }
-    setFxBusy(key)
-    setFxNote(n => ({ ...n, [key]: '' }))
-    try {
-      const res  = await fetch(`/api/fx?date=${date}`)
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Rate lookup failed')
-      apply(String(json.rate))
-      // The ECB only publishes on business days, so a weekend resolves back to
-      // the previous one. Say so rather than booking a rate from an unseen day.
-      setFxNote(n => ({
-        ...n,
-        [key]: json.date !== date ? `ECB rate of ${fmtDate(json.date)}` : '',
-      }))
-    } catch (e) {
-      setFxNote(n => ({
-        ...n,
-        [key]: `${e instanceof Error ? e.message : 'Lookup failed'} — enter it manually`,
-      }))
-    } finally {
-      setFxBusy(null)
-    }
-  }
 
   function openPartnerDialog(kind: 'supplier' | 'shipping', apply: (p: Partner) => void) {
     setPartnerDialog({ kind, name: '', apply })
@@ -465,7 +400,7 @@ export default function InboundsPage() {
   }
 
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       <div className="mb-6">
         <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>
           Inbounds
@@ -545,7 +480,12 @@ export default function InboundsPage() {
                       <td style={{ ...td, paddingRight: 20, whiteSpace: 'nowrap' }}>
                         {inb.shipments.length === 0
                           ? '—'
-                          : inb.shipments.map(sh => shipModeLabel(sh.mode)).join(' + ')}
+                          : inb.shipments.map((sh, k) => (
+                            <span key={k}>
+                              {k > 0 && <span style={{ margin: '0 6px' }}>+</span>}
+                              <ShipModeLabel mode={sh.mode} />
+                            </span>
+                          ))}
                       </td>
                       <td className="metric" style={{ ...td, paddingRight: 20, textAlign: 'right', color: '#111110' }}>
                         {fmtEur(t.total)}
@@ -562,7 +502,10 @@ export default function InboundsPage() {
                       </td>
                       <td style={{ ...td, paddingRight: 4, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div className="flex items-center justify-end gap-2">
-                          <button style={btn} onClick={() => setDraft(draftFrom(inb))}>Edit</button>
+                          <button style={btn} onClick={() => openEditor(draftFrom(inb))}>Edit</button>
+                          <button style={iconBtnGrey} title={`Duplicate ${inb.name}`} onClick={() => duplicate(inb)}>
+                            <CopyIcon />
+                          </button>
                           <button style={iconBtnDanger} title={`Delete ${inb.name}`}
                             disabled={deleting === inb.id}
                             onClick={() => remove(inb.id, inb.name)}>
@@ -581,7 +524,7 @@ export default function InboundsPage() {
 
       {/* ─── Editor ────────────────────────────────────────────────────── */}
       {draft && (
-        <div style={{ marginTop: 16 }}>
+        <div ref={editorRef} style={{ marginTop: 16, scrollMarginTop: 16 }}>
           <Card>
             <CardHeader label={draft.id ? `Edit ${draft.name || 'inbound'}` : 'New inbound'} />
 
@@ -609,7 +552,6 @@ export default function InboundsPage() {
               <SectionHeading>Production</SectionHeading>
               <div style={frame}>
                 <RateRow
-                  fxKey="production"
                   date={draft.productionFxDate}
                   rate={draft.productionFx}
                   busy={fxBusy === 'production'}
@@ -635,7 +577,9 @@ export default function InboundsPage() {
                           <col style={{ width: COL_CHARGE }} />
                           <col style={{ width: COL_QTY }} />
                           <col style={{ width: 150 }} />
-                          <col /><col /><col />
+                          {/* Pinned: left to the content, the € column resized
+                              with every keystroke in the $ field beside it. */}
+                          <col style={{ width: 150 }} /><col style={{ width: 120 }} /><col />
                           <col style={{ width: 56 }} />
                         </colgroup>
                         <thead>
@@ -645,7 +589,7 @@ export default function InboundsPage() {
                               { l: 'Charge',                   a: 'left'  },
                               { l: 'Quantity',                 a: 'right' },
                               { l: 'Production costs (EXW) $', a: 'right' },
-                              { l: '€',                        a: 'right' },
+                              { l: 'Production costs (EXW) €', a: 'right' },
                               { l: '€ per unit',               a: 'right' },
                               { l: 'Supplier',                 a: 'left'  },
                               { l: '',                         a: 'right' },
@@ -683,12 +627,12 @@ export default function InboundsPage() {
                                     onChange={e => patch({ charge: e.target.value })} />
                                 </td>
                                 <td style={{ ...td, paddingRight: 14 }}>
-                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                    value={it.quantity} onChange={e => patch({ quantity: e.target.value })} />
+                                  <NumberInput min={0} step={1} integer
+                                    value={it.quantity} onChange={v => patch({ quantity: v })} />
                                 </td>
                                 <td style={{ ...td, paddingRight: 14 }}>
-                                  <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                                    value={it.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
+                                  <NumberInput min={0} step={0.01}
+                                    value={it.costUsd} onChange={v => patch({ costUsd: v })} />
                                 </td>
                                 <td className="metric" style={{ ...td, paddingRight: 14, textAlign: 'right', whiteSpace: 'nowrap', color: '#6B6A64' }}>
                                   {eur === null ? '—' : fmtEur(eur)}
@@ -726,7 +670,7 @@ export default function InboundsPage() {
                     ...draft,
                     items: [...draft.items, { product_id: '', charge: '', quantity: '', costUsd: '', supplierId: '' }],
                   })}>
-                    + Add product
+                    <PlusIcon /> Add product
                   </button>
                 </div>
               </div>
@@ -751,7 +695,12 @@ export default function InboundsPage() {
                     return (
                       <div key={idx} style={frame}>
                         <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-                          <span className="label">Shipment {idx + 1}</span>
+                          <span className="flex items-center gap-3">
+                            <span className="label">Shipment {idx + 1}</span>
+                            <span style={{ fontFamily: G, fontSize: '0.75rem' }}>
+                              <ShipModeLabel mode={sh.mode} size={12} />
+                            </span>
+                          </span>
                           <button style={iconBtnDanger} title="Remove shipment"
                             onClick={() => setDraft({ ...draft, shipments: draft.shipments.filter((_, i) => i !== idx) })}>
                             <TrashIcon />
@@ -759,7 +708,6 @@ export default function InboundsPage() {
                         </div>
 
                         <RateRow
-                          fxKey={`ship-${idx}`}
                           date={sh.fxDate}
                           rate={sh.fx}
                           busy={fxBusy === `ship-${idx}`}
@@ -792,11 +740,11 @@ export default function InboundsPage() {
                             </Select>
                           </Field>
                           <Field label="Shipping costs $">
-                            <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="0.01"
-                              value={sh.costUsd} onChange={e => patch({ costUsd: e.target.value })} />
+                            <NumberInput min={0} step={0.01}
+                              value={sh.costUsd} onChange={v => patch({ costUsd: v })} />
                           </Field>
                           <Field label="Shipping costs €">
-                            <div className="metric" style={{ ...readonlyBox, textAlign: 'right' }}>
+                            <div className="metric" style={{ ...readout, textAlign: 'right' }}>
                               {eurOrDash(num(sh.costUsd), fx)}
                             </div>
                           </Field>
@@ -838,18 +786,17 @@ export default function InboundsPage() {
                                   {draft.items.filter(it => it.product_id).map(it => (
                                     <tr key={it.product_id}>
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <div style={readonlyBox}>{productName(it.product_id)}</div>
+                                        <div style={readout}>{productName(it.product_id)}</div>
                                       </td>
                                       {/* Read-only echo of the production row, so both tables
                                           keep the same columns and line up. */}
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <div style={readonlyBox}>{it.charge || '—'}</div>
+                                        <div style={readout}>{it.charge || '—'}</div>
                                       </td>
                                       <td style={{ ...td, paddingRight: 14 }}>
-                                        <input style={{ ...inp, textAlign: 'right' }} type="number" min="0" step="1"
-                                          placeholder="0"
+                                        <NumberInput min={0} step={1} integer placeholder="0"
                                           value={sh.qty[it.product_id] ?? ''}
-                                          onChange={e => patch({ qty: { ...sh.qty, [it.product_id]: e.target.value } })} />
+                                          onChange={v => patch({ qty: { ...sh.qty, [it.product_id]: v } })} />
                                       </td>
                                     </tr>
                                   ))}
@@ -870,7 +817,7 @@ export default function InboundsPage() {
                   fx: '', fxDate: draft.orderDate, planned: '', actual: '', qty: {},
                 }],
               })}>
-                + Add IB shipping
+                <PlusIcon /> Add IB shipping
               </button>
 
               {/* Allocation mismatches are a hint, not a blocker: a charge is
@@ -974,7 +921,7 @@ export default function InboundsPage() {
               <SectionHeading
                 action={draft.id ? (
                   <button style={btnAccent} disabled={uploading} onClick={() => pickFiles('')}>
-                    {uploading ? 'Uploading…' : '+ Upload invoice'}
+                    {uploading ? 'Uploading…' : <><PlusIcon /> Upload invoice</>}
                   </button>
                 ) : undefined}
               >

@@ -6,7 +6,9 @@ import type { ProductCostConfig } from '@/lib/costs-config'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
 // Shared with the inbounds and calculator pages.
-import { inp, btn, iconBtn } from '@/components/ui/formStyles'
+import { btn, btnAccent, btnDanger, btnLarge, iconBtn } from '@/components/ui/formStyles'
+import { PlusIcon } from '@/components/ui/PlusIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -455,7 +457,7 @@ export default function SettingsPage() {
   const multiple   = vkNetto / totalCogs
 
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       <div className="mb-4">
         <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>Settings</h1>
       </div>
@@ -550,7 +552,7 @@ export default function SettingsPage() {
                           <span className="label" style={{ display: 'block', marginTop: 2, color: '#9E9D98' }}>{period}</span>
                         </div>
                         <button
-                          style={{ ...btn, color: isDel ? '#9E9D98' : '#DC2626', borderColor: isDel ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: isDel ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: isDel ? 0.6 : 1, cursor: isDel ? 'not-allowed' : 'pointer' }}
                           disabled={isDel}
                           onClick={() => deletePdf(upload)}
                         >
@@ -571,11 +573,11 @@ export default function SettingsPage() {
               {/* Upload button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: pdfUploads.length > 0 ? 10 : 0, borderTop: pdfUploads.length > 0 ? '1px solid #EDECEA' : 'none' }}>
                 <button
-                  style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
+                  style={{ ...btnAccent, opacity: bankUploading ? 0.6 : 1, cursor: bankUploading ? 'not-allowed' : 'pointer' }}
                   disabled={bankUploading}
                   onClick={() => { setBankError(null); setBankUploadResult(null); setBankDeleteError(null); bankFileRef.current?.click() }}
                 >
-                  {bankUploading ? 'Parsing…' : '+ Upload PDF'}
+                  {bankUploading ? 'Parsing…' : <><PlusIcon /> Upload PDF</>}
                 </button>
                 {bankUploadResult && (
                   <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
@@ -612,9 +614,9 @@ export default function SettingsPage() {
                     {m.hasServices ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span className="label" style={{ color: '#9E9D98' }}>{m.servicesName}</span>
-                        <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }} onClick={() => handleDownload(m.key)}>Download</button>
+                        <button style={btn} onClick={() => handleDownload(m.key)}>Download</button>
                         <button
-                          style={{ ...btn, color: deleting === m.key ? '#9E9D98' : '#DC2626', borderColor: deleting === m.key ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: deleting === m.key ? 0.6 : 1, cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
                           disabled={deleting === m.key}
                           onClick={() => handleDelete(m.key)}
                         >
@@ -623,11 +625,11 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <button
-                        style={{ ...btn, color: uploading === m.key ? '#9E9D98' : '#6B6A64', cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
+                        style={{ ...btnAccent, opacity: uploading === m.key ? 0.6 : 1, cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
                         disabled={uploading === m.key}
                         onClick={() => { setFileError(null); uploadKey.current = m.key; fileRef.current!.accept = '.xlsx'; fileRef.current?.click() }}
                       >
-                        {uploading === m.key ? 'Uploading…' : '+ Upload'}
+                        {uploading === m.key ? 'Uploading…' : <><PlusIcon /> Upload</>}
                       </button>
                     )}
                   </div>
@@ -674,9 +676,9 @@ export default function SettingsPage() {
                   <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#6B6A64' }}>{item.supplier}</td>
                   <td style={{ padding: '6px 0', width: 120 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      <input type="number" step="0.01" value={item.amount}
-                        onChange={e => updateItem(prod.id, item.id, e.target.value)}
-                        style={{ ...inp, width: 76, textAlign: 'right', padding: '4px 6px' }} />
+                      <NumberInput step={0.01} value={item.amount}
+                        onChange={v => updateItem(prod.id, item.id, v)}
+                        style={{ width: 84, padding: '4px 6px' }} />
                       <span style={{ color: '#9E9D98', fontSize: '0.6875rem', marginLeft: 6, flexShrink: 0 }}>€</span>
                     </div>
                   </td>
@@ -703,7 +705,7 @@ export default function SettingsPage() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>Saved</span>
           )}
           <button
-            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '8px 40px', cursor: saving ? 'not-allowed' : 'pointer' }}
+            style={{ ...btnLarge, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
             disabled={saving}
             onClick={handleSave}
           >
@@ -754,24 +756,18 @@ export default function SettingsPage() {
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Variable Rate (%)</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <input
-                type="number" step="0.1" min="0"
-                value={payRate}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayRate(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.1} min={0} value={payRate}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayRate(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>%</span>
             </div>
           </div>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Fixed Fee per Order</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="number" step="0.01" min="0"
-                value={payFixed}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayFixed(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.01} min={0} value={payFixed}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayFixed(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
             </div>
           </div>
