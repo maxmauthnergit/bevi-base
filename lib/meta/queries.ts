@@ -89,17 +89,25 @@ async function getInsights(
     fields: INSIGHT_FIELDS,
     time_range: JSON.stringify({ since, until }),
     level: 'account',
-    limit: '100',   // default page size is 25 — bump to avoid missing recent days
+    limit: '500',   // default page size is 25 — one row per day with time_increment=1
   }
   if (timeIncrement) params.time_increment = timeIncrement
 
-  const data = await metaFetch<MetaInsightsResponse>(
-    `/${account}/insights`,
-    params,
-    { next: { revalidate: 300 } }
-  )
+  // Follow paging.next so long daily ranges (> limit rows) are not truncated
+  const rows: MetaInsight[] = []
+  let after: string | undefined
+  for (let page = 0; page < 50; page++) {
+    const data = await metaFetch<MetaInsightsResponse>(
+      `/${account}/insights`,
+      after ? { ...params, after } : params,
+      { next: { revalidate: 300 } }
+    )
+    rows.push(...data.data)
+    after = data.paging?.next ? data.paging.cursors?.after : undefined
+    if (!after) break
+  }
 
-  return data.data
+  return rows
 }
 
 // ─── Dashboard KPIs ───────────────────────────────────────────────────────────
