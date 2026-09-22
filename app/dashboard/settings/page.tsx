@@ -101,7 +101,9 @@ const PRODUCTS: Product[] = [
 type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
 type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
 type PdfUpload = { filename: string; statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string | null }
-type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[] }
+type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[]; reason?: 'expired' | 'invalid' | 'check_failed' }
+
+const META_TOKEN_CHECK_FAILED: MetaTokenInfo = { is_valid: false, expires_at: null, days_left: null, never_expires: false, scopes: [], reason: 'check_failed' }
 
 
 type PillState = 'ok' | 'muted' | 'error'
@@ -129,11 +131,15 @@ function StatusPill({ state, label }: { state: PillState; label: string }) {
 
 /**
  * Token lifetime as a pill matching the Connected badge. Red once the token is
- * within a week of expiry (or already expired), plain grey before that.
+ * within a week of expiry, already expired or rejected by Meta, plain grey
+ * before that.
  */
 const TOKEN_WARNING_DAYS = 7
 
 function metaTokenNote(t: MetaTokenInfo): { text: string; state: PillState } {
+  if (t.reason === 'check_failed') return { text: 'Token check failed', state: 'error' }
+  if (t.reason === 'expired')      return { text: 'Token expired',      state: 'error' }
+  if (!t.is_valid)                 return { text: 'Token invalid',      state: 'error' }
   if (t.never_expires)      return { text: 'Never expires',                          state: 'muted' }
   if (t.days_left === null) return { text: 'Expiry unknown',                          state: 'muted' }
   if (t.days_left < 0)      return { text: `Expired ${Math.abs(t.days_left)}d ago`,   state: 'error' }
@@ -359,7 +365,7 @@ export default function SettingsPage() {
 
   useEffect(() => { loadPdfs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    fetch('/api/meta/token-info').then(r => r.json()).then(d => { if (!d.error) setMetaToken(d) }).catch(() => {})
+    fetch('/api/meta/token-info').then(r => r.json()).then(d => setMetaToken(d.error ? META_TOKEN_CHECK_FAILED : d)).catch(() => setMetaToken(META_TOKEN_CHECK_FAILED))
   }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {

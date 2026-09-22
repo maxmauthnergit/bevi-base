@@ -40,6 +40,21 @@ export async function GET() {
       scopes,
     })
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    const message = (e as Error).message
+    // Code 190 is Meta's OAuthException: the token itself was rejected. Report
+    // it as a result rather than an error so the settings page can flag it —
+    // this is exactly the moment the token needs attention.
+    if (message.includes('"code":190')) {
+      return NextResponse.json({
+        is_valid:      false,
+        expires_at:    null,
+        issued_at:     null,
+        days_left:     null,
+        never_expires: false,
+        scopes:        [],
+        reason:        message.includes('"error_subcode":463') ? 'expired' : 'invalid',
+      })
+    }
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
