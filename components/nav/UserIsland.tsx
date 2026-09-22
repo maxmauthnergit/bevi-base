@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createSupabaseBrowser } from '@/lib/supabase/browser'
 import { LowStockList } from '@/components/inventory/LowStockList'
 import type { LowStockItem } from '@/lib/low-stock'
+import type { MetaTokenInfo } from '@/lib/meta/token'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -18,7 +19,13 @@ interface Props {
   avatarUrl?: string
   /** Unawaited — streamed in so the island renders before inventory data lands. */
   lowStock: Promise<LowStockItem[]>
+  /** Unawaited, like lowStock. null when the check itself failed. */
+  metaToken: Promise<MetaTokenInfo | null>
 }
+
+/** The island warns this many days before the Meta token runs out. */
+const META_TOKEN_WARNING_DAYS = 10
+const META_BLUE = '#0064E0'
 
 function BellIcon({ color }: { color: string }) {
   return (
@@ -32,12 +39,38 @@ function BellIcon({ color }: { color: string }) {
   )
 }
 
+function MetaIcon({ color }: { color: string }) {
+  return (
+    <svg width="16" height="14" viewBox="0 0 16 14" fill="none" style={{ display: 'block' }}>
+      <path
+        d="M8 7C6.8 4.9 5.6 3.6 4.1 3.6 2.6 3.6 1.3 5.2 1.3 7.3c0 1.6.8 2.6 2 2.6C4.9 9.9 6.2 8.2 8 7Zm0 0c1.2-2.1 2.4-3.4 3.9-3.4 1.5 0 2.8 1.6 2.8 3.7 0 1.6-.8 2.6-2 2.6C11.1 9.9 9.8 8.2 8 7Z"
+        stroke={color} strokeWidth="1.3" strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 /**
- * Floating top-right island: low-stock notification + user identity.
+ * Island label for the token, or null while it is comfortably far from expiry.
+ * `short` is the phone variant — the logo already says Meta, and the island
+ * has to fit beside the low stock pill on a 360px screen.
+ */
+function metaTokenAlert(t: MetaTokenInfo | null): { full: string; short: string } | null {
+  if (!t) return null
+  if (t.reason === 'expired') return { full: 'Meta token expired', short: 'Expired' }
+  if (!t.is_valid)            return { full: 'Meta token invalid', short: 'Invalid' }
+  if (t.never_expires || t.days_left === null || t.days_left > META_TOKEN_WARNING_DAYS) return null
+  if (t.days_left < 0)        return { full: 'Meta token expired',       short: 'Expired' }
+  if (t.days_left === 0)      return { full: 'Meta token expires today', short: 'Today' }
+  return { full: `Meta token expires in ${t.days_left}d`, short: `${t.days_left}d` }
+}
+
+/**
+ * Floating top-right island: notifications (Meta token, low stock) + user identity.
  * Fixed to the viewport so page content can scroll all the way to the top
  * instead of hiding behind a full-width bar.
  */
-export function UserIsland({ displayName, initials, avatarUrl, lowStock }: Props) {
+export function UserIsland({ displayName, initials, avatarUrl, lowStock, metaToken }: Props) {
   const [menuOpen,  setMenuOpen]  = useState(false)
   const [alertOpen, setAlertOpen] = useState(false)
   const [loading,   setLoading]   = useState(false)
@@ -114,8 +147,9 @@ export function UserIsland({ displayName, initials, avatarUrl, lowStock }: Props
           boxShadow: '0 2px 12px rgba(17,17,16,0.08)',
         }}>
           <Suspense fallback={null}>
-            <LowStockBell
+            <Notifications
               lowStock={lowStock}
+              metaToken={metaToken}
               open={alertOpen}
               onToggle={() => { setAlertOpen(v => !v); setMenuOpen(false) }}
               onNavigate={closeAll}
@@ -191,21 +225,65 @@ export function UserIsland({ displayName, initials, avatarUrl, lowStock }: Props
 }
 
 /**
- * Low stock notification inside the island: badge + expandable detail panel.
- * Suspends until the streamed inventory promise resolves; renders nothing
- * when no SKU runs out inside the alert horizon.
+ * Notification pills on the island's left: Meta token warning, then low
+ * stock. Suspends until both streamed promises resolve; renders nothing —
+ * divider included — when neither has anything to say.
  */
-function LowStockBell({
-  lowStock, open, onToggle, onNavigate,
+function Notifications({
+  lowStock, metaToken, open, onToggle, onNavigate,
 }: {
   lowStock: Promise<LowStockItem[]>
+  metaToken: Promise<MetaTokenInfo | null>
   open: boolean
   onToggle: () => void
   onNavigate: () => void
 }) {
-  const items = use(lowStock)
-  if (items.length === 0) return null
+  const items      = use(lowStock)
+  const tokenAlert = metaTokenAlert(use(metaToken))
+  if (items.length === 0 && !tokenAlert) return null
 
+  return (
+    <>
+      {tokenAlert && (
+        <Link
+          href="/dashboard/settings"
+          onClick={onNavigate}
+          aria-label={`${tokenAlert.full} — open settings`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 13px', borderRadius: 999, marginLeft: 6,
+            textDecoration: 'none',
+            backgroundColor: 'rgba(0,100,224,0.07)',
+          }}
+        >
+          <MetaIcon color={META_BLUE} />
+          <span className="label hidden md:inline" style={{ color: META_BLUE, whiteSpace: 'nowrap' }}>
+            {tokenAlert.full}
+          </span>
+          <span className="label md:hidden" style={{ color: META_BLUE, whiteSpace: 'nowrap' }}>
+            {tokenAlert.short}
+          </span>
+        </Link>
+      )}
+      {items.length > 0 && (
+        <LowStockBell items={items} open={open} onToggle={onToggle} onNavigate={onNavigate} />
+      )}
+      {/* 10px to the pill; 1px plus the user button's own 9px to the name — the
+          same gap on both sides. */}
+      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 1px 0 10px' }} />
+    </>
+  )
+}
+
+/** Low stock notification inside the island: badge + expandable detail panel. */
+function LowStockBell({
+  items, open, onToggle, onNavigate,
+}: {
+  items: LowStockItem[]
+  open: boolean
+  onToggle: () => void
+  onNavigate: () => void
+}) {
   return (
     <>
       <button
@@ -223,14 +301,10 @@ function LowStockBell({
         }}
       >
         <BellIcon color="#DC2626" />
-        <span className="label" style={{ color: '#DC2626' }}>
+        <span className="label" style={{ color: '#DC2626', whiteSpace: 'nowrap' }}>
           Low Stock Alert
         </span>
       </button>
-      {/* 10px to the pill; 1px plus the user button's own 9px to the name — the
-          same gap on both sides. */}
-      <span style={{ width: 1, height: 18, backgroundColor: '#E3E2DC', flexShrink: 0, margin: '0 1px 0 10px' }} />
-
       {/* Details — expanded from the notification */}
       {open && (
         <div style={{

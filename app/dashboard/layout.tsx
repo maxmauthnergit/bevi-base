@@ -4,6 +4,7 @@ import { DateRangeProvider } from '@/components/providers/DateRangeProvider'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { UserIsland, SCROLL_CONTAINER_ID } from '@/components/nav/UserIsland'
 import { getLowStockItems } from '@/lib/low-stock'
+import { getMetaTokenInfo } from '@/lib/meta/token'
 import { redirect } from 'next/navigation'
 
 export default async function DashboardLayout({
@@ -21,6 +22,10 @@ export default async function DashboardLayout({
   // Not awaited: the island streams the alerts in so the inventory calls
   // never block the page from rendering.
   const lowStock = getLowStockItems().catch(() => [])
+  // Token lifetime moves in days, so an hour of caching spares a Meta call on
+  // every navigation. A failed check shows no island pill — Settings has the
+  // detail.
+  const metaToken = getMetaTokenInfo({ next: { revalidate: 3600 } }).catch(() => null)
 
   const displayName = user?.user_metadata?.full_name
     ?? user?.user_metadata?.name
@@ -49,12 +54,13 @@ export default async function DashboardLayout({
         </DateRangeProvider>
       </div>
 
-      {/* Floating island — user + low stock notification, all breakpoints */}
+      {/* Floating island — user + low stock / Meta token notifications, all breakpoints */}
       <UserIsland
         displayName={displayName}
         initials={initials}
         avatarUrl={avatarUrl}
         lowStock={lowStock}
+        metaToken={metaToken}
       />
 
       {/* Bottom nav — mobile + tablet only */}
