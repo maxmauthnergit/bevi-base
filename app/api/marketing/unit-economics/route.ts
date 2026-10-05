@@ -4,6 +4,7 @@ import { resolvePeriods, isoInTZ } from '@/lib/comparison-period'
 import { loadUnitEconomicsContext, computePeriod, type PeriodResult } from '@/lib/kpis/unit-economics'
 import type { UnitEconomics } from '@/lib/kpis/formulas'
 import type { KpiValue } from '@/lib/types'
+import { requireUser } from '@/lib/supabase/require-user'
 
 export const dynamic = 'force-dynamic'
 // Reads the full order history plus the WeShip invoices of every month in both periods
@@ -124,6 +125,9 @@ function waterfall(c: PeriodResult) {
 }
 
 export async function GET(req: NextRequest) {
+  const denied = await requireUser()
+  if (denied) return denied
+
   const from   = req.nextUrl.searchParams.get('from')
   const to     = req.nextUrl.searchParams.get('to')
   const preset = req.nextUrl.searchParams.get('preset')
@@ -153,6 +157,8 @@ export async function GET(req: NextRequest) {
         meta:    curr.metaOk,
         lots:    ctx.lotCount,
         unmappedUnits: ctx.unmappedUnits,
+        history: ctx.factsSource,
+        synced:  ctx.synced,
       },
     })
   } catch (err) {

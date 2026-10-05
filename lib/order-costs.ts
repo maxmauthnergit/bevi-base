@@ -1,4 +1,3 @@
-import type { ShopifyOrder } from '@/lib/shopify/client'
 import { createServerClient } from '@/lib/supabase'
 import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
 import { getWeShipMonthData, type WeShipMonthData } from '@/lib/weship/xlsx-parser'
@@ -72,7 +71,7 @@ function getProductKey(title: string): string {
 }
 
 // Stable key representing a basket's product composition (order-insensitive)
-export function compositionKey(lineItems: ShopifyOrder['line_items']): string {
+export function compositionKey(lineItems: { title: string; quantity: number }[]): string {
   return lineItems
     .map(li => `${getProductKey(li.title)}:${li.quantity}`)
     .sort()
@@ -95,9 +94,19 @@ export interface OrderWeShipCosts {
   returns_items?:  Item[]
 }
 
+/** What cost matching needs of an order; a ShopifyOrder fits, so does an order fact. */
+export interface WeShipOrderLike {
+  name:              string
+  line_items:        { title: string; quantity: number }[]
+  financial_status:  string
+  cancelled_at:      string | null
+  shipping_address?: { country_code: string }
+  billing_address?:  { country_code: string }
+}
+
 export interface WeShipCosts {
   /** Priority: 1) actual invoice  2) 3-month average by basket  3) nothing found (0). */
-  forOrder(o: ShopifyOrder): OrderWeShipCosts
+  forOrder(o: WeShipOrderLike): OrderWeShipCosts
   /** Monthly storage fee per invoice month ('YYYY-MM'); 0 where no invoice. */
   storageFee(month: string): number
   anyParsed: boolean
@@ -125,7 +134,7 @@ function refToItems(ref: HistRef): Item[] {
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
-const countryOf = (o: ShopifyOrder) => o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
+const countryOf = (o: WeShipOrderLike) => o.shipping_address?.country_code ?? o.billing_address?.country_code ?? 'XX'
 
 /**
  * Loads the WeShip invoices for the range months (± one month, since an order
@@ -134,14 +143,14 @@ const countryOf = (o: ShopifyOrder) => o.shipping_address?.country_code ?? o.bil
  */
 export async function loadWeShipCosts(
   rangeMonths: string[],
-  ordersForMonth: (month: string) => Promise<ShopifyOrder[]>,
+  ordersForMonth: (month: string) => Promise<WeShipOrderLike[]>,
 ): Promise<WeShipCosts> {
   const xlsxMonths   = [offsetYM(rangeMonths[0], -1), ...rangeMonths, offsetYM(rangeMonths[rangeMonths.length - 1], +1)]
   const lookbackKeys = Array.from({ length: WESHIP_LOOKBACK }, (_, i) => offsetYM(rangeMonths[0], -(i + 1)))
 
   const [xlsxResults, lookbackOrders, lookbackXlsx] = await Promise.all([
     Promise.all(xlsxMonths.map(getWeShipMonthData)),
-    Promise.all(lookbackKeys.map(m => ordersForMonth(m).catch((): ShopifyOrder[] => []))),
+    Promise.all(lookbackKeys.map(m => ordersForMonth(m).catch((): WeShipOrderLike[] => []))),
     Promise.all(lookbackKeys.map(getWeShipMonthData)),
   ])
 
@@ -172,7 +181,7 @@ export async function loadWeShipCosts(
     }
   }
 
-  function forOrder(o: ShopifyOrder): OrderWeShipCosts {
+  function forOrder(o: WeShipOrderLike): OrderWeShipCosts {
     const xlsxEntry = mergedByOrder.get(o.name)
     if (anyParsed && xlsxEntry !== undefined) {
       return {

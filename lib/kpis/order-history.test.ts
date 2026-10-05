@@ -1,23 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import { firstOrderIds, restockedQuantities } from './order-history'
+import { customerKey } from './order-facts'
 
-const o = (id: number, email: string | null, customer: number | null, extra: { cancelled_at?: string | null } = {}) => ({
-  id, email: email as string, customer: customer ? { id: customer } : null,
-  financial_status: 'paid', cancelled_at: extra.cancelled_at ?? null,
+const o = (id: number, email: string | null, customer: number | null, revenue_order = true) => ({
+  id, revenue_order, customer_key: customerKey({ email: email as string, customer: customer ? { id: customer } : null }),
 })
 
 describe('firstOrderIds', () => {
-  it('detects first orders by customer id, then by normalised email', () => {
+  it('recognises returning customers by email (hashed), else by customer id', () => {
     const ids = firstOrderIds([
       o(1, 'anna@x.com', 11),
       o(2, 'guest@x.com', null),
       o(3, 'anna@x.com', 11),              // repeat customer
-      o(4, ' GUEST@x.com ', 22),           // same guest email, now with an account
-      o(5, 'bob@x.com', 33, { cancelled_at: '2025-01-01' }),   // cancelled: does not count
+      o(4, ' GUEST@x.com ', 22),           // the same guest, now with an account
+      o(5, 'bob@x.com', 33, false),        // cancelled: does not count
       o(6, 'bob@x.com', 33),               // so this is Bob's first
-      o(7, null, null),                    // nothing to match on → first
+      o(7, null, 44),                      // no email → customer id
+      o(8, null, 44),                      // repeat by customer id
+      o(9, null, null),                    // nothing to match on → first
     ])
-    expect([...ids].sort()).toEqual([1, 2, 6, 7])
+    expect([...ids].sort((a, b) => a - b)).toEqual([1, 2, 6, 7, 9])
   })
 })
 

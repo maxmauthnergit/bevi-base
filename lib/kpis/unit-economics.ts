@@ -3,18 +3,16 @@
 
 import { createServerClient } from '@/lib/supabase'
 import { getShopTimezone } from '@/lib/shopify/queries'
-import { computeSalesSummary, getSalesSummary, type SalesSummarySource } from '@/lib/shopify/sales-summary'
+import { getSalesSummary, type SalesSummarySource } from '@/lib/shopify/sales-summary'
 import { getMetaInsightsForRange } from '@/lib/meta/queries'
 import { fetchInbounds } from '@/lib/inbounds-db'
 import { INBOUND_PRODUCTS } from '@/lib/inbounds'
 import { DEFAULT_PRODUCT_COSTS } from '@/lib/costs-config'
-import { getCosts, loadAmountsMap, loadWeShipCosts, type AmountsMap } from '@/lib/order-costs'
+import { getCosts, loadAmountsMap, loadWeShipCosts, type AmountsMap, type WeShipOrderLike } from '@/lib/order-costs'
 import { isoInTZ, type PeriodBounds } from '@/lib/comparison-period'
 import { buildLots, runFifo, type FifoResult, type Sale } from './cogs-fifo'
-import { mapLineItem } from './product-mapping'
-import {
-  getOrderHistory, firstOrderIds, isRevenueOrder, restockedQuantities, type HistoryOrder,
-} from './order-history'
+import { firstOrderIds } from './order-history'
+import { loadOrderFacts, type FactsSource, type OrderFact } from './order-facts'
 import {
   computeUnitEconomics, costOfDelivery, estimatePaymentFee, monthShareInRange,
   type PeriodInputs, type UnitEconomics,
@@ -24,16 +22,15 @@ import {
 
 export interface UnitEconomicsContext {
   tz:         string
-  history:    HistoryOrder[]
+  facts:      OrderFact[]     // full order history, chronological
+  factsSource: FactsSource
+  synced:     number
   firstIds:   Set<number>
   fifo:       FifoResult
   amountsMap: AmountsMap
   lotCount:   number
   unmappedUnits: number   // sold units no inbound product could be found for
 }
-
-const num = (v: string | number | null | undefined) =>
-  typeof v === 'number' ? v : parseFloat(v ?? '') || 0
 
 /** Configured production + IB cost of an inbound product (FIFO fallback). */
 function configuredUnitCost(productId: string, amountsMap: AmountsMap): number {
@@ -44,38 +41,45 @@ function configuredUnitCost(productId: string, amountsMap: AmountsMap): number {
 }
 
 export async function loadUnitEconomicsContext(): Promise<UnitEconomicsContext> {
-  const [tz, history, inbounds, amountsMap] = await Promise.all([
-    getShopTimezone(),
-    getOrderHistory(),
+  const tz = await getShopTimezone()
+  const [loaded, inbounds, amountsMap] = await Promise.all([
+    loadOrderFacts(tz),
     fetchInbounds(createServerClient()),
     loadAmountsMap(),
   ])
+  const { facts } = loaded
 
-  // Every unit ever sold, net of units that came back into stock
+  // Every unit ever sold (already net of units that came back into stock)
   const sales: Sale[] = []
   let unmappedUnits = 0
-  for (const o of history) {
-    if (!isRevenueOrder(o)) continue
-    const back = restockedQuantities(o)
-    const day  = isoInTZ(new Date(o.created_at), tz)
-    for (const li of o.line_items) {
-      const qty = li.quantity - (back.get(li.id) ?? 0)
-      if (qty <= 0) continue
-      const parts = mapLineItem({ ...li, quantity: qty })
-      if (!parts) { unmappedUnits += qty; continue }
-      for (const p of parts) sales.push({ orderId: o.id, day, productId: p.productId, quantity: p.quantity })
-    }
+  for (const f of facts) {
+    if (!f.revenue_order) continue
+    unmappedUnits += f.unmapped_units
+    for (const u of f.units) sales.push({ orderId: f.id, day: f.day, productId: u.productId, quantity: u.quantity })
   }
 
   const lots = buildLots(inbounds)
   return {
     tz,
-    history,
-    firstIds: firstOrderIds(history),
+    facts,
+    factsSource: loaded.source,
+    synced:   loaded.synced,
+    firstIds: firstOrderIds(facts),
     fifo:     runFifo(sales, lots, id => configuredUnitCost(id, amountsMap)),
     amountsMap,
     lotCount: lots.length,
     unmappedUnits,
+  }
+}
+
+/** An order fact in the shape WeShip cost matching expects. */
+function asWeShipOrder(f: OrderFact): WeShipOrderLike {
+  return {
+    name:             f.name,
+    line_items:       f.lines,
+    financial_status: f.revenue_order ? 'paid' : 'voided',
+    cancelled_at:     null,
+    ...(f.country ? { shipping_address: { country_code: f.country } } : {}),
   }
 }
 
@@ -113,12 +117,12 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
   const to   = isoInTZ(bounds.toDate,   tz)
   const t0 = bounds.fromDate.getTime(), t1 = bounds.toDate.getTime()
 
-  const inRange = ctx.history.filter(o => {
-    const t = Date.parse(o.created_at)
-    return t >= t0 && t <= t1 && isRevenueOrder(o)
+  const inRange = ctx.facts.filter(f => {
+    const t = Date.parse(f.created_at)
+    return t >= t0 && t <= t1 && f.revenue_order
   })
   const ordersForMonth = async (m: string) =>
-    ctx.history.filter(o => isoInTZ(new Date(o.created_at), tz).startsWith(m))
+    ctx.facts.filter(f => f.day.startsWith(m)).map(asWeShipOrder)
 
   const months = monthsBetween(from, to)
   const [summaryRes, metaRes, weship] = await Promise.all([
@@ -129,11 +133,11 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
 
   // Per-order costs
   let cogs = 0, estCogs = 0, fulfillment = 0, shippingCosts = 0, estFulfillment = 0, returnCosts = 0, fees = 0
-  const firstOrders: HistoryOrder[] = []
-  let firstCod = 0
+  let firstOrders = 0, firstRevenue = 0, firstCod = 0
 
-  for (const o of inRange) {
-    const c = ctx.fifo.byOrder.get(o.id)
+  for (const f of inRange) {
+    const o = asWeShipOrder(f)
+    const c = ctx.fifo.byOrder.get(f.id)
     const orderCogs = c?.cogs ?? 0
     cogs    += orderCogs
     estCogs += c?.estimatedCogs ?? 0
@@ -157,16 +161,13 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
     if (w.shipping_source !== 'actual') estFulfillment += shippingCost
     returnCosts += w.returns
 
-    const refunded = (o.refunds ?? [])
-      .flatMap(r => r.transactions ?? [])
-      .filter(t => t.kind === 'refund' && t.status === 'success')
-      .reduce((s, t) => s + num(t.amount), 0)
-    const fee = estimatePaymentFee(num(o.total_price) - refunded)
+    const fee = estimatePaymentFee(f.amount_paid)
     fees += fee
 
-    if (ctx.firstIds.has(o.id)) {
-      firstOrders.push(o)
-      firstCod += costOfDelivery({ cogs: orderCogs, fulfillment: orderFulfillment, returnCosts: w.returns, paymentFees: fee })
+    if (ctx.firstIds.has(f.id)) {
+      firstOrders  += 1
+      firstRevenue += f.net_sales + f.shipping
+      firstCod     += costOfDelivery({ cogs: orderCogs, fulfillment: orderFulfillment, returnCosts: w.returns, paymentFees: fee })
     }
   }
 
@@ -174,7 +175,6 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
   const storage = months.reduce((s, m) => s + weship.storageFee(m) * monthShareInRange(m, from, to), 0)
   fulfillment += storage
 
-  const first = computeSalesSummary(firstOrders)
   const { summary } = summaryRes
   const meta = metaRes.ok ? metaRes.m : null
 
@@ -188,9 +188,9 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
     fulfillment,
     returnCosts,
     paymentFees:       fees,
-    newCustomers:      firstOrders.length,
+    newCustomers:      firstOrders,
     firstOrders: {
-      netRevenue: first.net_sales + first.shipping,
+      netRevenue: firstRevenue,
       cod:        firstCod,
     },
   }
@@ -201,7 +201,7 @@ export async function computePeriod(ctx: UnitEconomicsContext, bounds: PeriodBou
     storage,
     shippingCosts,
     estimated:     { cogs: estCogs, fulfillment: estFulfillment, fees },
-    firstOrders:   firstOrders.length,
+    firstOrders,
     revenueSource: summaryRes.source,
     metaOk:        metaRes.ok,
   }

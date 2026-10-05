@@ -38,7 +38,10 @@ interface Response {
   kpis:       Record<string, KpiValue>
   waterfall:  WaterfallData
   compPeriod: { from: string; to: string } | null
-  sources:    { revenue: 'shopifyql' | 'orders'; meta: boolean; lots: number; unmappedUnits: number }
+  sources:    {
+    revenue: 'shopifyql' | 'orders'; meta: boolean; lots: number; unmappedUnits: number
+    history: 'snapshot' | 'live'; synced: number
+  }
 }
 
 export function UnitEconomicsSection() {
@@ -107,6 +110,7 @@ export function UnitEconomicsSection() {
           Revenue: {data.sources.revenue === 'shopifyql' ? 'Shopify Analytics (ShopifyQL)' : 'calculated from orders'}
           {' · '}COGS: FIFO over {data.sources.lots} inbound lots
           {data.sources.unmappedUnits > 0 && ` · ${data.sources.unmappedUnits} sold units without a matching product`}
+          {' · '}History: {data.sources.history === 'snapshot' ? 'Supabase snapshot' : 'live from Shopify (snapshot not set up)'}
           {!data.sources.meta && ' · Meta Ads unavailable'}
         </div>
       )}
