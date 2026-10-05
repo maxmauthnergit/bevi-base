@@ -36,6 +36,7 @@ const INSIGHT_FIELDS = [
   'reach',
   'purchase_roas',
   'actions',
+  'action_values',
 ].join(',')
 
 // ─── Aggregate type returned by getMetaInsightsForRange ───────────────────────
@@ -48,10 +49,11 @@ export interface MetaRangeInsights {
   ctr:         number
   meta_roas:   number
   purchases:   number
+  purchase_value: number   // Meta-attributed purchase value (as Meta reports it, typically incl. VAT)
 }
 
 function aggregateInsights(rows: MetaInsight[]): MetaRangeInsights {
-  let spend = 0, impressions = 0, clicks = 0, purchases = 0
+  let spend = 0, impressions = 0, clicks = 0, purchases = 0, purchaseValue = 0
   let roasAttributedRevenue = 0
 
   for (const row of rows) {
@@ -60,6 +62,7 @@ function aggregateInsights(rows: MetaInsight[]): MetaRangeInsights {
     impressions += toFloat(row.impressions)
     clicks      += toFloat(row.clicks)
     purchases   += getActionValue(row.actions, 'purchase') || getActionValue(row.actions, 'omni_purchase')
+    purchaseValue += getActionValue(row.action_values, 'purchase') || getActionValue(row.action_values, 'omni_purchase')
     if (row.purchase_roas?.length) {
       roasAttributedRevenue += toFloat(row.purchase_roas[0].value) * s
     }
@@ -73,6 +76,8 @@ function aggregateInsights(rows: MetaInsight[]): MetaRangeInsights {
     ctr:         impressions > 0 ? Math.round((clicks / impressions) * 10000) / 100 : 0,
     meta_roas:   spend > 0 ? Math.round((roasAttributedRevenue / spend) * 100) / 100 : 0,
     purchases:   Math.round(purchases),
+    // Fall back to ROAS × spend when Meta returns no action_values
+    purchase_value: Math.round((purchaseValue || roasAttributedRevenue) * 100) / 100,
   }
 }
 

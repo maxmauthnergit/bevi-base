@@ -24,7 +24,7 @@ export type SalesSummarySource = 'shopifyql' | 'orders'
 interface TaxLine { price: string; rate: number }
 interface MoneySet { shop_money: { amount: string } }
 
-interface SalesOrder {
+export interface SalesOrder {
   id: number
   financial_status: string
   cancelled_at: string | null

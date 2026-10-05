@@ -59,10 +59,11 @@ export const NAV: NavNode[] = [
   {
     kind: 'group', id: 'statistics', label: 'Statistics', shortLabel: 'Stats', icon: iconStatistics,
     children: [
-      { href: '/dashboard/orders',    label: 'Orders'    },
+      { href: '/dashboard/orders',         label: 'Orders'         },
       { href: '/dashboard/sales',          label: 'Sales'          },
       { href: '/dashboard/sales-insights', label: 'Sales Insights' },
-      { href: '/dashboard/marketing', label: 'Marketing' },
+      { href: '/dashboard/marketing',      label: 'Marketing'      },
+      { href: '/dashboard/marketing-2',    label: 'Marketing 2.0'  },
     ],
   },
   { kind: 'link', href: '/dashboard/financials', label: 'Financials', shortLabel: 'Fin', icon: iconFinancials },
