@@ -60,8 +60,8 @@ export const NAV: NavNode[] = [
     kind: 'group', id: 'statistics', label: 'Statistics', shortLabel: 'Stats', icon: iconStatistics,
     children: [
       { href: '/dashboard/orders',    label: 'Orders'    },
-      { href: '/dashboard/sales',     label: 'Sales'     },
-      { href: '/dashboard/sales-2',   label: 'Sales 2.0' },
+      { href: '/dashboard/sales',          label: 'Sales'          },
+      { href: '/dashboard/sales-insights', label: 'Sales Insights' },
       { href: '/dashboard/marketing', label: 'Marketing' },
     ],
   },

@@ -21,8 +21,8 @@ function fmtCompPeriod(from: string, to: string) {
 }
 
 const METRICS: MetricDefinition[] = [
-  { id: 'revenue_gross', label: 'Revenue Gross',        source: 'shopify', format: 'currency' },
-  { id: 'revenue_net',   label: 'Revenue Net',          source: 'shopify', format: 'currency' },
+  { id: 'gross_sales',   label: 'Gross Sales',          source: 'shopify', format: 'currency' },
+  { id: 'net_sales',     label: 'Net Sales',            source: 'shopify', format: 'currency' },
   { id: 'orders',        label: 'Orders',               source: 'shopify', format: 'number'   },
   { id: 'return_rate',   label: 'Return Rate',          source: 'shopify', format: 'percent'  },
   { id: 'aov',           label: 'Avg Order Value',      source: 'shopify', format: 'currency' },
@@ -47,7 +47,7 @@ export function SalesKpiSection() {
     let cancelled = false
     setLoading(true)
     setError(false)
-    const params = new URLSearchParams({ from: fromStr, to: toStr })
+    const params = new URLSearchParams({ from: fromStr, to: toStr, include: 'sales_summary' })
     if (range.preset) params.set('preset', range.preset)
     if (range.month)  params.set('month',  range.month)
     fetch(`/api/kpis?${params}`)

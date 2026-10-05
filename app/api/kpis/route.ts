@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getOrderKpisForRange, getBundleOrderCountForRange, getShopTimezone, parseInTimezone } from '@/lib/shopify/queries'
 import { getMetaSpendForRange } from '@/lib/meta/queries'
+import { getSalesSummary } from '@/lib/shopify/sales-summary'
 import { createServerClient } from '@/lib/supabase'
 import { DEFAULT_PRODUCT_COSTS, applyOverrides, buildAmountsMap } from '@/lib/costs-config'
 
@@ -68,6 +69,9 @@ export async function GET(req: NextRequest) {
 
   const preset = req.nextUrl.searchParams.get('preset')
   const month  = req.nextUrl.searchParams.get('month')
+  // Opt-in: Gross / Net Sales as Shopify Analytics defines them (excl. VAT,
+  // shipping and taxes), the same source as the Sales page breakdown table.
+  const withSalesSummary = req.nextUrl.searchParams.get('include') === 'sales_summary'
 
   // Comparison period
   let prevFromDate: Date
@@ -115,11 +119,13 @@ export async function GET(req: NextRequest) {
 
   // All time: no meaningful comparison period — return values only
   if (preset === 'all-time') {
-    const [curr, currSpend, currBundles] = await Promise.allSettled([
+    const [curr, currSpend, currBundles, currSummary] = await Promise.allSettled([
       getOrderKpisForRange(fromDate, toDate, amountsMap),
       getMetaSpendForRange(fromDate, toDate, tz),
       getBundleOrderCountForRange(fromDate, toDate),
+      withSalesSummary ? getSalesSummary(from, to) : Promise.resolve(null),
     ])
+    const cSum = currSummary.status === 'fulfilled' ? currSummary.value?.summary : undefined
     const c  = curr.status        === 'fulfilled' ? curr.value        : null
     const cs = currSpend.status   === 'fulfilled' ? currSpend.value   : 0
     const cOrders    = c?.order_count  ?? 0
@@ -141,19 +147,27 @@ export async function GET(req: NextRequest) {
         aov:                 mkKpiOnly('aov',                 cAov,                  true),
         return_rate:         mkKpiOnly('return_rate',         cRetRate,    false, returnRateNote(cOrders, cRefunds, cRetRate)),
         bundle_rate:         mkKpiOnly('bundle_rate',         cBundleRate, true),
+        ...(cSum ? {
+          gross_sales: mkKpiOnly('gross_sales', cSum.gross_sales, true),
+          net_sales:   mkKpiOnly('net_sales',   cSum.net_sales,   true),
+        } : {}),
       },
       period: { from, to },
     })
   }
 
-  const [curr, prev, currSpend, prevSpend, currBundles, prevBundles] = await Promise.allSettled([
+  const [curr, prev, currSpend, prevSpend, currBundles, prevBundles, currSummary, prevSummary] = await Promise.allSettled([
     getOrderKpisForRange(fromDate, toDate, amountsMap),
     getOrderKpisForRange(prevFromDate, prevToDate, amountsMap),
     getMetaSpendForRange(fromDate, toDate, tz),
     getMetaSpendForRange(prevFromDate, prevToDate, tz),
     getBundleOrderCountForRange(fromDate, toDate),
     getBundleOrderCountForRange(prevFromDate, prevToDate),
+    withSalesSummary ? getSalesSummary(from, to) : Promise.resolve(null),
+    withSalesSummary ? getSalesSummary(isoInTZ(prevFromDate, tz), isoInTZ(prevToDate, tz)) : Promise.resolve(null),
   ])
+  const cSum = currSummary.status === 'fulfilled' ? currSummary.value?.summary : undefined
+  const pSum = prevSummary.status === 'fulfilled' ? prevSummary.value?.summary : undefined
 
   const c  = curr.status      === 'fulfilled' ? curr.value      : null
   const p  = prev.status      === 'fulfilled' ? prev.value      : null
@@ -189,6 +203,10 @@ export async function GET(req: NextRequest) {
       aov:                 mkKpi('aov',                 cAov,            pAov,            true),
       return_rate:         mkKpi('return_rate',         cReturnRate,     pReturnRate,     false, returnRateNote(cOrders, cRefunds, cReturnRate)),
       bundle_rate:         mkKpi('bundle_rate',         cBundleRate,     pBundleRate,     true),
+      ...(cSum ? {
+        gross_sales: mkKpi('gross_sales', cSum.gross_sales, pSum?.gross_sales ?? 0, true),
+        net_sales:   mkKpi('net_sales',   cSum.net_sales,   pSum?.net_sales   ?? 0, true),
+      } : {}),
     },
     period:     { from, to },
     compPeriod: { from: isoInTZ(prevFromDate, tz), to: isoInTZ(prevToDate, tz) },
