@@ -61,6 +61,7 @@ export const NAV: NavNode[] = [
     children: [
       { href: '/dashboard/orders',    label: 'Orders'    },
       { href: '/dashboard/sales',     label: 'Sales'     },
+      { href: '/dashboard/sales-2',   label: 'Sales 2.0' },
       { href: '/dashboard/marketing', label: 'Marketing' },
     ],
   },
