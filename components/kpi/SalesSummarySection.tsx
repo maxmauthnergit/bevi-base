@@ -29,13 +29,13 @@ interface Row {
 // Order and wording mirror the sales waterfall: each subtotal sits under the
 // rows that feed it.
 const ROWS: Row[] = [
-  { key: 'gross_sales', sign: '',  label: 'Gross Sales',   description: 'Preis × Menge, ohne USt', total: true },
-  { key: 'discounts',   sign: '−', label: 'Discounts',     description: 'Rabatte auf Artikel, ohne USt' },
-  { key: 'returns',     sign: '−', label: 'Returns',       description: 'Erstattete Artikel, ohne USt' },
+  { key: 'gross_sales', sign: '',  label: 'Gross Sales',   description: 'Price × quantity, excl. VAT', total: true },
+  { key: 'discounts',   sign: '−', label: 'Discounts',     description: 'Product discounts, excl. VAT' },
+  { key: 'returns',     sign: '−', label: 'Returns',       description: 'Refunded items, excl. VAT' },
   { key: 'net_sales',   sign: '=', label: 'Net Sales',     description: 'Gross Sales − Discounts − Returns', total: true },
-  { key: 'shipping',    sign: '+', label: 'Shipping',      description: 'Versandkosten abzgl. Erstattungen, ohne USt' },
-  { key: 'taxes',       sign: '+', label: 'Taxes',         description: 'USt auf Ware + Versand' },
-  { key: 'duties_fees', sign: '+', label: 'Duties / Fees', description: 'Zölle und Zusatzgebühren, falls vorhanden' },
+  { key: 'shipping',    sign: '+', label: 'Shipping',      description: 'Shipping charges net of refunds, excl. VAT' },
+  { key: 'taxes',       sign: '+', label: 'Taxes',         description: 'VAT on products + shipping' },
+  { key: 'duties_fees', sign: '+', label: 'Duties / Fees', description: 'Duties and additional fees, if any' },
   { key: 'total_sales', sign: '=', label: 'Total Sales',   description: 'Net Sales + Shipping + Taxes + Duties / Fees', total: true },
 ]
 
@@ -72,13 +72,8 @@ export function SalesSummarySection() {
           const shown = row.sign === '−' && value ? -value : value
           return (
             <Fragment key={row.key}>
-              {/* A heavier rule above each subtotal, like the line under a sum */}
               {i > 0 && (
-                <div style={{
-                  height: 1,
-                  backgroundColor: row.total ? '#111110' : '#EEEDE8',
-                  opacity: row.total ? 0.15 : 1,
-                }} />
+                <div style={{ height: 1, backgroundColor: '#EEEDE8' }} />
               )}
               <div
                 className="flex items-start justify-between gap-4"
@@ -131,8 +126,8 @@ export function SalesSummarySection() {
       {source && (
         <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 8 }}>
           {source === 'shopifyql'
-            ? 'Quelle: Shopify Analytics (ShopifyQL)'
-            : 'Quelle: aus Bestellungen berechnet – Shopify Analytics nicht verfügbar'}
+            ? 'Source: Shopify Analytics (ShopifyQL)'
+            : 'Source: calculated from orders – Shopify Analytics unavailable'}
         </div>
       )}
     </Card>
