@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 // Shopify will redirect back to /api/shopify/callback with an auth code.
 
 const REDIRECT_URI = 'https://bevi-base.vercel.app/api/shopify/callback'
-const SCOPES = 'read_orders,read_products,read_inventory,read_analytics'
+const SCOPES = 'read_orders,read_products,read_inventory,read_analytics,read_reports'
 
 export async function GET() {
   const clientId = process.env.SHOPIFY_CLIENT_ID

@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import { Card } from '@/components/ui/Card'
-import type { SalesSummary } from '@/lib/shopify/sales-summary'
+import type { SalesSummary, SalesSummarySource } from '@/lib/shopify/sales-summary'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -48,13 +48,13 @@ export function SalesSummarySection() {
 
   // Results are keyed by the query they answer, so a range change shows the
   // previous numbers dimmed until the new ones land.
-  const [result, setResult] = useState<{ query: string; data: SalesSummary | null } | null>(null)
+  const [result, setResult] = useState<{ query: string; data: SalesSummary | null; source?: SalesSummarySource } | null>(null)
 
   useEffect(() => {
     let cancelled = false
     fetch(`/api/sales/summary?${query}`)
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(json => { if (!cancelled) setResult({ query, data: json.summary }) })
+      .then(json => { if (!cancelled) setResult({ query, data: json.summary, source: json.source }) })
       .catch(()  => { if (!cancelled) setResult({ query, data: null }) })
     return () => { cancelled = true }
   }, [query])
@@ -62,6 +62,7 @@ export function SalesSummarySection() {
   const loading = result?.query !== query
   const data    = result?.data ?? null
   const error   = !loading && data === null
+  const source  = result?.source
 
   return (
     <Card>
@@ -127,6 +128,13 @@ export function SalesSummarySection() {
           )
         })}
       </div>
+      {source && (
+        <div style={{ fontFamily: G, fontSize: '0.6875rem', color: '#9E9D98', marginTop: 8 }}>
+          {source === 'shopifyql'
+            ? 'Quelle: Shopify Analytics (ShopifyQL)'
+            : 'Quelle: aus Bestellungen berechnet – Shopify Analytics nicht verfügbar'}
+        </div>
+      )}
     </Card>
   )
 }

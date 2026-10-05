@@ -1,4 +1,4 @@
-import { shopifyFetchAllOrders } from './client'
+import { shopifyFetchAllOrders, shopifyGraphQL } from './client'
 
 // ─── Sales summary (Shopify "Total sales breakdown") ─────────────────────────
 // Every amount is excluding VAT, except Taxes itself:
@@ -16,6 +16,9 @@ export interface SalesSummary {
   total_sales:  number
   order_count:  number
 }
+
+export type SalesSummarySource = 'shopifyql' | 'orders'
+
 
 interface TaxLine { price: string; rate: number }
 interface MoneySet { shop_money: { amount: string } }
@@ -129,7 +132,7 @@ export function computeSalesSummary(orders: SalesOrder[]): SalesSummary {
   }
 }
 
-export async function getSalesSummaryForRange(from: Date, to: Date): Promise<SalesSummary> {
+export async function getSalesSummaryFromOrders(from: Date, to: Date): Promise<SalesSummary> {
   const params = new URLSearchParams({
     status: 'any',
     created_at_min: from.toISOString(),
@@ -139,4 +142,61 @@ export async function getSalesSummaryForRange(from: Date, to: Date): Promise<Sal
   })
   const orders = await shopifyFetchAllOrders(params, { revalidate: 300 }) as unknown as SalesOrder[]
   return computeSalesSummary(orders)
+}
+
+// ─── ShopifyQL (Shopify Analytics numbers, 1:1) ──────────────────────────────
+// Reads the same "Total sales breakdown" Shopify Analytics shows, so returns
+// land on the day they happened and every edge case follows Shopify's own
+// definitions. Needs Admin API 2025-10+, the read_reports scope and Level 2
+// protected customer data access.
+
+const SHOPIFYQL_API_VERSION = '2025-10'
+
+const SHOPIFYQL_GQL = `
+  query SalesSummary($query: String!) {
+    shopifyqlQuery(query: $query) {
+      tableData {
+        columns { name dataType }
+        rows
+      }
+      parseErrors
+    }
+  }
+`
+
+type ShopifyqlResp = {
+  shopifyqlQuery: {
+    tableData: { columns: { name: string; dataType: string }[]; rows: Record<string, string | null>[] } | null
+    parseErrors: string[]
+  }
+}
+
+// from/to are calendar days (YYYY-MM-DD); ShopifyQL reads them in the shop's timezone.
+export async function getSalesSummaryFromShopifyQL(from: string, to: string): Promise<SalesSummary> {
+  const query = [
+    'FROM sales',
+    'SHOW gross_sales, discounts, returns, net_sales, shipping_charges, taxes, duties, additional_fees, total_sales, orders',
+    `SINCE ${from} UNTIL ${to}`,
+  ].join(' ')
+
+  const data = await shopifyGraphQL<ShopifyqlResp>(SHOPIFYQL_GQL, { query }, SHOPIFYQL_API_VERSION)
+  const { tableData, parseErrors } = data.shopifyqlQuery
+  if (parseErrors?.length) throw new Error(`ShopifyQL: ${parseErrors.join('; ')}`)
+
+  // No GROUP BY → a single row of period totals (empty when there were no sales).
+  const row = tableData?.rows[0] ?? {}
+  const v = (name: string) => num(row[name])
+
+  return {
+    gross_sales: r2(v('gross_sales')),
+    // Shopify reports deductions as negative amounts; the page shows them as positive and subtracts.
+    discounts:   r2(Math.abs(v('discounts'))),
+    returns:     r2(Math.abs(v('returns'))),
+    net_sales:   r2(v('net_sales')),
+    shipping:    r2(v('shipping_charges')),
+    taxes:       r2(v('taxes')),
+    duties_fees: r2(v('duties') + v('additional_fees')),
+    total_sales: r2(v('total_sales')),
+    order_count: Math.round(v('orders')),
+  }
 }
