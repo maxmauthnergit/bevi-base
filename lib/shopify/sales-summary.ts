@@ -1,4 +1,5 @@
 import { shopifyFetchAllOrders, shopifyGraphQL } from './client'
+import { getShopTimezone, parseInTimezone } from './queries'
 
 // ─── Sales summary (Shopify "Total sales breakdown") ─────────────────────────
 // Every amount is excluding VAT, except Taxes itself:
@@ -198,5 +199,30 @@ export async function getSalesSummaryFromShopifyQL(from: string, to: string): Pr
     duties_fees: r2(v('duties') + v('additional_fees')),
     total_sales: r2(v('total_sales')),
     order_count: Math.round(v('orders')),
+  }
+}
+
+// ─── Preferred entry point ───────────────────────────────────────────────────
+// ShopifyQL first; until the token carries read_reports + protected customer
+// data access it is refused, so fall back to computing from orders.
+
+export interface SalesSummaryResult {
+  summary:         SalesSummary
+  source:          SalesSummarySource
+  fallbackReason?: string
+}
+
+export async function getSalesSummary(from: string, to: string): Promise<SalesSummaryResult> {
+  try {
+    return { summary: await getSalesSummaryFromShopifyQL(from, to), source: 'shopifyql' }
+  } catch (err) {
+    const fallbackReason = (err as Error).message
+    console.warn('[sales-summary] ShopifyQL failed, falling back to orders:', fallbackReason)
+    const tz = await getShopTimezone()
+    const summary = await getSalesSummaryFromOrders(
+      parseInTimezone(from, '00:00:00', tz),
+      parseInTimezone(to,   '23:59:59', tz),
+    )
+    return { summary, source: 'orders', fallbackReason }
   }
 }

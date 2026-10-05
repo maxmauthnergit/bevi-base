@@ -1,7 +1,8 @@
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
-import { SalesSummarySection } from '@/components/kpi/SalesSummarySection'
+import { SalesBreakdownSection } from '@/components/charts/SalesBreakdownSection'
+import { SalesPeakTimes } from '@/components/charts/SalesPeakTimes'
 
-export default function Sales2Page() {
+export default function SalesInsightsPage() {
   return (
     <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       <div className="mb-4">
@@ -14,13 +15,19 @@ export default function Sales2Page() {
             margin: 0,
           }}
         >
-          Sales 2.0
+          Sales Insights
         </h1>
       </div>
 
       <DateRangeBar />
 
-      <SalesSummarySection />
+      {/* Breakdown by product, bundle, market */}
+      <SalesBreakdownSection />
+
+      {/* Peak order times */}
+      <div style={{ marginTop: 16 }}>
+        <SalesPeakTimes />
+      </div>
     </main>
   )
 }
