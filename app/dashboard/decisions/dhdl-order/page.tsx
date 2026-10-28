@@ -164,13 +164,13 @@ export default async function DhdlOrderPage({
             <thead>
               <tr>
                 <Th>Produkt</Th>
+                <Th right>Planungsbestand</Th>
                 <Th right>Lager</Th>
                 <Th right>Reserviert</Th>
                 <Th right>Nicht reserviert</Th>
                 <Th right>Eingehend</Th>
                 <Th right>Nicht verfügbar</Th>
                 <Th right>Gesamt (WeShip)</Th>
-                <Th right>Planungsbestand</Th>
               </tr>
             </thead>
             <tbody>
@@ -183,15 +183,15 @@ export default async function DhdlOrderPage({
                     </span>
                     {r?.sku && <span className="metric" style={{ fontSize: '0.6875rem', color: '#9E9D98' }}>{r.sku}</span>}
                   </td>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 20px 10px 0', fontWeight: 600, color: '#0D8585' }}>
+                    {nf.format(planned)}
+                  </td>
                   <Td right muted><Num v={r?.on_stock} /></Td>
                   <Td right muted><Num v={r?.reserved} /></Td>
                   <Td right muted><Num v={r?.unreserved} /></Td>
                   <Td right muted><Num v={r?.incoming} /></Td>
                   <Td right muted><Num v={r?.unavailable} /></Td>
                   <Td right muted><Num v={r?.total} /></Td>
-                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontWeight: 600, color: '#0D8585' }}>
-                    {nf.format(planned)}
-                  </td>
                 </tr>
               ))}
             </tbody>
