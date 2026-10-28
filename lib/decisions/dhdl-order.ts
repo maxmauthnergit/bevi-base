@@ -11,6 +11,9 @@ export const DEFAULT_RATIO_TO   = '2026-06-30'
 
 export const DEFAULT_EXTRA_BAGS = 5000
 
+// Garment holder is new — no sales history, so its ratio per bag is set.
+export const GARMENT_HOLDER_RATIO = 0.15
+
 // ─── Product categories ───────────────────────────────────────────────────────
 
 export type MainCategory  = 'bag_black' | 'bag_beige'

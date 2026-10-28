@@ -5,13 +5,13 @@ import type { WeShipStockBreakdown } from '@/lib/weship/queries'
 import {
   ADD_ON_CATEGORIES, CATEGORY_LABEL, MAIN_CATEGORIES,
   DEFAULT_EXTRA_BAGS, DEFAULT_RATIO_FROM, DEFAULT_RATIO_TO,
-  DHDL_AIRING_RTL_PLUS, DHDL_AIRING_VOX, MANUAL_STOCK,
+  DHDL_AIRING_RTL_PLUS, DHDL_AIRING_VOX, GARMENT_HOLDER_RATIO, MANUAL_STOCK,
   classifyProduct, computeRatios, computeRecommendation,
 } from '@/lib/decisions/dhdl-order'
 import type { AddOnCategory, Category } from '@/lib/decisions/dhdl-order'
 
 // Temporary decision page — reachable by direct link only, not in the nav.
-// Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD&extra=5000&gh=0.1 (garment holder per bag)
+// Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD&extra=5000
 export const maxDuration = 60
 
 const FONT = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
@@ -97,8 +97,7 @@ export default async function DhdlOrderPage({
   const fromStr   = ISO_RE.test(param(sp.from) ?? '') ? param(sp.from)! : DEFAULT_RATIO_FROM
   const toStr     = ISO_RE.test(param(sp.to) ?? '')   ? param(sp.to)!   : DEFAULT_RATIO_TO
   const extraBags = Math.max(0, parseInt(param(sp.extra) ?? '', 10) || DEFAULT_EXTRA_BAGS)
-  const ghRaw     = parseFloat(param(sp.gh) ?? '')
-  const assumed: Partial<Record<AddOnCategory, number>> = Number.isFinite(ghRaw) && ghRaw >= 0 ? { garment_holder: ghRaw } : {}
+  const assumed: Partial<Record<AddOnCategory, number>> = { garment_holder: GARMENT_HOLDER_RATIO }
 
   const tz = await getShopTimezone()
   const [stockResult, ordersResult] = await Promise.allSettled([
@@ -385,7 +384,7 @@ export default async function DhdlOrderPage({
                 Bags: Die {nf.format(extraBags)} Stück sind nach dem historischen Farbanteil aufgeteilt, abzüglich des
                 vorhandenen Bestands je Farbe. Add-on Produkte: Zielbestand = Bags nach Bestellung × Ratio pro Bag; Bestellmenge =
                 Zielbestand − Bestand aktuell, auf volle 100 aufgerundet. Der Garment Holder hat keine Verkaufshistorie –
-                eine angenommene Ratio lässt sich per URL setzen, z. B. <code>?gh=0.15</code> (15 % der Bags). Weitere
+                seine Ratio ist fix mit {rf.format(GARMENT_HOLDER_RATIO)} pro Bag angenommen. Weitere
                 Parameter: <code>?extra=</code> (zusätzliche Bags), <code>?from=</code>/<code>?to=</code> (Referenzzeitraum,
                 YYYY-MM-DD).
               </Note>
