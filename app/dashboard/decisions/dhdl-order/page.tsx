@@ -84,6 +84,8 @@ function ErrorNote({ children }: { children: React.ReactNode }) {
   return <p style={{ fontSize: '0.8125rem', color: '#DC2626' }}>{children}</p>
 }
 
+const isMain = (c: Category) => (MAIN_CATEGORIES as Category[]).includes(c)
+
 const P: React.CSSProperties = { fontFamily: FONT, fontSize: '0.875rem', color: '#111110', lineHeight: 1.6, margin: '0 0 12px' }
 
 export default async function DhdlOrderPage({
@@ -341,44 +343,47 @@ export default async function DhdlOrderPage({
                 <strong>{nf.format(rec.bagsAfterOrder)} Bags</strong> nach der Bestellung. Damit die Zusatzprodukte im
                 gleichen Verhältnis wie im Referenzzeitraum mitverkauft werden können, sollten wir bestellen:
               </p>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Produkt</Th>
-                    <Th right>Bestand aktuell</Th>
-                    <Th right>Ratio</Th>
-                    <Th right>Zielbestand</Th>
-                    <Th right>Bestellen</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rec.rows.map(r => {
-                    const isBag = (MAIN_CATEGORIES as string[]).includes(r.category)
-                    return (
-                      <tr key={r.category} style={{ borderBottom: '1px solid #F0EFE9' }}>
-                        <Td>
-                          {CATEGORY_LABEL[r.category]}
-                          {r.ratioIsAssumption && <span style={{ color: '#9E9D98' }}> (Annahme)</span>}
-                        </Td>
-                        <Td right muted>{nf.format(r.stock)}</Td>
-                        <Td right>
-                          {r.ratio === null ? <Dash /> : isBag ? pf.format(r.ratio) : rf.format(r.ratio)}
-                        </Td>
-                        <Td right><Num v={r.target} /></Td>
-                        <td className="metric" style={{
-                          textAlign: 'right', padding: '10px 0', fontWeight: 600,
-                          color: r.order === null ? '#9E9D98' : '#0D8585',
-                        }}>
-                          {r.order === null ? (r.category === 'garment_holder' ? 'manuell festlegen' : '—') : nf.format(r.order)}
-                        </td>
+              {[
+                { title: 'Bags', ratioLabel: 'Farbanteil', rows: rec.rows.filter(r => isMain(r.category)), fmt: pf },
+                { title: 'Add-on Produkte', ratioLabel: 'Ratio pro Bag', rows: rec.rows.filter(r => !isMain(r.category)), fmt: rf },
+              ].map(group => (
+                <div key={group.title} style={{ marginTop: 20 }}>
+                  <span className="label" style={{ display: 'block', marginBottom: 8, color: '#6B6A64' }}>{group.title}</span>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Produkt</Th>
+                        <Th right>Bestand aktuell</Th>
+                        <Th right>{group.ratioLabel}</Th>
+                        <Th right>Zielbestand</Th>
+                        <Th right>Bestellen</Th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </Table>
+                    </thead>
+                    <tbody>
+                      {group.rows.map(r => (
+                        <tr key={r.category} style={{ borderBottom: '1px solid #F0EFE9' }}>
+                          <Td>
+                            {CATEGORY_LABEL[r.category]}
+                            {r.ratioIsAssumption && <span style={{ color: '#9E9D98' }}> (Annahme)</span>}
+                          </Td>
+                          <Td right muted>{nf.format(r.stock)}</Td>
+                          <Td right>{r.ratio === null ? <Dash /> : group.fmt.format(r.ratio)}</Td>
+                          <Td right><Num v={r.target} /></Td>
+                          <td className="metric" style={{
+                            textAlign: 'right', padding: '10px 0', fontWeight: 600,
+                            color: r.order === null ? '#9E9D98' : '#0D8585',
+                          }}>
+                            {r.order === null ? (r.category === 'garment_holder' ? 'manuell festlegen' : '—') : nf.format(r.order)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              ))}
               <Note>
                 Bags: Die {nf.format(extraBags)} Stück sind nach dem historischen Farbanteil aufgeteilt, abzüglich des
-                vorhandenen Bestands je Farbe. Zusatzprodukte: Zielbestand = Bags nach Bestellung × Ratio; Bestellmenge =
+                vorhandenen Bestands je Farbe. Add-on Produkte: Zielbestand = Bags nach Bestellung × Ratio pro Bag; Bestellmenge =
                 Zielbestand − Bestand aktuell, auf volle 100 aufgerundet. Der Garment Holder hat keine Verkaufshistorie –
                 eine angenommene Ratio lässt sich per URL setzen, z. B. <code>?gh=0.15</code> (15 % der Bags). Weitere
                 Parameter: <code>?extra=</code> (zusätzliche Bags), <code>?from=</code>/<code>?to=</code> (Referenzzeitraum,
