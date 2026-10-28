@@ -1,12 +1,10 @@
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { SalesKpiSection } from '@/components/kpi/SalesKpiSection'
-import { SalesMonthlyCharts } from '@/components/charts/SalesMonthlyCharts'
-import { SalesBreakdownSection } from '@/components/charts/SalesBreakdownSection'
-import { SalesPeakTimes } from '@/components/charts/SalesPeakTimes'
+import { SalesSummarySection } from '@/components/kpi/SalesSummarySection'
 
 export default function SalesPage() {
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       <div className="mb-4">
         <h1
           style={{
@@ -21,22 +19,11 @@ export default function SalesPage() {
         </h1>
       </div>
 
-      {/* Date-independent: monthly overview */}
-      <div style={{ marginBottom: 16 }}>
-        <SalesMonthlyCharts />
-      </div>
-
       <DateRangeBar />
 
       <SalesKpiSection />
 
-      {/* Date-dependent: breakdown by product, bundle, market */}
-      <SalesBreakdownSection />
-
-      {/* Date-dependent: peak order times */}
-      <div style={{ marginTop: 16 }}>
-        <SalesPeakTimes />
-      </div>
+      <SalesSummarySection />
     </main>
   )
 }

@@ -2,6 +2,8 @@ import { Card, CardHeader } from '@/components/ui/Card'
 import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
 import { getWeShipStock } from '@/lib/weship/queries'
 
+import { isLowStock, effectiveUnits, daysOfCover, stockLastsUntil } from '@/lib/inventory'
+
 export const revalidate = 600
 
 function formatDate(d: Date) {
@@ -25,22 +27,21 @@ export default async function InventoryPage() {
 
   const rows = levels.map((item) => {
     const ws           = weshipStock?.find((w) => w.sku === item.sku)
-    const unitsWeship  = ws?.on_stock ?? null
+    const unitsWeship  = ws != null ? ws.on_stock - ws.outgoing : null
     const unitsShopify = item.units
     const avgSales     = avgDailySales?.[item.sku] ?? 0
 
-    const stockForForecast = unitsWeship ?? unitsShopify
-    const daysLeft  = avgSales > 0 ? Math.floor(stockForForecast / avgSales) : null
-    const lastUntil = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
+    const units     = effectiveUnits(ws, unitsShopify)
+    const daysLeft  = daysOfCover(units, avgSales)
+    const lastUntil = stockLastsUntil(units, avgSales)
+    // Coverage decides, not the absolute reorder_threshold — see lib/inventory.ts.
+    const isLow = isLowStock(daysLeft)
 
-    const effectiveUnits = unitsWeship ?? unitsShopify
-    const isLow = effectiveUnits < item.reorder_threshold
-
-    return { ...item, unitsWeship, unitsShopify, avgSales, daysLeft, lastUntil, isLow, effectiveUnits }
+    return { ...item, unitsWeship, unitsShopify, avgSales, daysLeft, lastUntil, isLow, effectiveUnits: units }
   })
 
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       {/* Header */}
       <div className="mb-4">
         <h1
@@ -69,8 +70,7 @@ export default async function InventoryPage() {
                   { label: 'Units WeShip',       align: 'right', pl: 0,  pr: 16 },
                   { label: 'Units Shopify',      align: 'right', pl: 0,  pr: 40 },
                   { label: 'Avg Sales/Day',      align: 'right', pl: 0,  pr: 32 },
-                  { label: 'Stock Lasts Until',  align: 'left',  pl: 0,  pr: 32 },
-                  { label: 'Stock Level',        align: 'left',  pl: 0,  pr: 0  },
+                  { label: 'Stock Lasts Until',  align: 'left',  pl: 0,  pr: 0  },
                 ].map(({ label, align, pr }) => (
                   <th
                     key={label}
@@ -96,10 +96,6 @@ export default async function InventoryPage() {
                   : item.variant
 
                 // Stock bar geometry
-                const barMax  = Math.max(item.effectiveUnits, item.reorder_threshold) * 1.4
-                const barFill = Math.min(100, (item.effectiveUnits / barMax) * 100)
-                const barMark = (item.reorder_threshold / barMax) * 100
-                const barColor = item.isLow ? '#DC2626' : '#0D8585'
 
                 return (
                   <tr
@@ -203,7 +199,7 @@ export default async function InventoryPage() {
                             className="label"
                             style={{
                               fontSize: '0.6875rem',
-                              color: item.daysLeft !== null && item.daysLeft < 60 ? '#DC2626' : '#0D8585',
+                              color: item.isLow ? '#DC2626' : '#0D8585',
                             }}
                           >
                             {item.daysLeft}d
@@ -212,49 +208,6 @@ export default async function InventoryPage() {
                       ) : (
                         <span style={{ color: '#9E9D98' }}>—</span>
                       )}
-                    </td>
-
-                    {/* Stock Level — inline bar */}
-                    <td style={{ padding: '12px 0', paddingRight: 24 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 100 }}>
-                        {/* Bar */}
-                        <div
-                          style={{
-                            position: 'relative', height: 5,
-                            backgroundColor: '#E3E2DC', borderRadius: 3,
-                          }}
-                        >
-                          {/* Fill */}
-                          <div
-                            style={{
-                              position: 'absolute', left: 0, top: 0,
-                              width: `${barFill}%`, height: '100%',
-                              backgroundColor: barColor,
-                              borderRadius: 3,
-                              opacity: item.isLow ? 0.8 : 0.6,
-                            }}
-                          />
-                          {/* Threshold marker */}
-                          <div
-                            style={{
-                              position: 'absolute', top: -2, bottom: -2,
-                              left: `${barMark}%`,
-                              width: 1.5,
-                              backgroundColor: '#9E9D98',
-                              borderRadius: 1,
-                            }}
-                          />
-                        </div>
-                        {/* Numbers */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span className="metric" style={{ fontSize: '0.625rem', color: item.isLow ? '#DC2626' : '#6B6A64' }}>
-                            {item.effectiveUnits}
-                          </span>
-                          <span className="label" style={{ fontSize: '0.625rem', color: '#9E9D98' }}>
-                            min {item.reorder_threshold}
-                          </span>
-                        </div>
-                      </div>
                     </td>
 
                   </tr>
@@ -285,20 +238,6 @@ export default async function InventoryPage() {
           {
             term: 'Stock Lasts Until',
             desc: 'Projected date at current avg sales/day from WeShip stock',
-          },
-          {
-            term: 'Stock Level Min',
-            desc: (
-              <>
-                Reorder threshold per product — configure in{' '}
-                <a
-                  href="/dashboard/settings"
-                  style={{ color: '#6B6A64', textDecoration: 'underline', textUnderlineOffset: 2 }}
-                >
-                  Settings
-                </a>
-              </>
-            ),
           },
         ].map(({ term, desc }) => (
           <div key={term} style={{ display: 'flex', alignItems: 'baseline', gap: 20 }}>

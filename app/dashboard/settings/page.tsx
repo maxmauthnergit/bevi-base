@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardHeader } from '@/components/ui/Card'
 import type { ProductCostConfig } from '@/lib/costs-config'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { pauseDeadline, type DatabaseStatus } from '@/lib/database-status'
+// Shared with the inbounds and calculator pages.
+import { btn, btnAccent, btnDanger, btnLarge, iconBtn } from '@/components/ui/formStyles'
+import { PlusIcon } from '@/components/ui/PlusIcon'
+import { NumberInput } from '@/components/ui/NumberInput'
 
 const G = "'Gustavo', 'Helvetica Neue', Helvetica, Arial, sans-serif"
 
@@ -19,10 +25,6 @@ function Chevron({ open }: { open: boolean }) {
     </svg>
   )
 }
-
-const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 6, display: 'flex', alignItems: 'center' }
-const btn: React.CSSProperties = { fontFamily: G, fontSize: '0.75rem', letterSpacing: '0.04em', cursor: 'pointer', padding: '4px 12px', borderRadius: 8, border: '1px solid #E3E2DC', backgroundColor: '#FFFFFF', color: '#6B6A64' }
-const inp: React.CSSProperties = { fontFamily: G, fontSize: '0.8125rem', color: '#111110', border: '1px solid #E3E2DC', borderRadius: 8, padding: '5px 10px', width: '100%', boxSizing: 'border-box', outline: 'none', backgroundColor: '#FFFFFF' }
 
 // ─── API integrations ─────────────────────────────────────────────────────────
 
@@ -43,8 +45,13 @@ type WeshipMonth = {
 
 function buildMonths(): WeshipMonth[] {
   const out: WeshipMonth[] = []
+  const now = new Date()
+  let endY = now.getFullYear()
+  let endM = now.getMonth() + 2 // current month + 1 (getMonth is 0-based)
+  if (endM > 12) { endM -= 12; endY++ }
+
   let y = 2024, m = 11
-  while (y < 2026 || (y === 2026 && m <= 4)) {
+  while (y < endY || (y === endY && m <= endM)) {
     const key = `${y}-${String(m).padStart(2,'0')}`
     out.push({ key, label: `${MONTHS_SHORT[m-1]} ${y}`, hasServices: false })
     if (++m > 12) { m = 1; y++ }
@@ -94,12 +101,141 @@ const PRODUCTS: Product[] = [
 type BankTxn = { id: string; date: string; counterparty: string; reference: string; amount_eur: number }
 type BankUploadResult = { statement_month: string; transactions_parsed: number; transactions_new: number; closing_balance_eur: number | null; date_from: string | null; date_to: string | null }
 type PdfUpload = { filename: string; statement_month: string; date_from: string | null; date_to: string | null; uploaded_at: string | null }
+type MetaTokenInfo = { is_valid: boolean; expires_at: number | null; days_left: number | null; never_expires: boolean; scopes: string[]; reason?: 'expired' | 'invalid' | 'check_failed' }
+
+const META_TOKEN_CHECK_FAILED: MetaTokenInfo = { is_valid: false, expires_at: null, days_left: null, never_expires: false, scopes: [], reason: 'check_failed' }
+
+
+type PillState = 'ok' | 'muted' | 'error'
+
+const PILL_COLORS: Record<PillState, { fg: string; bg: string; border: string }> = {
+  ok:    { fg: '#0D8585', bg: 'rgba(13,133,133,0.08)', border: 'rgba(13,133,133,0.2)'  },
+  muted: { fg: '#6B6A64', bg: '#F0EFE9',               border: '#E3E2DC'               },
+  error: { fg: '#DC2626', bg: 'rgba(220,38,38,0.07)',  border: 'rgba(220,38,38,0.18)'  },
+}
+
+function StatusPill({ state, label }: { state: PillState; label: string }) {
+  const c = PILL_COLORS[state]
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: 6,
+      backgroundColor: c.bg, border: `1px solid ${c.border}`,
+      whiteSpace: 'nowrap',
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: c.fg, display: 'inline-block' }} />
+      <span className="label" style={{ color: c.fg }}>{label}</span>
+    </div>
+  )
+}
+
+/**
+ * Token lifetime as a pill matching the Connected badge. Red once the token is
+ * within a week of expiry, already expired or rejected by Meta, plain grey
+ * before that.
+ */
+const TOKEN_WARNING_DAYS = 7
+
+function metaTokenNote(t: MetaTokenInfo): { text: string; state: PillState } {
+  if (t.reason === 'check_failed') return { text: 'Token check failed', state: 'error' }
+  if (t.reason === 'expired')      return { text: 'Token expired',      state: 'error' }
+  if (!t.is_valid)                 return { text: 'Token invalid',      state: 'error' }
+  if (t.never_expires)      return { text: 'Never expires',                          state: 'muted' }
+  if (t.days_left === null) return { text: 'Expiry unknown',                          state: 'muted' }
+  if (t.days_left < 0)      return { text: `Expired ${Math.abs(t.days_left)}d ago`,   state: 'error' }
+  if (t.days_left <= TOKEN_WARNING_DAYS)
+                            return { text: `Expires in ${t.days_left}d`,              state: 'error' }
+  return { text: `Expires in ${t.days_left}d`, state: 'muted' }
+}
+
+function DatabaseCard() {
+  const [status, setStatus] = useState<DatabaseStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/database/status')
+      .then(r => r.json())
+      .then(d => { if (!cancelled) { setStatus(d); setLoading(false) } })
+      .catch(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  const deadline = status?.connected
+    ? pauseDeadline(status.checked_at, status.pause_after_days)
+    : null
+
+  const deadlineLabel = deadline
+    ? deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+
+  return (
+    <Card className="mb-4">
+      <CardHeader label="Database" />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 12 }}>
+        <div style={{ flex: 1 }}>
+          <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>
+            Supabase
+          </span>
+          <span className="label">Postgres · Auth · Storage</span>
+        </div>
+
+        {loading ? (
+          <Skeleton width={92} height={22} radius={6} />
+        ) : (
+          <StatusPill
+            state={status?.connected ? 'ok' : 'error'}
+            label={status?.connected ? 'Connected' : 'Unreachable'}
+          />
+        )}
+      </div>
+
+      {/* Free-plan pause window */}
+      <div style={{ backgroundColor: '#F5F4F0', borderRadius: 12, padding: '12px 16px' }}>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Skeleton width={140} height={9} />
+            <Skeleton width="80%" height={9} />
+          </div>
+        ) : status?.connected ? (
+          <>
+            <span className="label" style={{ display: 'block', marginBottom: 6, color: '#6B6A64' }}>
+              Free plan · inactivity pause
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', display: 'block' }}>
+              Pauses after {status.pause_after_days} days without activity. Opening this
+              page counts as activity, so the earliest pause is{' '}
+              <strong style={{ color: '#111110', fontWeight: 600 }}>{deadlineLabel}</strong>.
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98', display: 'block', marginTop: 6 }}>
+              Verify the window against your current plan — it has changed before,
+              and paid plans do not pause at all.
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="label" style={{ display: 'block', marginBottom: 6, color: '#DC2626' }}>
+              Not reachable
+            </span>
+            <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#6B6A64', display: 'block' }}>
+              {status?.error ?? 'The status check failed.'} If the project was paused
+              for inactivity, resume it in the Supabase dashboard — it stays paused
+              until you do.
+            </span>
+          </>
+        )}
+      </div>
+    </Card>
+  )
+}
 
 export default function SettingsPage() {
   const [openApi, setOpenApi]         = useState<string | null>(null)
   const [bankOpen, setBankOpen]       = useState(true)
   const [weshipOpen, setWeshipOpen]   = useState(false)
   const [weshipMonths, setWeshipMonths] = useState<WeshipMonth[]>(buildMonths)
+  const [metaToken, setMetaToken]     = useState<MetaTokenInfo | null>(null)
   const [uploading, setUploading]     = useState<string | null>(null)
   const [deleting, setDeleting]       = useState<string | null>(null)
   const [fileError, setFileError]     = useState<string | null>(null)
@@ -228,6 +364,9 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => { loadPdfs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetch('/api/meta/token-info').then(r => r.json()).then(d => setMetaToken(d.error ? META_TOKEN_CHECK_FAILED : d)).catch(() => setMetaToken(META_TOKEN_CHECK_FAILED))
+  }, [])
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
@@ -324,7 +463,7 @@ export default function SettingsPage() {
   const multiple   = vkNetto / totalCogs
 
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       <div className="mb-4">
         <h1 style={{ fontFamily: G, fontSize: 'clamp(1.25rem, 4vw, 1.75rem)', fontWeight: 600, color: '#111110', margin: 0 }}>Settings</h1>
       </div>
@@ -341,9 +480,12 @@ export default function SettingsPage() {
                   <span style={{ fontFamily: G, fontSize: '0.875rem', color: '#111110', display: 'block', marginBottom: 2 }}>{api.name}</span>
                   <span className="label">{api.subtitle}</span>
                 </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 6, backgroundColor: api.connected ? 'rgba(13,133,133,0.08)' : 'rgba(220,38,38,0.07)', border: `1px solid ${api.connected ? 'rgba(13,133,133,0.2)' : 'rgba(220,38,38,0.18)'}`, whiteSpace: 'nowrap' }}>
-                  <span style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: api.connected ? '#0D8585' : '#DC2626', display: 'inline-block' }} />
-                  <span className="label" style={{ color: api.connected ? '#0D8585' : '#DC2626' }}>{api.connected ? 'Connected' : 'Not connected'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                  {api.id === 'meta' && metaToken && (() => {
+                    const note = metaTokenNote(metaToken)
+                    return <StatusPill state={note.state} label={note.text} />
+                  })()}
+                  <StatusPill state={api.connected ? 'ok' : 'error'} label={api.connected ? 'Connected' : 'Not connected'} />
                 </div>
                 <button style={iconBtn} onClick={() => setOpenApi(open ? null : api.id)}><Chevron open={open} /></button>
               </div>
@@ -364,7 +506,10 @@ export default function SettingsPage() {
         })}
       </Card>
 
-      {/* ── 2. MANUAL DATA ENTRY ───────────────────────────────────────────── */}
+      {/* ── 2. DATABASE ────────────────────────────────────────────────────── */}
+      <DatabaseCard />
+
+      {/* ── 3. MANUAL DATA ENTRY ───────────────────────────────────────────── */}
       <Card className="mb-4">
         <CardHeader label="Manual Data Entry" />
 
@@ -402,16 +547,18 @@ export default function SettingsPage() {
                     const fmtDay = (ds: string | null) =>
                       ds ? new Date(ds + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'
                     const period = `${fmtDay(upload.date_from)} – ${fmtDay(upload.date_to)}`
-                    const stmtLabel = new Date(upload.statement_month + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                    const uploadedOn = upload.uploaded_at
+                      ? new Date(upload.uploaded_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : '?'
                     const isDel    = deletingPdf === upload.statement_month
                     return (
                       <div key={upload.statement_month} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: !isLast ? '1px solid #EDECEA' : 'none' }}>
                         <div style={{ flex: 1 }}>
-                          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>Statement {stmtLabel}</span>
+                          <span style={{ fontFamily: G, fontSize: '0.8125rem', color: '#111110' }}>Statement uploaded on {uploadedOn}</span>
                           <span className="label" style={{ display: 'block', marginTop: 2, color: '#9E9D98' }}>{period}</span>
                         </div>
                         <button
-                          style={{ ...btn, color: isDel ? '#9E9D98' : '#DC2626', borderColor: isDel ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: isDel ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: isDel ? 0.6 : 1, cursor: isDel ? 'not-allowed' : 'pointer' }}
                           disabled={isDel}
                           onClick={() => deletePdf(upload)}
                         >
@@ -432,11 +579,11 @@ export default function SettingsPage() {
               {/* Upload button */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: pdfUploads.length > 0 ? 10 : 0, borderTop: pdfUploads.length > 0 ? '1px solid #EDECEA' : 'none' }}>
                 <button
-                  style={{ ...btn, color: bankUploading ? '#9E9D98' : '#6B6A64', cursor: bankUploading ? 'not-allowed' : 'pointer' }}
+                  style={{ ...btnAccent, opacity: bankUploading ? 0.6 : 1, cursor: bankUploading ? 'not-allowed' : 'pointer' }}
                   disabled={bankUploading}
                   onClick={() => { setBankError(null); setBankUploadResult(null); setBankDeleteError(null); bankFileRef.current?.click() }}
                 >
-                  {bankUploading ? 'Parsing…' : '+ Upload PDF'}
+                  {bankUploading ? 'Parsing…' : <><PlusIcon /> Upload PDF</>}
                 </button>
                 {bankUploadResult && (
                   <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>
@@ -473,9 +620,9 @@ export default function SettingsPage() {
                     {m.hasServices ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span className="label" style={{ color: '#9E9D98' }}>{m.servicesName}</span>
-                        <button style={{ ...btn, color: '#0D8585', borderColor: 'rgba(13,133,133,0.2)' }} onClick={() => handleDownload(m.key)}>Download</button>
+                        <button style={btn} onClick={() => handleDownload(m.key)}>Download</button>
                         <button
-                          style={{ ...btn, color: deleting === m.key ? '#9E9D98' : '#DC2626', borderColor: deleting === m.key ? '#E3E2DC' : 'rgba(220,38,38,0.2)', cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
+                          style={{ ...btnDanger, opacity: deleting === m.key ? 0.6 : 1, cursor: deleting === m.key ? 'not-allowed' : 'pointer' }}
                           disabled={deleting === m.key}
                           onClick={() => handleDelete(m.key)}
                         >
@@ -484,11 +631,11 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <button
-                        style={{ ...btn, color: uploading === m.key ? '#9E9D98' : '#6B6A64', cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
+                        style={{ ...btnAccent, opacity: uploading === m.key ? 0.6 : 1, cursor: uploading === m.key ? 'not-allowed' : 'pointer' }}
                         disabled={uploading === m.key}
                         onClick={() => { setFileError(null); uploadKey.current = m.key; fileRef.current!.accept = '.xlsx'; fileRef.current?.click() }}
                       >
-                        {uploading === m.key ? 'Uploading…' : '+ Upload'}
+                        {uploading === m.key ? 'Uploading…' : <><PlusIcon /> Upload</>}
                       </button>
                     )}
                   </div>
@@ -535,9 +682,9 @@ export default function SettingsPage() {
                   <td style={{ padding: '10px 16px 10px 0', fontFamily: G, color: '#6B6A64' }}>{item.supplier}</td>
                   <td style={{ padding: '6px 0', width: 120 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                      <input type="number" step="0.01" value={item.amount}
-                        onChange={e => updateItem(prod.id, item.id, e.target.value)}
-                        style={{ ...inp, width: 76, textAlign: 'right', padding: '4px 6px' }} />
+                      <NumberInput step={0.01} value={item.amount}
+                        onChange={v => updateItem(prod.id, item.id, v)}
+                        style={{ width: 84, padding: '4px 6px' }} />
                       <span style={{ color: '#9E9D98', fontSize: '0.6875rem', marginLeft: 6, flexShrink: 0 }}>€</span>
                     </div>
                   </td>
@@ -564,7 +711,7 @@ export default function SettingsPage() {
             <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#0D8585' }}>Saved</span>
           )}
           <button
-            style={{ ...btn, backgroundColor: saving ? '#F5F4F0' : '#111110', color: saving ? '#9E9D98' : '#FFFFFF', border: 'none', padding: '8px 40px', cursor: saving ? 'not-allowed' : 'pointer' }}
+            style={{ ...btnLarge, opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}
             disabled={saving}
             onClick={handleSave}
           >
@@ -615,24 +762,18 @@ export default function SettingsPage() {
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Variable Rate (%)</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <input
-                type="number" step="0.1" min="0"
-                value={payRate}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayRate(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.1} min={0} value={payRate}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayRate(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ fontFamily: G, fontSize: '0.75rem', color: '#9E9D98' }}>%</span>
             </div>
           </div>
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 6 }}>Fixed Fee per Order</label>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="number" step="0.01" min="0"
-                value={payFixed}
-                onChange={e => { const n = parseFloat(e.target.value); if (!isNaN(n)) setPayFixed(n) }}
-                style={{ ...inp, width: 80, textAlign: 'right', padding: '5px 8px' }}
-              />
+              <NumberInput step={0.01} min={0} value={payFixed}
+                onChange={v => { const n = parseFloat(v); if (!isNaN(n)) setPayFixed(n) }}
+                style={{ width: 88, padding: '5px 8px' }} />
               <span style={{ color: '#9E9D98', fontSize: '0.6875rem' }}>€</span>
             </div>
           </div>

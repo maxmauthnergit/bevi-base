@@ -89,14 +89,19 @@ interface OrderMetrics {
   unit_count: number
   refund_count: number
   bundle_order_count: number
+  cogs: number
 }
 
-function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
+function computeMetrics(
+  orders: ShopifyOrder[],
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }> = new Map(),
+): OrderMetrics {
   let revenue_gross = 0
   let revenue_net = 0
   let unit_count = 0
   let refund_count = 0
   let bundle_order_count = 0
+  let cogs = 0
 
   // Shopify analytics counts all non-voided orders (including cancelled)
   const countableOrders = orders.filter(o => o.financial_status !== 'voided')
@@ -119,6 +124,10 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     revenue_net   += effectiveGross - effectiveTax
     unit_count    += order.line_items.reduce((s, li) => s + li.quantity, 0)
     if (order.financial_status === 'refunded' || order.financial_status === 'partially_refunded') refund_count++
+
+    let orderCogs = 0.02 * effectiveGross + 0.25
+    for (const li of order.line_items) orderCogs += getUnitCostTotal(li.title, amountsMap) * li.quantity
+    cogs += orderCogs
   }
 
   return {
@@ -128,6 +137,7 @@ function computeMetrics(orders: ShopifyOrder[]): OrderMetrics {
     unit_count,
     refund_count,
     bundle_order_count,
+    cogs:          Math.round(cogs * 100) / 100,
   }
 }
 
@@ -195,9 +205,13 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
 
 // ─── Date-range KPIs (used by /api/kpis) ─────────────────────────────────────
 
-export async function getOrderKpisForRange(from: Date, to: Date) {
+export async function getOrderKpisForRange(
+  from: Date,
+  to: Date,
+  amountsMap: Map<string, { manufacturing: number; ib_shipping: number }> = new Map(),
+) {
   const orders = await getOrdersInRange(from, to)
-  return computeMetrics(orders)
+  return computeMetrics(orders, amountsMap)
 }
 
 const BUNDLE_GQL = `

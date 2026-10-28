@@ -20,13 +20,16 @@ export async function GET(req: NextRequest) {
     created_at_min: fromDate.toISOString(),
     created_at_max: toDate.toISOString(),
     limit:          '250',
-    fields:         'id,created_at,financial_status,cancelled_at',
+    fields:         'id,created_at,financial_status,cancelled_at,total_price,refunds',
   })
 
   const orders = await shopifyFetchAllOrders(params, { revalidate: 0 })
 
   const byHour = new Array<number>(24).fill(0)
   const byDay  = new Array<number>(7).fill(0)
+  // Revenue alongside the counts, so the cards can toggle between the two.
+  const revHour = new Array<number>(24).fill(0)
+  const revDay  = new Array<number>(7).fill(0)
 
   const tzFmt = new Intl.DateTimeFormat('en', {
     timeZone: tz,
@@ -43,20 +46,28 @@ export async function GET(req: NextRequest) {
     const dayStr  = parts.find(p => p.type === 'weekday')?.value ?? 'Mon'
     const hour    = parseInt(hourStr === '24' ? '0' : hourStr, 10)
     const dayIdx  = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(dayStr)
-    if (hour >= 0 && hour < 24)  byHour[hour]++
-    if (dayIdx >= 0)             byDay[dayIdx]++
+    const gross     = parseFloat(order.total_price) || 0
+    const refundAmt = (order.refunds ?? [])
+      .flatMap(r => r.transactions ?? [])
+      .filter(t => t.kind === 'refund' && t.status === 'success')
+      .reduce((s, t) => s + (parseFloat(t.amount) || 0), 0)
+    const revenue = gross - refundAmt
+
+    if (hour >= 0 && hour < 24) { byHour[hour]++;   revHour[hour] += revenue }
+    if (dayIdx >= 0)            { byDay[dayIdx]++;  revDay[dayIdx] += revenue }
   }
 
   const by_hour = byHour
     .map((orders, h) => ({
-      hour:   h,
-      label:  `${String(h).padStart(2, '0')}:00 – ${String((h + 1) % 24).padStart(2, '0')}:00`,
+      hour:    h,
+      label:   `${String(h).padStart(2, '0')}:00 – ${String((h + 1) % 24).padStart(2, '0')}:00`,
       orders,
+      revenue: Math.round(revHour[h]),
     }))
     .sort((a, b) => b.orders - a.orders)
 
   const by_day = byDay
-    .map((orders, d) => ({ day: d, label: DAY_LABELS[d], orders }))
+    .map((orders, d) => ({ day: d, label: DAY_LABELS[d], orders, revenue: Math.round(revDay[d]) }))
     .sort((a, b) => b.orders - a.orders)
 
   return NextResponse.json({ by_hour, by_day })

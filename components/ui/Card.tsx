@@ -1,4 +1,5 @@
 import { clsx } from 'clsx'
+import { HEADING_ROW_H, SECTION_GAP } from '@/components/ui/formStyles'
 
 interface CardProps {
   children: React.ReactNode
@@ -29,7 +30,13 @@ interface CardHeaderProps {
 
 export function CardHeader({ label, action }: CardHeaderProps) {
   return (
-    <div className="flex items-center justify-between flex-wrap gap-y-2 mb-8">
+    // The row is pinned to HEADING_ROW_H: without it an action button makes the
+    // row taller and pushes the label down, so a card with a button in its
+    // header sat lower than one without.
+    <div
+      className="flex items-center justify-between flex-wrap gap-y-2"
+      style={{ minHeight: HEADING_ROW_H, marginBottom: SECTION_GAP }}
+    >
       <span className="label">{label}</span>
       {action}
     </div>

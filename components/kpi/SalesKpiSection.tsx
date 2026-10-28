@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDateRange } from '@/components/providers/DateRangeProvider'
 import { KpiCard } from '@/components/kpi/KpiCard'
+import { Skeleton } from '@/components/ui/Skeleton'
 import type { KpiValue, MetricDefinition } from '@/lib/types'
 
 function toDateStr(d: Date) {
@@ -20,8 +21,8 @@ function fmtCompPeriod(from: string, to: string) {
 }
 
 const METRICS: MetricDefinition[] = [
-  { id: 'revenue_gross', label: 'Revenue Gross',        source: 'shopify', format: 'currency' },
-  { id: 'revenue_net',   label: 'Revenue Net',          source: 'shopify', format: 'currency' },
+  { id: 'gross_sales',   label: 'Gross Sales',          source: 'shopify', format: 'currency' },
+  { id: 'net_sales',     label: 'Net Sales',            source: 'shopify', format: 'currency' },
   { id: 'orders',        label: 'Orders',               source: 'shopify', format: 'number'   },
   { id: 'return_rate',   label: 'Return Rate',          source: 'shopify', format: 'percent'  },
   { id: 'aov',           label: 'Avg Order Value',      source: 'shopify', format: 'currency' },
@@ -46,7 +47,7 @@ export function SalesKpiSection() {
     let cancelled = false
     setLoading(true)
     setError(false)
-    const params = new URLSearchParams({ from: fromStr, to: toStr })
+    const params = new URLSearchParams({ from: fromStr, to: toStr, include: 'sales_summary' })
     if (range.preset) params.set('preset', range.preset)
     if (range.month)  params.set('month',  range.month)
     fetch(`/api/kpis?${params}`)
@@ -70,7 +71,6 @@ export function SalesKpiSection() {
             style={{
               position: 'relative', borderRadius: 16,
               boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid #E3E2DC',
-              opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s',
             }}
           >
             {kpi ? (
@@ -81,12 +81,12 @@ export function SalesKpiSection() {
                 <div style={{ marginTop: 12, fontSize: '0.75rem', color: '#9E9D98' }}>—</div>
               </div>
             ) : (
-              <div className="p-6">
+              <div className="p-6" role="status" aria-busy="true">
                 <span className="label">{metric.label}</span>
-                <div style={{
-                  marginTop: 12, height: 28, borderRadius: 6,
-                  backgroundColor: '#F0EFE9', width: '60%',
-                }} />
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Skeleton width="60%" height={28} />
+                  <Skeleton width="40%" height={9} />
+                </div>
               </div>
             )}
           </div>

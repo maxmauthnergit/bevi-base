@@ -87,9 +87,10 @@ export async function shopifyFetchAllOrders(
 export async function shopifyGraphQL<T>(
   query: string,
   variables?: Record<string, unknown>,
+  apiVersion: string = SHOPIFY_API_VERSION,
 ): Promise<T> {
   const { domain, token } = getShopifyConfig()
-  const url = `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  const url = `https://${domain}/admin/api/${apiVersion}/graphql.json`
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },

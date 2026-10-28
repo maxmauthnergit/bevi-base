@@ -10,9 +10,17 @@ export async function createSupabaseServer() {
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Server Components cannot write cookies — only Server Actions and
+            // Route Handlers can. Swallowing this is safe: a refreshed token is
+            // persisted by app/auth/callback/route.ts, and the read path still
+            // sees the current cookies. Without the guard a token refresh
+            // during render throws and takes the whole page down.
+          }
         },
       },
     },

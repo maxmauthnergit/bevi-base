@@ -2,37 +2,12 @@ import { KpiSection } from '@/components/kpi/KpiSection'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { DateRangeBar } from '@/components/ui/DateRangeBar'
 import { TrendChart } from '@/components/charts/TrendChart'
-import { InventoryAlert } from '@/components/inventory/InventoryAlert'
-import { getInventoryLevels, getAvgDailySalesBySku } from '@/lib/shopify/queries'
-import { getWeShipStock } from '@/lib/weship/queries'
-
 
 export const revalidate = 300
 
-export default async function DashboardPage() {
-  const [stockLevels, weshipStock, avgDailySales] = await Promise.all([
-    getInventoryLevels().catch(() => null),
-    getWeShipStock().catch(() => null),
-    getAvgDailySalesBySku().catch(() => null),
-  ])
-
-  const lowStockItems = (stockLevels ?? [])
-    .filter((s) => s.is_low)
-    .map((item) => {
-      const ws             = weshipStock?.find((w) => w.sku === item.sku)
-      const effectiveUnits = ws?.on_stock ?? item.units
-      const avgSales       = avgDailySales?.[item.sku] ?? 0
-      const daysLeft       = avgSales > 0 ? Math.floor(effectiveUnits / avgSales) : null
-      const lastUntil      = daysLeft !== null ? new Date(Date.now() + daysLeft * 86_400_000) : null
-      return { ...item, effectiveUnits, daysLeft, lastUntil }
-    })
-    .filter((item) =>
-      item.effectiveUnits < item.reorder_threshold ||
-      (item.daysLeft !== null && item.daysLeft < 60)
-    )
-
+export default function DashboardPage() {
   return (
-    <main className="px-4 py-5 md:px-6 md:py-6 lg:px-10 lg:py-8">
+    <main className="px-4 pt-16 pb-5 md:px-6 md:pt-20 md:pb-6 lg:px-10 lg:pt-28 lg:pb-8">
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
         <h1 style={{
@@ -42,11 +17,6 @@ export default async function DashboardPage() {
           Overview
         </h1>
       </div>
-
-      {/* Low stock alert — always first */}
-      {lowStockItems.length > 0 && (
-        <div style={{ marginBottom: 16 }}><InventoryAlert items={lowStockItems} /></div>
-      )}
 
       <DateRangeBar />
 
