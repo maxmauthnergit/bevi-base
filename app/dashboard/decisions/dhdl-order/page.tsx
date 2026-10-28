@@ -5,7 +5,7 @@ import type { WeShipStockBreakdown } from '@/lib/weship/queries'
 import {
   ADD_ON_CATEGORIES, CATEGORY_LABEL, MAIN_CATEGORIES,
   DEFAULT_EXTRA_BAGS, DEFAULT_RATIO_FROM, DEFAULT_RATIO_TO,
-  DHDL_AIRING_RTL_PLUS, DHDL_AIRING_VOX,
+  DHDL_AIRING_RTL_PLUS, DHDL_AIRING_VOX, MANUAL_STOCK,
   classifyProduct, computeRatios, computeRecommendation,
 } from '@/lib/decisions/dhdl-order'
 import type { AddOnCategory, Category } from '@/lib/decisions/dhdl-order'
@@ -109,21 +109,22 @@ export default async function DhdlOrderPage({
   const orders     = ordersResult.status === 'fulfilled' ? ordersResult.value : []
   const ordersError = ordersResult.status === 'rejected' ? String(ordersResult.reason) : null
 
-  // Stock per category (sum of WeShip totals)
-  const stockByCategory = Object.fromEntries(
-    [...MAIN_CATEGORIES, ...ADD_ON_CATEGORIES, 'bundle_unresolved', 'other'].map(c => [c, 0])
-  ) as Record<Category, number>
-  const classifiedStock = stockRows.map(r => ({ ...r, category: classifyProduct(r.name, null, r.sku) }))
-  for (const r of classifiedStock) stockByCategory[r.category] += r.total
+  // One row per planned product; WeShip figures shown for reference only,
+  // planning uses MANUAL_STOCK. Sticker, inserts etc. ('other') are dropped.
+  const plannedCategories = [...MAIN_CATEGORIES, ...ADD_ON_CATEGORIES]
+  const stockTable = plannedCategories.map(category => ({
+    category,
+    weship: stockRows.find(r => classifyProduct(r.name, null, r.sku) === category) ?? null,
+    planned: MANUAL_STOCK[category],
+  }))
 
-  const hasGarmentHolder = classifiedStock.some(r => r.category === 'garment_holder')
   const incomingFound    = stockRows.some(r => r.incoming !== null)
   const unavailableFound = stockRows.some(r => r.unavailable !== null)
   const reservedSources  = [...new Set(stockRows.map(r => r.reserved_source).filter(Boolean))]
   const detectedFields   = [...new Set(stockRows.flatMap(r => Object.keys(r.fields)))]
 
   const ratio = computeRatios(orders)
-  const rec   = computeRecommendation(stockByCategory, ratio, extraBags, assumed)
+  const rec   = computeRecommendation(MANUAL_STOCK, ratio, extraBags, assumed)
   const unresolvedBundles = ratio.unitsByCategory.bundle_unresolved
 
   const weeklyCats: Category[] = ['bag_black', 'bag_beige', 'cleaning_kit', 'phone_strap', 'water_bladder']
@@ -158,59 +159,52 @@ export default async function DhdlOrderPage({
         {/* 2 — Stock */}
         <Card>
           <CardHeader label="Aktueller Bestand (WeShip)" />
-          {stockError ? (
-            <ErrorNote>WeShip-Bestand konnte nicht geladen werden: {stockError}</ErrorNote>
-          ) : (
-            <>
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Produkt</Th>
-                    <Th right>Lager</Th>
-                    <Th right>Reserviert</Th>
-                    <Th right>Nicht reserviert</Th>
-                    <Th right>Eingehend</Th>
-                    <Th right>Nicht verfügbar</Th>
-                    <Th right>Gesamt</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classifiedStock.map(r => (
-                    <tr key={r.sku || r.name} style={{ borderBottom: '1px solid #F0EFE9' }}>
-                      <td style={{ padding: '10px 20px 10px 0' }}>
-                        <span style={{ display: 'block', fontFamily: FONT, color: '#111110' }}>{r.name}</span>
-                        <span className="metric" style={{ fontSize: '0.6875rem', color: '#9E9D98' }}>{r.sku}</span>
-                      </td>
-                      <Td right muted><Num v={r.on_stock} /></Td>
-                      <Td right muted><Num v={r.reserved} /></Td>
-                      <Td right><Num v={r.unreserved} /></Td>
-                      <Td right><Num v={r.incoming} /></Td>
-                      <Td right><Num v={r.unavailable} /></Td>
-                      <Td right bold><Num v={r.total} /></Td>
-                    </tr>
-                  ))}
-                  {!hasGarmentHolder && (
-                    <tr style={{ borderBottom: '1px solid #F0EFE9' }}>
-                      <Td>Garment Holder <span style={{ color: '#9E9D98' }}>(neu)</span></Td>
-                      <Td right muted>0</Td>
-                      <Td right muted>0</Td>
-                      <Td right>0</Td>
-                      <Td right>0</Td>
-                      <Td right>0</Td>
-                      <Td right bold>0</Td>
-                    </tr>
-                  )}
-                </tbody>
-              </Table>
-              <Note>
-                Gesamt = nicht reserviert + eingehend + nicht verfügbar. Reserviert (bereits offenen Bestellungen
-                zugeordnet) zählt nicht dazu. Reserviert stammt aus: {reservedSources.join(', ') || '—'}.
-                {!incomingFound && ' Die WeShip-API liefert kein Feld für eingehende Ware – Spalte bleibt leer.'}
-                {!unavailableFound && ' Die WeShip-API liefert kein Feld für nicht verfügbare Ware – Spalte bleibt leer.'}
-                {' '}Gefundene Bestandsfelder in der API: {detectedFields.join(', ') || '—'}.
-              </Note>
-            </>
-          )}
+          {stockError && <ErrorNote>WeShip-Live-Bestand konnte nicht geladen werden: {stockError}</ErrorNote>}
+          <Table>
+            <thead>
+              <tr>
+                <Th>Produkt</Th>
+                <Th right>Lager</Th>
+                <Th right>Reserviert</Th>
+                <Th right>Nicht reserviert</Th>
+                <Th right>Eingehend</Th>
+                <Th right>Nicht verfügbar</Th>
+                <Th right>Gesamt (WeShip)</Th>
+                <Th right>Planungsbestand</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {stockTable.map(({ category, weship: r, planned }) => (
+                <tr key={category} style={{ borderBottom: '1px solid #F0EFE9' }}>
+                  <td style={{ padding: '10px 20px 10px 0' }}>
+                    <span style={{ display: 'block', fontFamily: FONT, color: '#111110' }}>
+                      {CATEGORY_LABEL[category]}
+                      {category === 'garment_holder' && <span style={{ color: '#9E9D98' }}> (neu)</span>}
+                    </span>
+                    {r?.sku && <span className="metric" style={{ fontSize: '0.6875rem', color: '#9E9D98' }}>{r.sku}</span>}
+                  </td>
+                  <Td right muted><Num v={r?.on_stock} /></Td>
+                  <Td right muted><Num v={r?.reserved} /></Td>
+                  <Td right muted><Num v={r?.unreserved} /></Td>
+                  <Td right muted><Num v={r?.incoming} /></Td>
+                  <Td right muted><Num v={r?.unavailable} /></Td>
+                  <Td right muted><Num v={r?.total} /></Td>
+                  <td className="metric" style={{ textAlign: 'right', padding: '10px 0', fontWeight: 600, color: '#0D8585' }}>
+                    {nf.format(planned)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          <Note>
+            <strong>Planungsbestand</strong> ist manuell festgelegt (Stand WeShip-Portal, Oktober 2026) und Basis für die
+            Empfehlung: Black inkl. der 1.452 als „nicht verfügbar“ gelisteten Stück, Cleaning Kit = 251 + 500 zusätzlich.
+            Die WeShip-Spalten dienen nur zum Abgleich. Gesamt (WeShip) = nicht reserviert + eingehend + nicht verfügbar;
+            Reserviert stammt aus: {reservedSources.join(', ') || '—'}.
+            {!stockError && !incomingFound && ' Die WeShip-API liefert kein Feld für eingehende Ware.'}
+            {!stockError && !unavailableFound && ' Die WeShip-API liefert kein Feld für nicht verfügbare Ware.'}
+            {!stockError && <>{' '}Gefundene Bestandsfelder in der API: {detectedFields.join(', ') || '—'}.</>}
+          </Note>
         </Card>
 
         {/* 3 — Ratio */}
@@ -338,8 +332,8 @@ export default async function DhdlOrderPage({
         {/* 4 — Recommendation */}
         <Card>
           <CardHeader label={`Empfehlung bei +${nf.format(extraBags)} Bags`} />
-          {stockError || ordersError ? (
-            <ErrorNote>Empfehlung nicht möglich, solange Bestand oder Bestellungen fehlen.</ErrorNote>
+          {ordersError ? (
+            <ErrorNote>Empfehlung nicht möglich, solange die Bestellungen fehlen.</ErrorNote>
           ) : (
             <>
               <p style={P}>

@@ -31,17 +31,40 @@ export const CATEGORY_LABEL: Record<Category, string> = {
   other:             'Sonstiges',
 }
 
+// Planning stock, set manually from the WeShip portal (Oct 2026).
+// Black counts the 1452 units WeShip lists as "nicht verfügbar";
+// Cleaning Kit includes 500 extra units on top of 251 in stock.
+export const MANUAL_STOCK: Record<MainCategory | AddOnCategory, number> = {
+  bag_beige:      481,
+  bag_black:      1452,
+  cleaning_kit:   251 + 500,
+  phone_strap:    770,
+  water_bladder:  676,
+  garment_holder: 0,
+}
+
 const SKU_BLACK = '9180013220099'
 const SKU_BEIGE = '9180013220129'
 
-const BUNDLE_KEYWORDS = ['bundle', 'full set', 'squad']
+const SKU_CATEGORY: Record<string, Category> = {
+  [SKU_BLACK]:     'bag_black',
+  [SKU_BEIGE]:     'bag_beige',
+  '9180013220105': 'cleaning_kit',
+  '9180013220136': 'phone_strap',
+  '9180013220112': 'water_bladder',
+}
+
+const BUNDLE_KEYWORDS   = ['bundle', 'full set', 'squad']
+const EXCLUDED_KEYWORDS = ['sticker', 'beilagenkärtchen', 'beilage']
 
 export function classifyProduct(title: string, variant: string | null | undefined, sku: string | null | undefined): Category {
-  if (sku === SKU_BLACK) return 'bag_black'
-  if (sku === SKU_BEIGE) return 'bag_beige'
+  if (sku && SKU_CATEGORY[sku]) return SKU_CATEGORY[sku]
 
   const t = title.toLowerCase()
   const v = (variant ?? '').toLowerCase()
+
+  // Packaging extras that mention product names (e.g. "Sticker für Bevi Phone Straps")
+  if (EXCLUDED_KEYWORDS.some(k => t.includes(k))) return 'other'
 
   if (t.includes('cleaning kit'))   return 'cleaning_kit'
   if (t.includes('phone strap'))    return 'phone_strap'
@@ -178,7 +201,7 @@ export function roundUp100(n: number) {
 }
 
 export function computeRecommendation(
-  stock: Record<Category, number>,
+  stock: Record<MainCategory | AddOnCategory, number>,
   ratio: RatioResult,
   extraBags: number,
   assumedRatios: Partial<Record<AddOnCategory, number>> = {},
