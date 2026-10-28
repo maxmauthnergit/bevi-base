@@ -566,3 +566,93 @@ export async function getInventoryLevels(): Promise<StockLevel[]> {
 
   return levels
 }
+
+// ─── Line items incl. bundle components (DHDL order planning) ────────────────
+// Native bundles appear as their component line items, each pointing to its
+// lineItemGroup — so counting line items already counts bundle contents.
+
+const ORDER_LINE_ITEMS_GQL = `
+  query GetOrderLineItems($first: Int!, $after: String, $query: String!) {
+    orders(first: $first, after: $after, query: $query) {
+      pageInfo { hasNextPage endCursor }
+      edges {
+        node {
+          createdAt
+          cancelledAt
+          displayFinancialStatus
+          lineItems(first: 50) {
+            edges {
+              node {
+                title
+                variantTitle
+                sku
+                quantity
+                lineItemGroup { title }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+type OrderLineItemsGqlResp = {
+  orders: {
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    edges: {
+      node: {
+        createdAt: string
+        cancelledAt: string | null
+        displayFinancialStatus: string
+        lineItems: {
+          edges: {
+            node: {
+              title: string
+              variantTitle: string | null
+              sku: string | null
+              quantity: number
+              lineItemGroup: { title: string } | null
+            }
+          }[]
+        }
+      }
+    }[]
+  }
+}
+
+export interface OrderWithLineItems {
+  createdAt: string
+  lineItems: { title: string; variant: string | null; sku: string | null; quantity: number; bundleTitle: string | null }[]
+}
+
+export async function getOrderLineItemsForRange(from: Date, to: Date): Promise<OrderWithLineItems[]> {
+  const dateQuery = `created_at:>="${from.toISOString()}" created_at:<="${to.toISOString()}"`
+  const orders: OrderWithLineItems[] = []
+  let cursor: string | null = null
+
+  for (;;) {
+    const data: OrderLineItemsGqlResp = await shopifyGraphQL<OrderLineItemsGqlResp>(ORDER_LINE_ITEMS_GQL, {
+      first: 100,
+      after: cursor,
+      query: dateQuery,
+    })
+    for (const { node } of data.orders.edges) {
+      if (node.cancelledAt || node.displayFinancialStatus === 'VOIDED') continue
+      orders.push({
+        createdAt: node.createdAt,
+        lineItems: node.lineItems.edges.map(({ node: li }) => ({
+          title:       li.title,
+          variant:     li.variantTitle,
+          sku:         li.sku,
+          quantity:    li.quantity,
+          bundleTitle: li.lineItemGroup?.title ?? null,
+        })),
+      })
+    }
+    if (!data.orders.pageInfo.hasNextPage) break
+    cursor = data.orders.pageInfo.endCursor
+  }
+
+  return orders
+}
