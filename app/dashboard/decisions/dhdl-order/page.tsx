@@ -344,7 +344,7 @@ export default async function DhdlOrderPage({
               </p>
               {[
                 { title: 'Bags', ratioLabel: 'Farbanteil', rows: rec.rows.filter(r => isMain(r.category)), fmt: pf },
-                { title: 'Add-on Produkte', ratioLabel: 'Ratio pro Bag', rows: rec.rows.filter(r => !isMain(r.category)), fmt: rf },
+                { title: 'Add-on Produkte', ratioLabel: 'Ratio pro Bag', rows: rec.rows.filter(r => !isMain(r.category)), fmt: pf },
               ].map(group => (
                 <div key={group.title} style={{ marginTop: 20 }}>
                   <span className="label" style={{ display: 'block', marginBottom: 8, color: '#6B6A64' }}>{group.title}</span>
@@ -384,7 +384,7 @@ export default async function DhdlOrderPage({
                 Bags: Die {nf.format(extraBags)} Stück sind nach dem historischen Farbanteil aufgeteilt, abzüglich des
                 vorhandenen Bestands je Farbe. Add-on Produkte: Zielbestand = Bags nach Bestellung × Ratio pro Bag; Bestellmenge =
                 Zielbestand − Bestand aktuell, auf volle 100 aufgerundet. Der Garment Holder hat keine Verkaufshistorie –
-                seine Ratio ist fix mit {rf.format(GARMENT_HOLDER_RATIO)} pro Bag angenommen. Weitere
+                seine Ratio ist fix mit {pf.format(GARMENT_HOLDER_RATIO)} der Bags angenommen. Weitere
                 Parameter: <code>?extra=</code> (zusätzliche Bags), <code>?from=</code>/<code>?to=</code> (Referenzzeitraum,
                 YYYY-MM-DD).
               </Note>
