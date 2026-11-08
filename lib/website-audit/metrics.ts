@@ -5,6 +5,7 @@
 
 import { shopifyGraphQL } from '@/lib/shopify/client'
 import { getShopTimezone } from '@/lib/shopify/queries'
+import { metaFetch, getAccountId } from '@/lib/meta/client'
 
 const SHOPIFYQL_API_VERSION = '2025-10'
 
@@ -35,10 +36,23 @@ export interface OrderMetrics {
   topSources:           { label: string; orders: number }[]
 }
 
+/** Meta Ads, per device group. Clicks are counted by Meta (independent of the
+ *  shop's cookie banner); the pixel actions depend on consent and attribution. */
+export interface MetaDeviceRow {
+  device:          'mobil' | 'desktop' | 'sonstige'
+  linkClicks:      number
+  landingPageViews: number
+  addToCart:       number
+  initiateCheckout: number
+  purchases:       number
+}
+
 export interface AuditLiveMetrics {
   from: string
   to:   string
   timezone: string
+  meta:          Status<MetaDeviceRow[]>
+  abandonedCheckouts: Status<number>
   funnel:        Status<FunnelRow[]>
   landingPages:  Status<RankedRow[]>
   referrers:     Status<RankedRow[]>
@@ -256,20 +270,97 @@ async function getOrderMetrics(from: string, to: string): Promise<{ orders: Stat
   }
 }
 
+// ─── Meta Ads (top of funnel) ───────────────────────────────────────────────
+
+interface MetaBreakdownRow {
+  device_platform?: string
+  inline_link_clicks?: string
+  actions?: { action_type: string; value: string }[]
+}
+
+function action(row: MetaBreakdownRow, types: string[]) {
+  for (const t of types) {
+    const hit = row.actions?.find(a => a.action_type === t)
+    if (hit) return num(hit.value)
+  }
+  return 0
+}
+
+async function getMetaFunnel(from: string, to: string): Promise<Status<MetaDeviceRow[]>> {
+  try {
+    const res = await metaFetch<{ data: MetaBreakdownRow[] }>(`/${getAccountId()}/insights`, {
+      fields:     'inline_link_clicks,actions',
+      time_range: JSON.stringify({ since: from, until: to }),
+      level:      'account',
+      breakdowns: 'device_platform',
+      limit:      '50',
+    })
+    const groups = new Map<MetaDeviceRow['device'], MetaDeviceRow>()
+    for (const r of res.data ?? []) {
+      const p = r.device_platform ?? ''
+      const device: MetaDeviceRow['device'] = p.startsWith('mobile') ? 'mobil' : p === 'desktop' ? 'desktop' : 'sonstige'
+      const g = groups.get(device) ?? { device, linkClicks: 0, landingPageViews: 0, addToCart: 0, initiateCheckout: 0, purchases: 0 }
+      g.linkClicks       += num(r.inline_link_clicks)
+      g.landingPageViews += action(r, ['landing_page_view', 'omni_landing_page_view'])
+      g.addToCart        += action(r, ['omni_add_to_cart', 'add_to_cart', 'offsite_conversion.fb_pixel_add_to_cart'])
+      g.initiateCheckout += action(r, ['omni_initiated_checkout', 'initiate_checkout', 'offsite_conversion.fb_pixel_initiate_checkout'])
+      g.purchases        += action(r, ['omni_purchase', 'purchase', 'offsite_conversion.fb_pixel_purchase'])
+      groups.set(device, g)
+    }
+    return { ok: true, data: [...groups.values()], note: 'Meta Marketing API, breakdown device_platform' }
+  } catch (e) {
+    return { ok: false, error: errMsg(e) }
+  }
+}
+
+// ─── Abandoned checkouts (Admin API) ────────────────────────────────────────
+// Shopify keeps a checkout once contact details were entered. Orders plus
+// abandoned checkouts = checkouts started (from the contact step on).
+
+async function getAbandonedCheckoutCount(from: string, to: string): Promise<Status<number>> {
+  const q = `
+    query AuditAbandoned($after: String, $query: String!) {
+      abandonedCheckouts(first: 250, after: $after, query: $query) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id }
+      }
+    }
+  `
+  try {
+    let after: string | null = null
+    let count = 0
+    for (let page = 0; page < 60; page++) {
+      const data: { abandonedCheckouts: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: { id: string }[] } } =
+        await shopifyGraphQL(q, { after, query: `created_at:>=${from} created_at:<=${to}T23:59:59` })
+      count += data.abandonedCheckouts.nodes.length
+      if (!data.abandonedCheckouts.pageInfo.hasNextPage) break
+      after = data.abandonedCheckouts.pageInfo.endCursor
+    }
+    return { ok: true, data: count, note: 'Admin GraphQL abandonedCheckouts' }
+  } catch (e) {
+    return { ok: false, error: errMsg(e) }
+  }
+}
+
 // ─── Entry point ────────────────────────────────────────────────────────────
 
-export async function getAuditLiveMetrics(days = 90): Promise<AuditLiveMetrics> {
+export async function getAuditLiveMetrics(fromDate: string): Promise<AuditLiveMetrics> {
   const tz   = await getShopTimezone().catch(() => 'Europe/Vienna')
-  const now  = new Date()
-  const to   = ymd(now, tz)
-  const from = ymd(new Date(now.getTime() - (days - 1) * 86_400_000), tz)
+  const to   = ymd(new Date(), tz)
+  const from = fromDate
 
-  const [funnel, landingPages, referrers, orderPart] = await Promise.all([
+  const [funnel, landingPages, referrers, orderPart, meta, abandonedCheckouts] = await Promise.all([
     getFunnel(from, to),
     getRanked(from, to, ['session_landing_page_path', 'landing_page_path']),
     getRanked(from, to, ['session_referrer_source', 'referrer_source', 'session_referrer_name', 'referrer_name']),
     getOrderMetrics(from, to),
+    getMetaFunnel(from, to),
+    getAbandonedCheckoutCount(from, to),
   ])
 
-  return { from, to, timezone: tz, funnel, landingPages, referrers, orders: orderPart.orders, journey: orderPart.journey }
+  return {
+    from, to, timezone: tz,
+    meta, abandonedCheckouts, funnel, landingPages, referrers,
+    orders: orderPart.orders, journey: orderPart.journey,
+  }
 }

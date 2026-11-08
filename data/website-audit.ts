@@ -93,6 +93,7 @@ export const auditMeta = {
   analysisDate: '2026-11-08',
   site:         'https://bevi-bag.com',
   dhdlAiring:   'Frühjahr 2027',
+  kpiFrom:      '2026-04-01',   // Live-Kennzahlen immer ab diesem Datum bis heute
   scope:        'Startseite, Produktseite Bevi Bag (Full Set), Warenkorb (Drawer + /cart), Theme-Repo bevi-shopify-theme (read-only)',
   method: [
     'Live-Site mobil: Playwright mit iPhone-13-Emulation (390×844), Screenshots und DOM-Auswertung.',
@@ -110,7 +111,7 @@ export const executiveSummary: string[] = [
   'Im Warenkorb gibt es vermeidbare Reibung: Express-Checkout (Apple Pay, PayPal, Shop Pay) ist auf der Produktseite deaktiviert und im Drawer nicht vorhanden. Der Drawer-Upsell schlägt „Bundle M“ vor, das legt eine zweite Tasche in den Warenkorb.',
   'Mobile Performance ist der technische Engpass: Lighthouse mobil 39–60 Punkte (Desktop 75–94), LCP mobil bis 7,1 s, Total Blocking Time 1,5–2,0 s — allein Google Tag Manager blockiert 1,26 s. Die Produktseite lädt beim Durchscrollen ca. 39 MB, vor allem 1080p-Videos.',
   'Größtes DHDL-Risiko ist die Sprache: Der Shop ist komplett englisch (lang="en", kein hreflang), das TV-Publikum ist deutschsprachig. Dazu kommt: Es gibt keine E-Mail-Erfassung — Newsletter-Popup und Footer-Newsletter sind deaktiviert. Wer bei der TV-Spitze nicht sofort kauft, ist verloren.',
-  'Die Priorisierung beruht auf dem Audit, nicht auf Funnel-Daten. Der Session-Funnel nach Gerät hängt an ShopifyQL (Status siehe Live-Block); fehlt er, bitte aus Shopify Analytics nachliefern und die ICE-Scores danach neu kalibrieren.',
+  'Die Priorisierung beruht auf dem Audit. Verlässlich messbar sind ab 01.04.2026 Meta-Klicks, begonnene Checkouts und Käufe; Shop-Sessions zählen nur Besucher:innen mit Cookie-Einwilligung. Der Live-Block weist deshalb je Zahl die Verlässlichkeit aus — ICE-Scores nach dem ersten Blick auf die echten Zahlen neu kalibrieren.',
 ]
 
 // ─── Manuell nachzuliefernde KPIs (Shopify Analytics Export) ────────────────
@@ -743,19 +744,24 @@ export const measures: Measure[] = [
 
 export const dataGaps: DataGap[] = [
   {
-    metric: 'Session-Funnel (Sessions → Warenkorb → Checkout → Kauf) je mobil/desktop',
-    status: 'Live über ShopifyQL. Sessions zählen nur Besucher:innen mit Cookie-Einwilligung, Warenkorb/Checkout/Kauf alle — Quoten ab Sessions sind daher überzeichnet; unplausible Stufen (> Vorschritt) werden auf der Seite als nicht interpretierbar markiert.',
-    howTo: 'Shopify Analytics → Berichte → „Conversion-Funnel“ bzw. „Sitzungen nach Gerätetyp“, letzte 90 Tage, in data/website-audit.ts → manualKpis.funnel eintragen.',
+    metric: 'Shop-Sessions (Besucher:innen ohne Cookie-Einwilligung)',
+    status: 'Nicht vollständig erfassbar: Shopify-Sessions hängen von der Analyse-Einwilligung ab (laut Shopify sinkt die Session-Zahl mit niedriger Einwilligungsrate). Ersatz für den Funnel-Einstieg: Meta-Link-Klicks (vollständig für bezahlten Traffic). Getestet 08.11.2026: Banner speichert die Ablehnung korrekt.',
+    howTo: 'Keine Quelle verfügbar. Einwilligungsquote ggf. bei Shopify-Support erfragen.',
   },
   {
-    metric: 'Conversion Rate',
-    status: 'Nur als Käufe ÷ Sessions mit Einwilligung verfügbar — überzeichnet, weil Besucher:innen ohne Einwilligung im Nenner fehlen. Eine vollständige Besucherzahl liefert Shopify nicht.',
-    howTo: 'Shopify Analytics → Übersicht „Conversion-Rate der Onlineshop-Sitzungen“, 90 Tage, nach Gerät.',
+    metric: 'Add to Cart',
+    status: 'Nur als „Sessions mit Add to Cart“ aus ShopifyQL; wie stark die Einwilligung hier filtert, ist nicht belegt. Meta-Pixel-Add-to-Cart nur mit Einwilligung.',
+    howTo: 'Mit Shopify Analytics → Conversion-Funnel (gleicher Zeitraum) abgleichen.',
+  },
+  {
+    metric: 'Käufe und Checkouts nach Gerät',
+    status: 'Shopify speichert das Gerät nicht an der Bestellung. Gerätesplit nur aus Meta-Pixel-Events (nur Einwilligende, nur Meta-zugeordnet).',
+    howTo: '—',
   },
   {
     metric: 'Top-Landingpages und Traffic-Quellen (alle Besucher)',
-    status: 'Live über ShopifyQL versucht. Die Bestell-Variante zeigt nur Käufer:innen (customerJourneySummary), nicht alle Besucher.',
-    howTo: 'Shopify Analytics → „Sitzungen nach Landingpage“ und „Sitzungen nach Verweisquelle“, 90 Tage, als CSV.',
+    status: 'Live über ShopifyQL (nur Einwilligende). Fallback: Käufer:innen aus customerJourneySummary.',
+    howTo: 'Shopify Analytics → „Sitzungen nach Landingpage“ und „Sitzungen nach Verweisquelle“, ab 01.04.2026, als CSV.',
   },
   {
     metric: 'Retourenquote',

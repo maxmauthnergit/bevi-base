@@ -95,7 +95,7 @@ export default function WebsiteAuditPage() {
 
       {/* ── KPIs & Funnel ──────────────────────────────────────── */}
       <SectionTitle id="kpis" kicker="02" title="KPI-Kacheln & Funnel">
-        Letzte 90 Tage über die bestehende Shopify-Anbindung. Dieser Block wird bei jedem Aufruf neu geladen; alle anderen Abschnitte sind der Stand vom {fmtDate(auditMeta.analysisDate)}.
+        Seit {fmtDate(auditMeta.kpiFrom)} bis heute, über die bestehenden Shopify- und Meta-Anbindungen. Dieser Block wird bei jedem Aufruf neu geladen; alle anderen Abschnitte sind der Stand vom {fmtDate(auditMeta.analysisDate)}.
       </SectionTitle>
       <Suspense fallback={<SkeletonCard lines={6} />}>
         <LiveMetrics />
