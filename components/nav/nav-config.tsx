@@ -3,6 +3,7 @@
 // both render from here, so every icon is authored exactly once.
 
 import type { ReactNode } from 'react'
+import { ARTIFACTS } from '@/data/artifacts'
 
 export interface NavLeaf {
   href:  string
@@ -10,7 +11,9 @@ export interface NavLeaf {
 }
 
 export type NavNode =
-  | { kind: 'link';  href: string; label: string; shortLabel?: string; icon: ReactNode }
+  // `matches`: further routes on which this item counts as active (e.g. the
+  // artifact pages listed under /dashboard/artifacts, which keep their own URLs).
+  | { kind: 'link';  href: string; label: string; shortLabel?: string; icon: ReactNode; matches?: string[] }
   | { kind: 'group'; id: string;   label: string; shortLabel?: string; icon: ReactNode; children: NavLeaf[] }
 
 // Icons share viewBox "0 0 14 14" and stroke="currentColor" so the same node
@@ -46,6 +49,15 @@ const iconInventory = (
   </svg>
 )
 
+const iconArtifacts = (
+  <svg viewBox="0 0 14 14" fill="none" width="100%" height="100%">
+    <path d="M4 1.5 L9 1.5 L11.5 4 L11.5 12.5 L4 12.5 Z"
+      stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+    <path d="M9 1.5 L9 4 L11.5 4" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+    <path d="M2.5 3.5 L2.5 13.5 L9.5 13.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const iconSettings = (
   <svg viewBox="0 0 14 14" fill="none" width="100%" height="100%">
     <path d="M6.0 1.6 L8.0 1.6 L8.9 3.7 L11.2 3.5 L12.2 5.1 L10.8 7.0 L12.2 8.9 L11.2 10.5 L8.9 10.3 L8.0 12.4 L6.0 12.4 L5.1 10.3 L2.8 10.5 L1.8 8.9 L3.2 7.0 L1.8 5.1 L2.8 3.5 L5.1 3.7 Z"
@@ -63,7 +75,6 @@ export const NAV: NavNode[] = [
       { href: '/dashboard/sales',          label: 'Sales'          },
       { href: '/dashboard/sales-insights', label: 'Sales Insights' },
       { href: '/dashboard/marketing', label: 'Marketing' },
-      { href: '/dashboard/website-audit', label: 'Website Audit' },
     ],
   },
   { kind: 'link', href: '/dashboard/financials', label: 'Financials', shortLabel: 'Fin', icon: iconFinancials },
@@ -74,6 +85,10 @@ export const NAV: NavNode[] = [
       { href: '/dashboard/inventory/inbounds',   label: 'Inbounds'           },
       { href: '/dashboard/inventory/calculator', label: 'Inbound Calculator' },
     ],
+  },
+  {
+    kind: 'link', href: '/dashboard/artifacts', label: 'Artifacts', icon: iconArtifacts,
+    matches: ARTIFACTS.map(a => a.href),
   },
   { kind: 'link', href: '/dashboard/settings', label: 'Settings', icon: iconSettings },
 ]
@@ -90,20 +105,29 @@ export function resolveActive(pathname: string): ActiveNav {
   let bestHref:  string | null = null
   let bestGroup: string | null = null
 
-  function consider(href: string, groupId: string | null) {
-    const hit = href === '/dashboard'
+  let bestLen = -1
+
+  // `route` is what the pathname is matched against; `href` is the nav item
+  // that lights up — they differ for a link's extra `matches`.
+  function consider(route: string, href: string, groupId: string | null) {
+    const hit = route === '/dashboard'
       ? pathname === '/dashboard'
-      : pathname === href || pathname.startsWith(href + '/')
+      : pathname === route || pathname.startsWith(route + '/')
     if (!hit) return
-    if (bestHref === null || href.length > bestHref.length) {
+    if (route.length > bestLen) {
+      bestLen   = route.length
       bestHref  = href
       bestGroup = groupId
     }
   }
 
   for (const node of NAV) {
-    if (node.kind === 'link') consider(node.href, null)
-    else for (const child of node.children) consider(child.href, node.id)
+    if (node.kind === 'link') {
+      consider(node.href, node.href, null)
+      for (const route of node.matches ?? []) consider(route, node.href, null)
+    } else {
+      for (const child of node.children) consider(child.href, child.href, node.id)
+    }
   }
 
   return { groupId: bestGroup, href: bestHref }
