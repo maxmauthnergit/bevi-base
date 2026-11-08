@@ -63,6 +63,7 @@ export const NAV: NavNode[] = [
       { href: '/dashboard/sales',          label: 'Sales'          },
       { href: '/dashboard/sales-insights', label: 'Sales Insights' },
       { href: '/dashboard/marketing', label: 'Marketing' },
+      { href: '/dashboard/website-audit', label: 'Website Audit' },
     ],
   },
   { kind: 'link', href: '/dashboard/financials', label: 'Financials', shortLabel: 'Fin', icon: iconFinancials },
