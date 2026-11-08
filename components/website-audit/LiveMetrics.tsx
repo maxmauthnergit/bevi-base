@@ -54,6 +54,23 @@ function manualRows(): FunnelRow[] | null {
   }))
 }
 
+// Shopify counts sessions only for visitors who accepted tracking cookies,
+// while cart additions, checkouts and purchases are counted for everyone. A
+// later step can therefore exceed an earlier one. Such ratios are not shown —
+// they would look like data but mean nothing.
+function ratio(v: number, prev: number): number | null {
+  if (!prev || v > prev) return null
+  return v / prev
+}
+
+function rowConsistent(r: FunnelRow) {
+  return STEPS.every((s, i) => i === 0 || r[s.key] <= r[STEPS[i - 1].key])
+}
+
+const Inconsistent = () => (
+  <div style={{ ...muted, color: 'var(--color-warning)' }}>&gt; Vorschritt · nicht interpretierbar</div>
+)
+
 function FunnelTable({ rows }: { rows: FunnelRow[] }) {
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -62,30 +79,34 @@ function FunnelTable({ rows }: { rows: FunnelRow[] }) {
           <tr>
             <th className="label" style={th}>Gerät</th>
             {STEPS.map(s => <th key={s.key} className="label" style={{ ...th, textAlign: 'right' }}>{s.label}</th>)}
-            <th className="label" style={{ ...th, textAlign: 'right' }}>Conversion Rate</th>
+            <th className="label" style={{ ...th, textAlign: 'right' }}>Käufe ÷ Sessions*</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
-            <tr key={r.device}>
-              <td style={{ ...td, fontWeight: 600 }}>{DEVICE_DE[r.device.toLowerCase()] ?? r.device}</td>
-              {STEPS.map((s, i) => {
-                const v = r[s.key]
-                const prev = i === 0 ? null : r[STEPS[i - 1].key]
-                return (
-                  <td key={s.key} style={{ ...td, textAlign: 'right' }} className="metric">
-                    {nf.format(v)}
-                    {prev ? <div style={muted}>{pct(v / prev)} vom Vorschritt</div> : null}
-                    <div aria-hidden style={{ height: 4, borderRadius: 2, marginTop: 6, marginLeft: 'auto',
-                      width: `${r.sessions ? Math.max(2, (v / r.sessions) * 100) : 0}%`, backgroundColor: 'var(--color-accent)' }} />
-                  </td>
-                )
-              })}
-              <td style={{ ...td, textAlign: 'right', fontWeight: 700 }} className="metric">
-                {r.sessions ? pct(r.completedCheckout / r.sessions) : '—'}
-              </td>
-            </tr>
-          ))}
+          {rows.map(r => {
+            const cr = ratio(r.completedCheckout, r.sessions)
+            return (
+              <tr key={r.device}>
+                <td style={{ ...td, fontWeight: 600 }}>{DEVICE_DE[r.device.toLowerCase()] ?? r.device}</td>
+                {STEPS.map((s, i) => {
+                  const v = r[s.key]
+                  const prev = i === 0 ? null : r[STEPS[i - 1].key]
+                  const q = prev === null ? null : ratio(v, prev)
+                  return (
+                    <td key={s.key} style={{ ...td, textAlign: 'right' }} className="metric">
+                      {nf.format(v)}
+                      {prev === null ? null
+                        : q !== null ? <div style={muted}>{pct(q)} vom Vorschritt</div>
+                        : prev > 0 ? <Inconsistent /> : null}
+                    </td>
+                  )
+                })}
+                <td style={{ ...td, textAlign: 'right', fontWeight: 700 }} className="metric">
+                  {cr !== null ? pct(cr) : <span style={{ ...muted, color: 'var(--color-warning)', fontWeight: 400 }}>nicht interpretierbar</span>}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -132,6 +153,8 @@ export async function LiveMetrics() {
   }), { sessions: 0, purchases: 0 })
 
   const o = m.orders.ok ? m.orders.data : null
+  const crTotal = total ? ratio(total.purchases, total.sessions) : null
+  const anyInconsistent = !!funnelRows?.some(r => !rowConsistent(r))
 
   return (
     <div className="flex flex-col gap-4">
@@ -140,10 +163,12 @@ export async function LiveMetrics() {
       </p>
 
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        <Tile label="Conversion Rate"
-          value={total && total.sessions ? pct(total.purchases / total.sessions) : undefined}
-          sub={funnelSource ?? undefined}
-          gap={total && total.sessions ? undefined : 'Sessions nicht über die API verfügbar — aus Shopify Analytics nachliefern.'} />
+        <Tile label="Conversion Rate*"
+          value={crTotal !== null ? pct(crTotal) : undefined}
+          sub={crTotal !== null ? `Käufe ÷ Sessions mit Cookie-Einwilligung · überzeichnet · ${funnelSource}` : undefined}
+          gap={crTotal !== null ? undefined
+            : total && total.sessions ? 'Mehr Käufe als Sessions mit Einwilligung — als Quote nicht interpretierbar.'
+            : 'Sessions nicht über die API verfügbar — aus Shopify Analytics nachliefern.'} />
         <Tile label="Bestellungen" value={o ? nf.format(o.orders) : undefined} sub="ohne Test & Storno"
           gap={o ? undefined : 'Bestellungen nicht abrufbar.'} />
         <Tile label="AOV (brutto)" value={o ? eur.format(o.aovGross) : undefined} sub="inkl. MwSt. und Versand"
@@ -168,7 +193,18 @@ export async function LiveMetrics() {
         <CardHeader label="Funnel je Gerät"
           action={funnelSource ? <Pill>{funnelSource}</Pill> : <GapBadge />} />
         {funnelRows
-          ? <FunnelTable rows={funnelRows} />
+          ? <>
+              <FunnelTable rows={funnelRows} />
+              <p style={{ ...muted, marginTop: 12 }}>
+                * Shopify zählt Sessions nur für Besucher:innen mit Cookie-Einwilligung. Warenkorb, Checkout und Käufe werden unabhängig davon gezählt.
+                Die Absolutzahlen stimmen je Stufe, Quoten ab „Sessions“ sind aber systematisch zu hoch. Wo eine Stufe größer als die vorherige ist, wird keine Quote gezeigt.
+              </p>
+              {anyInconsistent && (
+                <p style={{ ...muted, marginTop: 6, color: 'var(--color-warning)' }}>
+                  Mindestens eine Stufe übersteigt die vorherige — der Funnel ist so nicht als Quote lesbar. Vergleich mit Shopify Analytics → Conversion-Funnel empfohlen.
+                </p>
+              )}
+            </>
           : <p style={muted}>Der Session-Funnel ist über die API nicht verfügbar. Bitte aus Shopify Analytics (Conversion-Funnel nach Gerät, 90 Tage) in <code>data/website-audit.ts → manualKpis.funnel</code> eintragen.</p>}
         <ErrorNote s={m.funnel} />
       </Card>

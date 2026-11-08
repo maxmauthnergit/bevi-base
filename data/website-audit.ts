@@ -744,12 +744,12 @@ export const measures: Measure[] = [
 export const dataGaps: DataGap[] = [
   {
     metric: 'Session-Funnel (Sessions → Warenkorb → Checkout → Kauf) je mobil/desktop',
-    status: 'Live über ShopifyQL versucht (siehe Live-Block). Feldnamen gegen den Live-Store nicht verifiziert; der Token braucht read_reports.',
+    status: 'Live über ShopifyQL. Sessions zählen nur Besucher:innen mit Cookie-Einwilligung, Warenkorb/Checkout/Kauf alle — Quoten ab Sessions sind daher überzeichnet; unplausible Stufen (> Vorschritt) werden auf der Seite als nicht interpretierbar markiert.',
     howTo: 'Shopify Analytics → Berichte → „Conversion-Funnel“ bzw. „Sitzungen nach Gerätetyp“, letzte 90 Tage, in data/website-audit.ts → manualKpis.funnel eintragen.',
   },
   {
     metric: 'Conversion Rate',
-    status: 'Abhängig vom Funnel (Sessions). Ohne Sessions nicht berechenbar.',
+    status: 'Nur als Käufe ÷ Sessions mit Einwilligung verfügbar — überzeichnet, weil Besucher:innen ohne Einwilligung im Nenner fehlen. Eine vollständige Besucherzahl liefert Shopify nicht.',
     howTo: 'Shopify Analytics → Übersicht „Conversion-Rate der Onlineshop-Sitzungen“, 90 Tage, nach Gerät.',
   },
   {
