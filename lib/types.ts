@@ -20,6 +20,8 @@ export interface KpiValue {
   isPositiveUp?: boolean  // true = ↑ is good (revenue), false = ↑ is bad (spend)
   note?: string                                    // simple hover text (fallback)
   noteLines?: { label: string; value: string }[]   // structured tooltip rows
+  empty?: boolean           // no meaningful value (e.g. division by zero) → shows "—"
+  estimatedShare?: number   // % of the value that rests on estimates → "Est." badge
 }
 
 // ─── Sync / Integration ───────────────────────────────────────────────────────

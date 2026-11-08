@@ -60,6 +60,7 @@ export interface MetaInsight {
   reach: string
   purchase_roas?: { action_type: string; value: string }[]
   actions?: { action_type: string; value: string }[]
+  action_values?: { action_type: string; value: string }[]   // purchase value in account currency
   cost_per_action_type?: { action_type: string; value: string }[]
 }
 

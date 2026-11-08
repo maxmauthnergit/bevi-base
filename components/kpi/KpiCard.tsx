@@ -50,7 +50,7 @@ interface KpiCardProps {
 const G = "'Gustavo', 'Helvetica Neue', sans-serif"
 
 export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
-  const { value, delta, deltaPercent, trend, isPositiveUp, noteLines } = data
+  const { value, delta, deltaPercent, trend, isPositiveUp, noteLines, empty, estimatedShare } = data
   const [hovered, setHovered] = useState(false)
 
   const isPositive = isPositiveUp ? trend === 'up' : trend === 'down'
@@ -70,7 +70,21 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
       className="p-6 flex flex-col gap-3"
       style={{ backgroundColor: '#FFFFFF', borderRadius: 16 }}
     >
-      <span className="label">{metric.label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="label">{metric.label}</span>
+        {estimatedShare !== undefined && (
+          <span
+            title={`${estimatedShare.toFixed(1)} % of this value rests on estimates`}
+            style={{
+              fontFamily: G, fontSize: '0.625rem', fontWeight: 500, letterSpacing: '0.04em',
+              color: '#8A6D1F', backgroundColor: 'rgba(234,179,8,0.14)',
+              borderRadius: 100, padding: '2px 7px', whiteSpace: 'nowrap', lineHeight: 1.3,
+            }}
+          >
+            Est. {estimatedShare.toFixed(0)} %
+          </span>
+        )}
+      </div>
 
       <div className="flex items-end justify-between gap-2">
         {/* Value — tooltip anchored here */}
@@ -86,7 +100,7 @@ export function KpiCard({ metric, data, subtitle }: KpiCardProps) {
               borderBottom: noteLines && hovered ? '1px dotted #C7C6C0' : '1px dotted transparent',
             }}
           >
-            {formatValue(value, metric.format)}
+            {empty ? '—' : formatValue(value, metric.format)}
           </span>
 
           {noteLines && hovered && (

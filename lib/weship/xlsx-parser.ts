@@ -6,8 +6,10 @@ import { createServerClient } from '@/lib/supabase'
 export interface WeShipOrderCosts {
   weship:        number   // fulfillment variable total
   shipping:      number   // DHL / Post delivery total
+  returns:       number   // return handling + return labels
   weshipItems:   { product: string; amount: number }[]
   shippingItems: { product: string; amount: number }[]
+  returnsItems:  { product: string; amount: number }[]
 }
 
 export interface WeShipMonthData {
@@ -36,6 +38,9 @@ const AMOUNT_COLS     = ['total price', 'gesamt', 'netto', 'betrag', 'total', 'p
 // avoid misclassifying WeShip internal service lines.
 const SHIPPING_KEYWORDS = ['versand', 'dhl', 'ups', 'dpd', 'hermes', 'shipping']
 const STORAGE_KEYWORDS  = ['lager', 'storage', 'lagergebühr', 'lagerkosten', 'einlagerung', 'auslagerung']
+// Checked before SHIPPING_KEYWORDS: a "Retourenversand" line is a return cost,
+// not outbound delivery.
+const RETURN_KEYWORDS   = ['retour', 'rücksend', 'ruecksend', 'return']
 
 function matchesAny(str: string, keywords: string[]): boolean {
   const s = str.toLowerCase()
@@ -163,11 +168,14 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
         if (!ref) continue
 
         const key = normaliseOrderRef(ref)
-        if (!byOrder.has(key)) byOrder.set(key, { weship: 0, shipping: 0, weshipItems: [], shippingItems: [] })
+        if (!byOrder.has(key)) byOrder.set(key, { weship: 0, shipping: 0, returns: 0, weshipItems: [], shippingItems: [], returnsItems: [] })
         const entry = byOrder.get(key)!
 
-        // "Versand" (and carrier names) → shipping; everything else → weship
-        if (matchesAny(svcLow, SHIPPING_KEYWORDS)) {
+        // Returns first, then "Versand" (and carrier names) → shipping; everything else → weship
+        if (matchesAny(svcLow, RETURN_KEYWORDS)) {
+          entry.returns += amt
+          entry.returnsItems.push({ product: svc, amount: amt })
+        } else if (matchesAny(svcLow, SHIPPING_KEYWORDS)) {
           entry.shipping += amt
           entry.shippingItems.push({ product: svc, amount: amt })
         } else {
@@ -189,7 +197,7 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
 
       for (const row of rows) {
         const ref = String(row[orderCol] ?? '').trim()
-        let weship = 0, shipping = 0
+        let weship = 0, shipping = 0, returns = 0
 
         for (const h of headers) {
           if (h === orderCol) continue
@@ -197,12 +205,13 @@ export async function getWeShipMonthData(month: string): Promise<WeShipMonthData
           if (!amt) continue
           const hLow = h.toLowerCase()
           if (matchesAny(hLow, STORAGE_KEYWORDS)) { if (!ref) lagergebuehr += amt; continue }
-          if (matchesAny(hLow, SHIPPING_KEYWORDS)) shipping += amt
+          if (matchesAny(hLow, RETURN_KEYWORDS)) returns += amt
+          else if (matchesAny(hLow, SHIPPING_KEYWORDS)) shipping += amt
           else weship += amt
         }
 
-        if (ref && (weship + shipping > 0)) {
-          byOrder.set(normaliseOrderRef(ref), { weship, shipping, weshipItems: [], shippingItems: [] })
+        if (ref && (weship + shipping + returns > 0)) {
+          byOrder.set(normaliseOrderRef(ref), { weship, shipping, returns, weshipItems: [], shippingItems: [], returnsItems: [] })
         }
       }
 
