@@ -168,3 +168,37 @@ button:not(:disabled):not([data-static]):active { transform: scale(0.98); }
 @media (prefers-reduced-motion: reduce) {
   .user-island { transition: none; }
 }
+
+/* ── Website-Audit: print / PDF view ──────────────────────────────────────── */
+/* Scoped with :has() so only the audit page changes its print layout.        */
+
+.wa-print-only { display: none; }
+
+@media print {
+  @page { size: A4; margin: 12mm; }
+
+  html:has(.wa-print-root),
+  body:has(.wa-print-root) {
+    height: auto !important;
+    background: #FFFFFF !important;
+  }
+  body:has(.wa-print-root) .h-full { height: auto !important; }
+  body:has(.wa-print-root) #dashboard-scroll { overflow: visible !important; padding-bottom: 0 !important; }
+  body:has(.wa-print-root) aside,
+  body:has(.wa-print-root) .user-island,
+  body:has(.wa-print-root) nav:not([aria-label="Abschnitte"]),
+  .wa-no-print { display: none !important; }
+
+  .wa-print-only { display: block !important; }
+  .wa-print-root { padding: 0 !important; max-width: none !important; zoom: 0.72; }
+  .wa-print-root * { box-shadow: none !important; }
+  .wa-avoid-break { break-inside: avoid; }
+  .wa-section-title { break-after: avoid; }
+  .wa-print-root details { display: none; }
+  .wa-print-root div { overflow: visible !important; }
+  .wa-print-root table { min-width: 0 !important; }
+  .wa-print-root th,
+  .wa-print-root td { padding-right: 6px !important; font-size: 8pt !important; white-space: normal !important; }
+  .wa-print-root a { color: inherit; text-decoration: none; }
+  .wa-print-root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
