@@ -117,11 +117,15 @@ async function firstThatParses(candidates: string[], build: (dim: string) => str
   throw new Error(errors.join(' | '))
 }
 
+// Same bot filter as Shopify's own "Sessions over time" report, so the totals
+// match what the Analytics dashboard shows.
+const HUMANS = "WHERE human_or_bot_session = 'human'"
+
 async function getFunnel(from: string, to: string): Promise<Status<FunnelRow[]>> {
   try {
     const { rows, dim } = await firstThatParses(
       ['session_device_type'],
-      d => `FROM sessions SHOW sessions, sessions_with_cart_additions, sessions_that_reached_checkout, sessions_that_completed_checkout GROUP BY ${d} SINCE ${from} UNTIL ${to}`,
+      d => `FROM sessions SHOW sessions, sessions_with_cart_additions, sessions_that_reached_checkout, sessions_that_completed_checkout ${HUMANS} GROUP BY ${d} SINCE ${from} UNTIL ${to}`,
     )
     const data = rows.map(r => ({
       device:            String(r[dim] ?? 'unbekannt'),
@@ -130,7 +134,7 @@ async function getFunnel(from: string, to: string): Promise<Status<FunnelRow[]>>
       reachedCheckout:   num(r.sessions_that_reached_checkout),
       completedCheckout: num(r.sessions_that_completed_checkout),
     })).sort((a, b) => b.sessions - a.sessions)
-    return { ok: true, data, note: `ShopifyQL sessions, GROUP BY ${dim}` }
+    return { ok: true, data, note: `ShopifyQL sessions (nur menschliche Sessions), GROUP BY ${dim}` }
   } catch (e) {
     return { ok: false, error: errMsg(e) }
   }
@@ -140,7 +144,7 @@ async function getRanked(from: string, to: string, candidates: string[]): Promis
   try {
     const { rows, dim } = await firstThatParses(
       candidates,
-      d => `FROM sessions SHOW sessions, sessions_that_completed_checkout GROUP BY ${d} SINCE ${from} UNTIL ${to} ORDER BY sessions DESC LIMIT 10`,
+      d => `FROM sessions SHOW sessions, sessions_that_completed_checkout ${HUMANS} GROUP BY ${d} SINCE ${from} UNTIL ${to} ORDER BY sessions DESC LIMIT 10`,
     )
     return {
       ok: true,

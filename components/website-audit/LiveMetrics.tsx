@@ -236,6 +236,7 @@ export async function LiveMetrics() {
           <p style={{ margin: 0 }}><b>Vollständig:</b> Meta zählt Klicks auf der eigenen Plattform, unabhängig vom Cookie-Banner des Shops. Bestellungen und abgebrochene Checkouts speichert Shopify als Datensätze. „Checkouts begonnen“ zählt ab der Eingabe der Kontaktdaten.</p>
           <p style={{ margin: 0 }}><b>Nur Einwilligende:</b> Shop-Sessions hängen von der Analyse-Einwilligung ab — laut Shopify sinkt die Session-Zahl mit niedriger Einwilligungsrate. Wie viele Besucher:innen genau fehlen, liefert keine Quelle.</p>
           <p style={{ margin: 0 }}><b>Abdeckung unklar:</b> „Sessions mit Add to Cart“ kommt aus derselben Session-Tabelle; ob und wie stark die Einwilligung hier filtert, ist nicht belegt. Nur als Tendenz lesen.</p>
+          <p style={{ margin: 0 }}><b>Bots:</b> Sessions ohne Bot-Traffic, wie im Shopify-Bericht „Sessions over time“ (<code>human_or_bot_session = &apos;human&apos;</code>). <b>Definitionswechsel:</b> Shopify berechnet Sessions ab 21.09.2026 anders — Werte davor und danach sind nicht direkt vergleichbar.</p>
           <p style={{ margin: 0 }}>Quoten zwischen Stufen unterschiedlicher Verlässlichkeit sind bewusst nicht berechnet. Mobil/Desktop gibt es für Käufe und Checkouts nicht: Shopify speichert das Gerät nicht an der Bestellung.</p>
         </div>
       </Card>
